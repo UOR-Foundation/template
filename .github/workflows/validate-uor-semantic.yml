@@ -28,7 +28,7 @@ jobs:
 
       - uses: extractions/setup-just@v2
 
-      - name: Reconstruct uor-semantic workspace
+      - name: Reconstruct and patch uor-semantic workspace
         shell: bash
         run: |
           set -euo pipefail
@@ -40,170 +40,41 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
-          def replace_once(text: str, old: str, new: str, label: str) -> str:
-              if old in text:
-                  return text.replace(old, new, 1)
-              if new in text:
-                  return text
-              raise SystemExit(f'{label} patch anchor not found')
+          root = Path('/tmp/uor-semantic')
 
-          artifact = Path('/tmp/uor-semantic/crates/uor-semantic/src/artifact.rs')
-          text = artifact.read_text()
-          text = replace_once(
-              text,
+          def replace(path, old, new, label):
+              text = path.read_text()
+              if old in text:
+                  path.write_text(text.replace(old, new, 1))
+                  return
+              if new not in text:
+                  raise SystemExit(f'{label} patch anchor not found')
+
+          artifact = root / 'crates/uor-semantic/src/artifact.rs'
+          replace(
+              artifact,
               "pub const ARTIFACT_MAGIC: [u8; 8] = [b'U', b'O', b'R', b'S', b'E', b'M', b'0', b'1'];",
               'pub const ARTIFACT_MAGIC: &[u8; 8] = b"UORSEM01";',
               'artifact magic',
           )
-          text = replace_once(
-              text,
+          replace(
+              artifact,
               '    let mut output = [\n        0x243f_6a88_85a3_08d3,',
               '    let mut output: [u64; SIGNATURE_WORDS] = [\n        0x243f_6a88_85a3_08d3,',
               'context signature type',
           )
-          text = replace_once(
-              text,
-              'fn margin_bonus(margin: MembershipMargin) -> i32 {\n'
-              '    match i32::try_from(margin.get()) {\n'
-              '        Ok(value) => value,\n'
-              '        Err(_) => i32::MAX,\n'
-              '    }\n'
-              '}',
-              'fn margin_bonus(margin: MembershipMargin) -> i32 {\n'
-              '    i32::try_from(margin.get()).unwrap_or(i32::MAX)\n'
-              '}',
-              'margin conversion',
-          )
-          artifact.write_text(text)
 
-          compiler = Path('/tmp/uor-semantic/crates/uor-semantic-compiler/src/compiler.rs')
-          text = compiler.read_text()
-          text = replace_once(
-              text,
+          compiler = root / 'crates/uor-semantic-compiler/src/compiler.rs'
+          replace(
+              compiler,
               'bytes[..ARTIFACT_MAGIC.len()].copy_from_slice(&ARTIFACT_MAGIC);',
               'bytes[..ARTIFACT_MAGIC.len()].copy_from_slice(ARTIFACT_MAGIC);',
               'compiler artifact magic',
           )
-          text = replace_once(
-              text,
-              '        if let Some(previous) = output.last() {\n'
-              '            if previous.context == observation.context {\n'
-              '                if previous.target != observation.target\n'
-              '                    || previous.emissions != observation.emissions\n'
-              '                {\n'
-              '                    return Err(CompileError::ConflictingContext);\n'
-              '                }\n'
-              '                continue;\n'
-              '            }\n'
-              '        }',
-              '        if let Some(previous) = output.last()\n'
-              '            && previous.context == observation.context\n'
-              '        {\n'
-              '            if previous.target != observation.target\n'
-              '                || previous.emissions != observation.emissions\n'
-              '            {\n'
-              '                return Err(CompileError::ConflictingContext);\n'
-              '            }\n'
-              '            continue;\n'
-              '        }',
-              'canonical observation collapse',
-          )
-          text = replace_once(
-              text,
-              '            for word in 0..SIGNATURE_WORDS {\n'
-              '                for bit in 0..64 {\n'
-              '                    if ((signature[word] >> bit) & 1) != 0 {\n'
-              '                        let flat = word * 64 + bit;\n'
-              '                        bit_counts[cluster][flat] = bit_counts[cluster][flat].saturating_add(1);\n'
-              '                    }\n'
-              '                }\n'
-              '            }',
-              '            for (word, value) in signature.iter().copied().enumerate() {\n'
-              '                for bit in 0..64 {\n'
-              '                    if ((value >> bit) & 1) != 0 {\n'
-              '                        let flat = word * 64 + bit;\n'
-              '                        bit_counts[cluster][flat] = bit_counts[cluster][flat].saturating_add(1);\n'
-              '                    }\n'
-              '                }\n'
-              '            }',
-              'signature bit counting',
-          )
-          text = replace_once(
-              text,
-              '            for word in 0..SIGNATURE_WORDS {\n'
-              '                for bit in 0..64 {\n'
-              '                    let flat = word * 64 + bit;\n'
-              '                    if bit_counts[cluster][flat].saturating_mul(2) >= member_counts[cluster] {\n'
-              '                        prototype[word] |= 1u64 << bit;\n'
-              '                    }\n'
-              '                }\n'
-              '            }',
-              '            for (word, prototype_word) in prototype.iter_mut().enumerate() {\n'
-              '                for bit in 0..64 {\n'
-              '                    let flat = word * 64 + bit;\n'
-              '                    if bit_counts[cluster][flat].saturating_mul(2) >= member_counts[cluster] {\n'
-              '                        *prototype_word |= 1u64 << bit;\n'
-              '                    }\n'
-              '                }\n'
-              '            }',
-              'prototype bit update',
-          )
-          compiler.write_text(text)
 
-          sha = Path('/tmp/uor-semantic/crates/uor-semantic-compiler/src/sha256.rs')
-          text = sha.read_text()
-          text = replace_once(
-              text,
-              '    for index in 0..16 {\n'
-              '        let start = index * 4;\n'
-              '        words[index] = u32::from_be_bytes([\n'
-              '            block[start],\n'
-              '            block[start + 1],\n'
-              '            block[start + 2],\n'
-              '            block[start + 3],\n'
-              '        ]);\n'
-              '    }',
-              '    for (index, word) in words.iter_mut().take(16).enumerate() {\n'
-              '        let start = index * 4;\n'
-              '        *word = u32::from_be_bytes([\n'
-              '            block[start],\n'
-              '            block[start + 1],\n'
-              '            block[start + 2],\n'
-              '            block[start + 3],\n'
-              '        ]);\n'
-              '    }',
-              'SHA input schedule',
-          )
-          sha.write_text(text)
-
-          meta = Path('/tmp/uor-semantic/crates/conformance/src/meta.rs')
-          text = meta.read_text()
-          text = replace_once(
-              text,
-              '                if line.contains(id) {\n'
-              '                    if let Some(word) = ASSERTIVE.iter().find(|word| lower.contains(*word)) {\n'
-              '                        report.violations.push(format!(\n'
-              '                            "R2: {document}:{} asserts open claim {id} using `{word}`",\n'
-              '                            line_number + 1\n'
-              '                        ));\n'
-              '                    }\n'
-              '                }',
-              '                if line.contains(id)\n'
-              '                    && let Some(word) = ASSERTIVE.iter().find(|word| lower.contains(*word))\n'
-              '                {\n'
-              '                    report.violations.push(format!(\n'
-              '                        "R2: {document}:{} asserts open claim {id} using `{word}`",\n'
-              '                        line_number + 1\n'
-              '                    ));\n'
-              '                }',
-              'open-claim honesty check',
-          )
-          meta.write_text(text)
-
-          runtime_contract = Path('/tmp/uor-semantic/crates/conformance/tests/runtime_contract.rs')
-          text = runtime_contract.read_text()
-          text = replace_once(
-              text,
+          runtime_contract = root / 'crates/conformance/tests/runtime_contract.rs'
+          replace(
+              runtime_contract,
               '        route_fixture(&AMBIGUOUS_STOP, &mut cloud, &mut census)\n'
               '            .expect("the checked fixture is valid");\n'
               '        assert!(budget.permits(&census));',
@@ -213,14 +84,12 @@ jobs:
               '        assert_eq!(summary.retained(), cloud.len());\n'
               '        assert!(!summary.was_truncated());\n'
               '        assert!(budget.permits(&census));',
-              'runtime contract route summary',
+              'runtime route summary',
           )
-          runtime_contract.write_text(text)
 
-          model_pipeline = Path('/tmp/uor-semantic/crates/conformance/tests/model_pipeline.rs')
-          text = model_pipeline.read_text()
-          text = replace_once(
-              text,
+          model_pipeline = root / 'crates/conformance/tests/model_pipeline.rs'
+          replace(
+              model_pipeline,
               '    assert!(!compiled.bytes.is_empty());\n'
               '    ArtifactView::parse(&compiled.bytes).expect("runtime accepts compiler output");',
               '    assert!(!compiled.bytes.is_empty());\n'
@@ -229,9 +98,22 @@ jobs:
               '    assert_eq!(artifact.exact_count(), compiled.exact_records);\n'
               '    assert_eq!(artifact.region_count(), compiled.regions);\n'
               '    assert_eq!(artifact.emission_count(), compiled.emissions);',
-              'model pipeline artifact validation',
+              'artifact validation result',
           )
-          model_pipeline.write_text(text)
+
+          justfile = root / 'Justfile'
+          replace(
+              justfile,
+              'test:\n    cargo test --workspace --locked',
+              'test:\n    cargo test --workspace --locked -- --test-threads=1',
+              'serialized workspace tests',
+          )
+          replace(
+              justfile,
+              'release-assertions:\n    cargo test --workspace --profile release-assertions --locked',
+              'release-assertions:\n    cargo test --workspace --profile release-assertions --locked -- --test-threads=1',
+              'serialized release tests',
+          )
           PY
 
       - name: Show toolchain
@@ -240,7 +122,7 @@ jobs:
           rustc --version --verbose
           cargo --version
 
-      - name: Apply canonical rustfmt and Clippy suggestions
+      - name: Apply canonical formatting and machine-applicable Clippy fixes
         working-directory: /tmp/uor-semantic
         shell: bash
         run: |
@@ -261,6 +143,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          rm -rf /tmp/uor-semantic-release
           mkdir -p /tmp/uor-semantic-release/bin/linux-x86_64
           cp /tmp/uor-semantic/target/release/uor-semantic /tmp/uor-semantic-release/bin/linux-x86_64/uor-semantic
           chmod +x /tmp/uor-semantic-release/bin/linux-x86_64/uor-semantic
