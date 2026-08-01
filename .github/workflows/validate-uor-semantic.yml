@@ -1,0 +1,47 @@
+name: validate-uor-semantic
+
+on:
+  push:
+    branches: [validation/uor-semantic-cli]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -Dwarnings
+
+jobs:
+  acceptance:
+    name: Rust 1.97.1 acceptance gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.97.1
+          components: rustfmt, clippy
+          targets: thumbv7em-none-eabihf
+
+      - uses: extractions/setup-just@v2
+
+      - name: Reconstruct uor-semantic workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/uor-semantic
+          cat .ci/uor-semantic.b64.part* | base64 --decode > /tmp/uor-semantic.tar.xz
+          tar -xJf /tmp/uor-semantic.tar.xz -C /tmp/uor-semantic
+          test -f /tmp/uor-semantic/Cargo.toml
+
+      - name: Show toolchain
+        working-directory: /tmp/uor-semantic
+        run: |
+          rustc --version --verbose
+          cargo --version
+
+      - name: Run normative acceptance gate
+        working-directory: /tmp/uor-semantic
+        run: just vv
