@@ -40,13 +40,12 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
-          path = Path('/tmp/uor-semantic/crates/uor-semantic/src/artifact.rs')
-          text = path.read_text()
-
+          artifact = Path('/tmp/uor-semantic/crates/uor-semantic/src/artifact.rs')
+          text = artifact.read_text()
           replacements = [
               (
                   "pub const ARTIFACT_MAGIC: [u8; 8] = [b'U', b'O', b'R', b'S', b'E', b'M', b'0', b'1'];",
-                  'pub const ARTIFACT_MAGIC: [u8; 8] = *b"UORSEM01";',
+                  'pub const ARTIFACT_MAGIC: &[u8; 8] = b"UORSEM01";',
               ),
               (
                   '    let mut output = [\n        0x243f_6a88_85a3_08d3,',
@@ -64,14 +63,22 @@ jobs:
                   '}',
               ),
           ]
-
           for old, new in replacements:
               if old in text:
                   text = text.replace(old, new, 1)
               elif new not in text:
-                  raise SystemExit(f'patch anchor not found: {old[:80]!r}')
+                  raise SystemExit(f'artifact patch anchor not found: {old[:80]!r}')
+          artifact.write_text(text)
 
-          path.write_text(text)
+          compiler = Path('/tmp/uor-semantic/crates/uor-semantic-compiler/src/compiler.rs')
+          text = compiler.read_text()
+          old = 'bytes[..ARTIFACT_MAGIC.len()].copy_from_slice(&ARTIFACT_MAGIC);'
+          new = 'bytes[..ARTIFACT_MAGIC.len()].copy_from_slice(ARTIFACT_MAGIC);'
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif new not in text:
+              raise SystemExit('compiler artifact-magic patch anchor not found')
+          compiler.write_text(text)
           PY
 
       - name: Show toolchain
