@@ -71,6 +71,70 @@ jobs:
               'bytes[..ARTIFACT_MAGIC.len()].copy_from_slice(ARTIFACT_MAGIC);',
               'compiler artifact magic',
           )
+          replace(
+              compiler,
+              '            for word in 0..SIGNATURE_WORDS {\n'
+              '                for bit in 0..64 {\n'
+              '                    if ((signature[word] >> bit) & 1) != 0 {\n'
+              '                        let flat = word * 64 + bit;\n'
+              '                        bit_counts[cluster][flat] = bit_counts[cluster][flat].saturating_add(1);\n'
+              '                    }\n'
+              '                }\n'
+              '            }',
+              '            for (word, value) in signature.iter().copied().enumerate() {\n'
+              '                for bit in 0..64 {\n'
+              '                    if ((value >> bit) & 1) != 0 {\n'
+              '                        let flat = word * 64 + bit;\n'
+              '                        bit_counts[cluster][flat] = bit_counts[cluster][flat].saturating_add(1);\n'
+              '                    }\n'
+              '                }\n'
+              '            }',
+              'signature bit count',
+          )
+          replace(
+              compiler,
+              '            for word in 0..SIGNATURE_WORDS {\n'
+              '                for bit in 0..64 {\n'
+              '                    let flat = word * 64 + bit;\n'
+              '                    if bit_counts[cluster][flat].saturating_mul(2) >= member_counts[cluster] {\n'
+              '                        prototype[word] |= 1u64 << bit;\n'
+              '                    }\n'
+              '                }\n'
+              '            }',
+              '            for (word, prototype_word) in prototype.iter_mut().enumerate() {\n'
+              '                for bit in 0..64 {\n'
+              '                    let flat = word * 64 + bit;\n'
+              '                    if bit_counts[cluster][flat].saturating_mul(2) >= member_counts[cluster] {\n'
+              '                        *prototype_word |= 1u64 << bit;\n'
+              '                    }\n'
+              '                }\n'
+              '            }',
+              'prototype bit update',
+          )
+
+          sha = root / 'crates/uor-semantic-compiler/src/sha256.rs'
+          replace(
+              sha,
+              '    for index in 0..16 {\n'
+              '        let start = index * 4;\n'
+              '        words[index] = u32::from_be_bytes([\n'
+              '            block[start],\n'
+              '            block[start + 1],\n'
+              '            block[start + 2],\n'
+              '            block[start + 3],\n'
+              '        ]);\n'
+              '    }',
+              '    for (index, word) in words.iter_mut().take(16).enumerate() {\n'
+              '        let start = index * 4;\n'
+              '        *word = u32::from_be_bytes([\n'
+              '            block[start],\n'
+              '            block[start + 1],\n'
+              '            block[start + 2],\n'
+              '            block[start + 3],\n'
+              '        ]);\n'
+              '    }',
+              'SHA input schedule',
+          )
 
           runtime_contract = root / 'crates/conformance/tests/runtime_contract.rs'
           replace(
