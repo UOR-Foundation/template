@@ -212,7 +212,7 @@ jobs:
         shell: bash
         run: |
           cargo fmt --all
-          RUSTFLAGS= cargo clippy --fix --workspace --all-targets --all-features --allow-dirty --locked
+          RUSTFLAGS= cargo clippy --fix --workspace --all-targets --all-features --allow-dirty --allow-no-vcs --locked
           cargo fmt --all
 
       - name: Run normative acceptance gate
