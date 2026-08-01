@@ -3,6 +3,7 @@ name: validate-uor-semantic
 on:
   push:
     branches: [validation/uor-semantic-cli]
+  pull_request:
   workflow_dispatch:
 
 permissions:
