@@ -39,13 +39,39 @@ jobs:
           test -f /tmp/uor-semantic/Cargo.toml
           python3 - <<'PY'
           from pathlib import Path
+
           path = Path('/tmp/uor-semantic/crates/uor-semantic/src/artifact.rs')
           text = path.read_text()
-          old = '    let mut output = [\n        0x243f_6a88_85a3_08d3,'
-          new = '    let mut output: [u64; SIGNATURE_WORDS] = [\n        0x243f_6a88_85a3_08d3,'
-          if old not in text and new not in text:
-              raise SystemExit('context_signature patch anchor not found')
-          path.write_text(text.replace(old, new, 1))
+
+          replacements = [
+              (
+                  "pub const ARTIFACT_MAGIC: [u8; 8] = [b'U', b'O', b'R', b'S', b'E', b'M', b'0', b'1'];",
+                  'pub const ARTIFACT_MAGIC: [u8; 8] = *b"UORSEM01";',
+              ),
+              (
+                  '    let mut output = [\n        0x243f_6a88_85a3_08d3,',
+                  '    let mut output: [u64; SIGNATURE_WORDS] = [\n        0x243f_6a88_85a3_08d3,',
+              ),
+              (
+                  'fn margin_bonus(margin: MembershipMargin) -> i32 {\n'
+                  '    match i32::try_from(margin.get()) {\n'
+                  '        Ok(value) => value,\n'
+                  '        Err(_) => i32::MAX,\n'
+                  '    }\n'
+                  '}',
+                  'fn margin_bonus(margin: MembershipMargin) -> i32 {\n'
+                  '    i32::try_from(margin.get()).unwrap_or(i32::MAX)\n'
+                  '}',
+              ),
+          ]
+
+          for old, new in replacements:
+              if old in text:
+                  text = text.replace(old, new, 1)
+              elif new not in text:
+                  raise SystemExit(f'patch anchor not found: {old[:80]!r}')
+
+          path.write_text(text)
           PY
 
       - name: Show toolchain
@@ -67,7 +93,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          tar --exclude=target -cJf /tmp/uor-semantic-formatted.tar.xz -C /tmp/uor-semantic .
+          rm -rf /tmp/uor-semantic/target /tmp/uor-semantic/scripts/__pycache__
+          tar --exclude=target --exclude=__pycache__ -cJf /tmp/uor-semantic-formatted.tar.xz -C /tmp/uor-semantic .
 
       - name: Upload formatted workspace
         if: always()
