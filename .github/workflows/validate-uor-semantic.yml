@@ -37,6 +37,16 @@ jobs:
           cat .ci/uor-semantic.b64.part* | base64 --decode > /tmp/uor-semantic.tar.xz
           tar -xJf /tmp/uor-semantic.tar.xz -C /tmp/uor-semantic
           test -f /tmp/uor-semantic/Cargo.toml
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('/tmp/uor-semantic/crates/uor-semantic/src/artifact.rs')
+          text = path.read_text()
+          old = '    let mut output = [\n        0x243f_6a88_85a3_08d3,'
+          new = '    let mut output: [u64; SIGNATURE_WORDS] = [\n        0x243f_6a88_85a3_08d3,'
+          if old not in text and new not in text:
+              raise SystemExit('context_signature patch anchor not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
 
       - name: Show toolchain
         working-directory: /tmp/uor-semantic
@@ -57,7 +67,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          tar -cJf /tmp/uor-semantic-formatted.tar.xz -C /tmp/uor-semantic .
+          tar --exclude=target -cJf /tmp/uor-semantic-formatted.tar.xz -C /tmp/uor-semantic .
 
       - name: Upload formatted workspace
         if: always()
