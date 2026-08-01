@@ -32,6 +32,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          rm -rf /tmp/uor-semantic
           mkdir -p /tmp/uor-semantic
           cat .ci/uor-semantic.b64.part* | base64 --decode > /tmp/uor-semantic.tar.xz
           tar -xJf /tmp/uor-semantic.tar.xz -C /tmp/uor-semantic
@@ -43,6 +44,26 @@ jobs:
           rustc --version --verbose
           cargo --version
 
+      - name: Apply canonical rustfmt
+        working-directory: /tmp/uor-semantic
+        run: cargo fmt --all
+
       - name: Run normative acceptance gate
         working-directory: /tmp/uor-semantic
         run: just vv
+
+      - name: Package formatted workspace
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -cJf /tmp/uor-semantic-formatted.tar.xz -C /tmp/uor-semantic .
+
+      - name: Upload formatted workspace
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uor-semantic-formatted
+          path: /tmp/uor-semantic-formatted.tar.xz
+          if-no-files-found: error
+          retention-days: 1
