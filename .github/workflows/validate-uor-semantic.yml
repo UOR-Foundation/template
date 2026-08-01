@@ -175,6 +175,30 @@ jobs:
               'SHA input schedule',
           )
           sha.write_text(text)
+
+          meta = Path('/tmp/uor-semantic/crates/conformance/src/meta.rs')
+          text = meta.read_text()
+          text = replace_once(
+              text,
+              '                if line.contains(id) {\n'
+              '                    if let Some(word) = ASSERTIVE.iter().find(|word| lower.contains(*word)) {\n'
+              '                        report.violations.push(format!(\n'
+              '                            "R2: {document}:{} asserts open claim {id} using `{word}`",\n'
+              '                            line_number + 1\n'
+              '                        ));\n'
+              '                    }\n'
+              '                }',
+              '                if line.contains(id)\n'
+              '                    && let Some(word) = ASSERTIVE.iter().find(|word| lower.contains(*word))\n'
+              '                {\n'
+              '                    report.violations.push(format!(\n'
+              '                        "R2: {document}:{} asserts open claim {id} using `{word}`",\n'
+              '                        line_number + 1\n'
+              '                    ));\n'
+              '                }',
+              'open-claim honesty check',
+          )
+          meta.write_text(text)
           PY
 
       - name: Show toolchain
@@ -183,27 +207,56 @@ jobs:
           rustc --version --verbose
           cargo --version
 
-      - name: Apply canonical rustfmt
+      - name: Apply canonical rustfmt and Clippy suggestions
         working-directory: /tmp/uor-semantic
-        run: cargo fmt --all
+        shell: bash
+        run: |
+          cargo fmt --all
+          RUSTFLAGS= cargo clippy --fix --workspace --all-targets --all-features --allow-dirty --locked
+          cargo fmt --all
 
       - name: Run normative acceptance gate
         working-directory: /tmp/uor-semantic
         run: just vv
 
-      - name: Package formatted workspace
-        if: always()
+      - name: Build release CLI
+        working-directory: /tmp/uor-semantic
+        run: cargo build --release --locked -p uor-semantic-cli --bin uor-semantic
+
+      - name: Package verified source and CLI
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/uor-semantic-release/bin/linux-x86_64
+          cp /tmp/uor-semantic/target/release/uor-semantic /tmp/uor-semantic-release/bin/linux-x86_64/uor-semantic
+          chmod +x /tmp/uor-semantic-release/bin/linux-x86_64/uor-semantic
+          rm -rf /tmp/uor-semantic/target /tmp/uor-semantic/scripts/__pycache__
+          tar --exclude=target --exclude=__pycache__ -cJf /tmp/uor-semantic-release/uor-semantic-source.tar.xz -C /tmp/uor-semantic .
+          (cd /tmp/uor-semantic-release && sha256sum uor-semantic-source.tar.xz bin/linux-x86_64/uor-semantic > SHA256SUMS)
+
+      - name: Upload verified full build
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uor-semantic-full-build
+          path: /tmp/uor-semantic-release
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Package failure snapshot
+        if: failure()
         shell: bash
         run: |
           set -euo pipefail
           rm -rf /tmp/uor-semantic/target /tmp/uor-semantic/scripts/__pycache__
-          tar --exclude=target --exclude=__pycache__ -cJf /tmp/uor-semantic-formatted.tar.xz -C /tmp/uor-semantic .
+          tar --exclude=target --exclude=__pycache__ -cJf /tmp/uor-semantic-failure.tar.xz -C /tmp/uor-semantic .
 
-      - name: Upload formatted workspace
-        if: always()
+      - name: Upload failure snapshot
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: uor-semantic-formatted
-          path: /tmp/uor-semantic-formatted.tar.xz
+          name: uor-semantic-failure
+          path: /tmp/uor-semantic-failure.tar.xz
           if-no-files-found: error
           retention-days: 1
