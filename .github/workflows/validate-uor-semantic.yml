@@ -199,6 +199,39 @@ jobs:
               'open-claim honesty check',
           )
           meta.write_text(text)
+
+          runtime_contract = Path('/tmp/uor-semantic/crates/conformance/tests/runtime_contract.rs')
+          text = runtime_contract.read_text()
+          text = replace_once(
+              text,
+              '        route_fixture(&AMBIGUOUS_STOP, &mut cloud, &mut census)\n'
+              '            .expect("the checked fixture is valid");\n'
+              '        assert!(budget.permits(&census));',
+              '        let summary = route_fixture(&AMBIGUOUS_STOP, &mut cloud, &mut census)\n'
+              '            .expect("the checked fixture is valid");\n'
+              '        assert_eq!(summary.candidates_scanned(), 3);\n'
+              '        assert_eq!(summary.retained(), cloud.len());\n'
+              '        assert!(!summary.was_truncated());\n'
+              '        assert!(budget.permits(&census));',
+              'runtime contract route summary',
+          )
+          runtime_contract.write_text(text)
+
+          model_pipeline = Path('/tmp/uor-semantic/crates/conformance/tests/model_pipeline.rs')
+          text = model_pipeline.read_text()
+          text = replace_once(
+              text,
+              '    assert!(!compiled.bytes.is_empty());\n'
+              '    ArtifactView::parse(&compiled.bytes).expect("runtime accepts compiler output");',
+              '    assert!(!compiled.bytes.is_empty());\n'
+              '    let artifact = ArtifactView::parse(&compiled.bytes)\n'
+              '        .expect("runtime accepts compiler output");\n'
+              '    assert_eq!(artifact.exact_count(), compiled.exact_records);\n'
+              '    assert_eq!(artifact.region_count(), compiled.regions);\n'
+              '    assert_eq!(artifact.emission_count(), compiled.emissions);',
+              'model pipeline artifact validation',
+          )
+          model_pipeline.write_text(text)
           PY
 
       - name: Show toolchain
