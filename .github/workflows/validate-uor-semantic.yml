@@ -40,45 +40,141 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              if old in text:
+                  return text.replace(old, new, 1)
+              if new in text:
+                  return text
+              raise SystemExit(f'{label} patch anchor not found')
+
           artifact = Path('/tmp/uor-semantic/crates/uor-semantic/src/artifact.rs')
           text = artifact.read_text()
-          replacements = [
-              (
-                  "pub const ARTIFACT_MAGIC: [u8; 8] = [b'U', b'O', b'R', b'S', b'E', b'M', b'0', b'1'];",
-                  'pub const ARTIFACT_MAGIC: &[u8; 8] = b"UORSEM01";',
-              ),
-              (
-                  '    let mut output = [\n        0x243f_6a88_85a3_08d3,',
-                  '    let mut output: [u64; SIGNATURE_WORDS] = [\n        0x243f_6a88_85a3_08d3,',
-              ),
-              (
-                  'fn margin_bonus(margin: MembershipMargin) -> i32 {\n'
-                  '    match i32::try_from(margin.get()) {\n'
-                  '        Ok(value) => value,\n'
-                  '        Err(_) => i32::MAX,\n'
-                  '    }\n'
-                  '}',
-                  'fn margin_bonus(margin: MembershipMargin) -> i32 {\n'
-                  '    i32::try_from(margin.get()).unwrap_or(i32::MAX)\n'
-                  '}',
-              ),
-          ]
-          for old, new in replacements:
-              if old in text:
-                  text = text.replace(old, new, 1)
-              elif new not in text:
-                  raise SystemExit(f'artifact patch anchor not found: {old[:80]!r}')
+          text = replace_once(
+              text,
+              "pub const ARTIFACT_MAGIC: [u8; 8] = [b'U', b'O', b'R', b'S', b'E', b'M', b'0', b'1'];",
+              'pub const ARTIFACT_MAGIC: &[u8; 8] = b"UORSEM01";',
+              'artifact magic',
+          )
+          text = replace_once(
+              text,
+              '    let mut output = [\n        0x243f_6a88_85a3_08d3,',
+              '    let mut output: [u64; SIGNATURE_WORDS] = [\n        0x243f_6a88_85a3_08d3,',
+              'context signature type',
+          )
+          text = replace_once(
+              text,
+              'fn margin_bonus(margin: MembershipMargin) -> i32 {\n'
+              '    match i32::try_from(margin.get()) {\n'
+              '        Ok(value) => value,\n'
+              '        Err(_) => i32::MAX,\n'
+              '    }\n'
+              '}',
+              'fn margin_bonus(margin: MembershipMargin) -> i32 {\n'
+              '    i32::try_from(margin.get()).unwrap_or(i32::MAX)\n'
+              '}',
+              'margin conversion',
+          )
           artifact.write_text(text)
 
           compiler = Path('/tmp/uor-semantic/crates/uor-semantic-compiler/src/compiler.rs')
           text = compiler.read_text()
-          old = 'bytes[..ARTIFACT_MAGIC.len()].copy_from_slice(&ARTIFACT_MAGIC);'
-          new = 'bytes[..ARTIFACT_MAGIC.len()].copy_from_slice(ARTIFACT_MAGIC);'
-          if old in text:
-              text = text.replace(old, new, 1)
-          elif new not in text:
-              raise SystemExit('compiler artifact-magic patch anchor not found')
+          text = replace_once(
+              text,
+              'bytes[..ARTIFACT_MAGIC.len()].copy_from_slice(&ARTIFACT_MAGIC);',
+              'bytes[..ARTIFACT_MAGIC.len()].copy_from_slice(ARTIFACT_MAGIC);',
+              'compiler artifact magic',
+          )
+          text = replace_once(
+              text,
+              '        if let Some(previous) = output.last() {\n'
+              '            if previous.context == observation.context {\n'
+              '                if previous.target != observation.target\n'
+              '                    || previous.emissions != observation.emissions\n'
+              '                {\n'
+              '                    return Err(CompileError::ConflictingContext);\n'
+              '                }\n'
+              '                continue;\n'
+              '            }\n'
+              '        }',
+              '        if let Some(previous) = output.last()\n'
+              '            && previous.context == observation.context\n'
+              '        {\n'
+              '            if previous.target != observation.target\n'
+              '                || previous.emissions != observation.emissions\n'
+              '            {\n'
+              '                return Err(CompileError::ConflictingContext);\n'
+              '            }\n'
+              '            continue;\n'
+              '        }',
+              'canonical observation collapse',
+          )
+          text = replace_once(
+              text,
+              '            for word in 0..SIGNATURE_WORDS {\n'
+              '                for bit in 0..64 {\n'
+              '                    if ((signature[word] >> bit) & 1) != 0 {\n'
+              '                        let flat = word * 64 + bit;\n'
+              '                        bit_counts[cluster][flat] = bit_counts[cluster][flat].saturating_add(1);\n'
+              '                    }\n'
+              '                }\n'
+              '            }',
+              '            for (word, value) in signature.iter().copied().enumerate() {\n'
+              '                for bit in 0..64 {\n'
+              '                    if ((value >> bit) & 1) != 0 {\n'
+              '                        let flat = word * 64 + bit;\n'
+              '                        bit_counts[cluster][flat] = bit_counts[cluster][flat].saturating_add(1);\n'
+              '                    }\n'
+              '                }\n'
+              '            }',
+              'signature bit counting',
+          )
+          text = replace_once(
+              text,
+              '            for word in 0..SIGNATURE_WORDS {\n'
+              '                for bit in 0..64 {\n'
+              '                    let flat = word * 64 + bit;\n'
+              '                    if bit_counts[cluster][flat].saturating_mul(2) >= member_counts[cluster] {\n'
+              '                        prototype[word] |= 1u64 << bit;\n'
+              '                    }\n'
+              '                }\n'
+              '            }',
+              '            for (word, prototype_word) in prototype.iter_mut().enumerate() {\n'
+              '                for bit in 0..64 {\n'
+              '                    let flat = word * 64 + bit;\n'
+              '                    if bit_counts[cluster][flat].saturating_mul(2) >= member_counts[cluster] {\n'
+              '                        *prototype_word |= 1u64 << bit;\n'
+              '                    }\n'
+              '                }\n'
+              '            }',
+              'prototype bit update',
+          )
           compiler.write_text(text)
+
+          sha = Path('/tmp/uor-semantic/crates/uor-semantic-compiler/src/sha256.rs')
+          text = sha.read_text()
+          text = replace_once(
+              text,
+              '    for index in 0..16 {\n'
+              '        let start = index * 4;\n'
+              '        words[index] = u32::from_be_bytes([\n'
+              '            block[start],\n'
+              '            block[start + 1],\n'
+              '            block[start + 2],\n'
+              '            block[start + 3],\n'
+              '        ]);\n'
+              '    }',
+              '    for (index, word) in words.iter_mut().take(16).enumerate() {\n'
+              '        let start = index * 4;\n'
+              '        *word = u32::from_be_bytes([\n'
+              '            block[start],\n'
+              '            block[start + 1],\n'
+              '            block[start + 2],\n'
+              '            block[start + 3],\n'
+              '        ]);\n'
+              '    }',
+              'SHA input schedule',
+          )
+          sha.write_text(text)
           PY
 
       - name: Show toolchain
