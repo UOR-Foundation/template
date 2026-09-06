@@ -3,12 +3,20 @@
 default: vv
 
 # The whole gate.
-vv: fmt-check model lint test features bdd
+vv: template-check fmt-check model lint test features bdd deny
     @echo "vv: the acceptance gate passed"
 
 # R1, R4, R5 --- the repository gates, each falsifiable.
 model:
     cargo run -q -p xtask -- validate
+
+# The hand-reviewed trust root is checked independently of generated project
+# content. PrismPM then validates the canonical contract and both locks.
+template-check:
+    cargo run -q -p xtask -- check-model
+    cargo run -q -p xtask -- audit-bootstrap
+    prismpm template check
+    prismpm lock check
 
 # Regenerate everything the model owns: CONFORMANCE.md.
 model-write:
@@ -41,8 +49,8 @@ bdd:
     cargo test -p repo-conformance
 
 # R6: nothing shipped depends on a dev-only crate, no wildcard version
-# requirement, no advisory against anything in the tree. Needs
-# `cargo install cargo-deny`, which is why it is not in `just vv`.
+# requirement, no advisory against anything in the tree. `cargo-deny` is
+# supplied by the locked SDK, so this is part of `just vv`.
 #
 # Advisories, bans, licences and sources, over the dependency graph.
 deny:

@@ -11,6 +11,7 @@ use std::process::ExitCode;
 use repo_model::{codegen, Model};
 
 mod audit;
+mod bootstrap;
 
 fn main() -> ExitCode {
     let task = std::env::args()
@@ -23,6 +24,7 @@ fn main() -> ExitCode {
         "check-model" => check_model(&root, write),
         "audit-limits" => audit::audit_limits(&root),
         "audit-deferral" => audit::audit_deferral(&root),
+        "audit-bootstrap" => bootstrap::audit(&root),
         "validate" => validate(&root),
         _ => {
             eprintln!(
@@ -31,6 +33,7 @@ fn main() -> ExitCode {
                  check-model       R1: model/*.toml is the single source; regenerate and diff\n\
                  audit-limits      R5:  no bound that cannot be traced to a parameter\n\
                  audit-deferral    R4: no deferral marker, no stub, no capability behind a flag\n\
+                 audit-bootstrap   immutable SDK and least-privilege workflow trust root\n\
                  validate          run every gate above\n\
                  \n\
                  --write           check-model only: rewrite the generated file"
@@ -93,6 +96,7 @@ fn validate(root: &Path) -> Result<(), Fail> {
     check_model(root, false)?;
     audit::audit_limits(root)?;
     audit::audit_deferral(root)?;
+    bootstrap::audit(root)?;
     println!("validate: every gate passed");
     Ok(())
 }

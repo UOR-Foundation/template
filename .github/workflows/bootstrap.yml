@@ -1,0 +1,58 @@
+# This is the minimal human-reviewed trust root. PrismPM does not generate it.
+name: bootstrap
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  template-gate:
+    name: acceptance / ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - name: Check out the exact event revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Run the template gate through the locked SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          image=$(sed -n 's/.*"sdk_image":"\([^"]*\)".*/\1/p' prismpm.lock)
+          if [[ ! $image =~ ^[a-z0-9.-]+(:[0-9]{1,5})?/[a-z0-9./_-]+@sha256:[0-9a-f]{64}$ ]]; then
+            printf '%s\n' 'prismpm.lock does not select an immutable SDK image' >&2
+            exit 64
+          fi
+          mkdir -p "$HOME/.docker"
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --group-add "$(stat -c '%g' /var/run/docker.sock)" \
+            --tmpfs /tmp:rw,exec,nosuid,size=2g \
+            --volume "$PWD:/workspace" \
+            --volume /var/run/docker.sock:/var/run/docker.sock \
+            --volume "$HOME/.docker:/tmp/prismpm-home/.docker:ro" \
+            --workdir /workspace \
+            --env DOCKER_CONFIG=/tmp/prismpm-home/.docker \
+            --env HOME=/tmp/prismpm-home \
+            --env PRISMPM_EPHEMERAL_HOME=1 \
+            --env SDK_IMAGE="$image" \
+            "$image" bash -c '
+              set -euo pipefail
+              docker buildx version
+              docker buildx inspect --bootstrap
+              manifest=$(docker buildx imagetools inspect "$SDK_IMAGE")
+              grep -q "linux/amd64" <<< "$manifest"
+              grep -q "linux/arm64" <<< "$manifest"
+              devcontainer --version
+              exec just vv
+            '

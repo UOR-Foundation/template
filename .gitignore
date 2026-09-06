@@ -1,6 +1,7 @@
 # Build output.
 /target/
 **/target/
+/.prism/
 
 # The scaling harness writes its fits here; the committed artifact is the
 # report in `oracles/`, not the raw run.

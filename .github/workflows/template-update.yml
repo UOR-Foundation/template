@@ -1,0 +1,145 @@
+name: propose template update
+
+on:
+  workflow_dispatch:
+    inputs:
+      action-reference:
+        description: Shared PrismPM action at an exact release commit.
+        required: true
+        type: string
+      sdk-image:
+        description: Signed SDK image selected by immutable manifest digest.
+        required: true
+        type: string
+      template-revision:
+        description: Reviewed 40-character template policy-input revision.
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  proposal:
+    name: generate the proposal without write credentials
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the protected downstream branch without credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.repository.default_branch }}
+      - name: Check out the exact reviewed template policy snapshot
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          repository: UOR-Foundation/template
+          ref: ${{ inputs.template-revision }}
+          path: .template-policy
+      - name: Render the complete proposal from immutable inputs
+        env:
+          ACTION_REFERENCE: ${{ inputs.action-reference }}
+          SDK_IMAGE: ${{ inputs.sdk-image }}
+          TEMPLATE_REVISION: ${{ inputs.template-revision }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ $SDK_IMAGE =~ ^[a-z0-9.-]+(:[0-9]{1,5})?/[a-z0-9./_-]+@sha256:[0-9a-f]{64}$ ]]
+          [[ $ACTION_REFERENCE =~ ^UOR-Foundation/PrismPM/action@[0-9a-f]{40}$ ]]
+          [[ $TEMPLATE_REVISION =~ ^[0-9a-f]{40}$ ]]
+          for path in AGENTS.md VERIFICATION.md template-contract.json .github/workflows/bootstrap.yml .github/workflows/prismpm.yml .github/workflows/template-update.yml TEMPLATE-CONTRACT.md bootstrap/render.mjs bootstrap/render.sh; do
+            install -D -m 0644 ".template-policy/$path" "$path"
+          done
+          chmod 0755 bootstrap/render.sh
+          rm -f \
+            .github/workflows/ci.yml \
+            .github/workflows/honesty.yml
+          rm -rf .github/actions/prismpm
+          rm -rf .template-policy
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --network none \
+            --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --volume "$PWD:/workspace" \
+            --workdir /workspace \
+            --entrypoint node \
+            "$SDK_IMAGE" \
+            bootstrap/render.mjs "$SDK_IMAGE" "$ACTION_REFERENCE" "$TEMPLATE_REVISION"
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --network none \
+            --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --volume "$PWD:/workspace" \
+            --workdir /workspace \
+            "$SDK_IMAGE" \
+            prismpm --json template check >/tmp/template-check.json
+          update=$(docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --network none \
+            --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --volume "$PWD:/workspace" \
+            --workdir /workspace \
+            "$SDK_IMAGE" \
+            prismpm --json template update --sdk-image "$SDK_IMAGE" --template-revision "$TEMPLATE_REVISION")
+          docker run --rm --interactive --network none --cap-drop ALL \
+            --security-opt no-new-privileges --entrypoint node "$SDK_IMAGE" -e \
+            'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{if(JSON.parse(s).changed)process.exit(1)})' <<<"$update"
+          git add -N -- \
+            .devcontainer/devcontainer.json \
+            .github/workflows/bootstrap.yml \
+            .github/workflows/prismpm.yml \
+            .github/workflows/template-update.yml \
+            AGENTS.md TEMPLATE-CONTRACT.md VERIFICATION.md \
+            bootstrap/render.mjs bootstrap/render.sh \
+            prismpm.lock template-contract.json template.lock
+          git diff --check
+          git diff --binary >.template-update.patch
+          test -s .template-update.patch
+      - name: Preserve the inert reviewable patch
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: template-update-proposal
+          if-no-files-found: error
+          path: .template-update.patch
+          retention-days: 1
+
+  open-pull-request:
+    name: open the proposal without executing it
+    needs: proposal
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: template-update
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Check out the protected default branch without persisted credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.repository.default_branch }}
+      - name: Restore and apply the inert proposal
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: template-update-proposal
+      - name: Validate and apply the proposed patch without executing it
+        run: |
+          git apply --check .template-update.patch
+          git apply .template-update.patch
+          rm .template-update.patch
+      - name: Open the patch as a pull request
+        uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0
+        with:
+          branch: automation/template-contract-update
+          commit-message: "chore: update locked UOR template contract"
+          delete-branch: true
+          title: "chore: update locked UOR template contract"
+          body: |
+            Generated from an exact reviewed template revision, SDK manifest,
+            and PrismPM action commit. Review the complete policy patch and
+            require every repository gate before merge.

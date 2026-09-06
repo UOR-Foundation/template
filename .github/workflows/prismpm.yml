@@ -1,0 +1,497 @@
+name: PrismPM product pipeline
+
+on:
+  workflow_call:
+    inputs:
+      deploy:
+        description: Plan, deploy, and verify the promoted product.
+        required: false
+        default: false
+        type: boolean
+      environment:
+        description: Protected GitHub deployment environment.
+        required: false
+        default: production
+        type: string
+      publish:
+        description: Sign and push the product built by this invocation without deploying it.
+        required: false
+        default: false
+        type: boolean
+      registry-reference:
+        description: Registry repository plus the discovery tag used for build publication.
+        required: true
+        type: string
+      release:
+        description: Modeled release name.
+        required: true
+        type: string
+      target:
+        description: Modeled deployment target.
+        required: false
+        default: kubernetes-production
+        type: string
+    outputs:
+      evidence-digest:
+        description: Canonical post-deployment evidence digest.
+        value: ${{ jobs.deploy.outputs.evidence-digest }}
+      plan-digest:
+        description: Canonical target-state-bound deployment plan digest.
+        value: ${{ jobs.plan.outputs.plan-digest }}
+      release-digest:
+        description: Canonical product-release digest built once by the unprivileged job.
+        value: ${{ jobs.build.outputs.release-digest }}
+
+permissions: {}
+
+jobs:
+  resolve-sdk:
+    name: resolve the committed SDK lock
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      sdk-image: ${{ steps.lock.outputs.sdk-image }}
+    steps:
+      - name: Check out the exact event revision without credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - id: lock
+        name: Resolve one immutable SDK manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          image=$(sed -n 's/.*"sdk_image":"\([^"]*\)".*/\1/p' prismpm.lock)
+          if [[ ! $image =~ ^[a-z0-9.-]+(:[0-9]{1,5})?/[a-z0-9./_-]+@sha256:[0-9a-f]{64}$ ]]; then
+            printf '%s\n' 'prismpm.lock does not select an immutable SDK image' >&2
+            exit 64
+          fi
+          printf 'sdk-image=%s\n' "$image" >> "$GITHUB_OUTPUT"
+
+  check:
+    name: check model and generated implementation
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    needs: resolve-sdk
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the exact event revision without credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Fetch immutable model inputs through the locked SDK
+        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        with:
+          command: fetch
+          sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
+      - name: Check through the locked SDK
+        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        with:
+          command: check
+          sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
+      - name: Verify generated and formal artifacts through the locked SDK
+        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        with:
+          command: verify
+          sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
+
+  build:
+    name: build product once without publication credentials
+    needs: [resolve-sdk, check]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    outputs:
+      immutable-reference: ${{ steps.reference.outputs.value }}
+      release-digest: ${{ steps.product.outputs.release-digest }}
+    steps:
+      - name: Check out the exact event revision without credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - id: build
+        name: Fetch immutable inputs through the locked SDK
+        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        with:
+          command: fetch
+          sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
+      - id: product
+        name: Build the locked product release once
+        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        with:
+          command: build
+          reference: ${{ inputs.registry-reference }}
+          release: ${{ inputs.release }}
+          sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
+      - id: reference
+        name: Bind the registry repository to the returned release digest
+        env:
+          RELEASE_DIGEST: ${{ steps.product.outputs.release-digest }}
+          TAGGED_REFERENCE: ${{ inputs.registry-reference }}
+        run: |
+          set -euo pipefail
+          repository=${TAGGED_REFERENCE%:*}
+          if [[ ! $RELEASE_DIGEST =~ ^sha256:[0-9a-f]{64}$ || $repository == "$TAGGED_REFERENCE" ]]; then
+            printf '%s\n' 'product build did not return an immutable release digest' >&2
+            exit 64
+          fi
+          printf 'value=%s@%s\n' "$repository" "$RELEASE_DIGEST" >> "$GITHUB_OUTPUT"
+      - name: Preserve the canonical build result as inert data
+        env:
+          RESULT: ${{ steps.product.outputs.result }}
+        run: |
+          mkdir -p .prism/ci
+          printf '%s' "$RESULT" > .prism/ci/build.json
+      - name: Preserve the exact OCI graph and canonical result
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: prismpm-product-release
+          if-no-files-found: error
+          include-hidden-files: true
+          path: |
+            .prism/oci
+            .prism/ci/build.json
+          retention-days: 1
+
+  authorize-release:
+    name: reject publication from an unprotected ref
+    if: inputs.publish || inputs.deploy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Require branch or tag protection before requesting credentials
+        env:
+          REF_PROTECTED: ${{ github.ref_protected }}
+        run: test "$REF_PROTECTED" = true
+
+  promote:
+    name: sign, verify, promote, and push the previously built digest
+    if: inputs.publish || inputs.deploy
+    needs: [resolve-sdk, build, authorize-release]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    outputs:
+      immutable-reference: ${{ needs.build.outputs.immutable-reference }}
+    steps:
+      - name: Check out the reviewed workflow revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Restore the build job's exact OCI graph
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: prismpm-product-release
+          path: .prism
+      - id: policy
+        name: Derive the SDK-owned release policy and trusted root
+        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        with:
+          command: prepare-promotion
+          environment: release
+          reference: ${{ needs.build.outputs.immutable-reference }}
+          sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
+      - name: Sign and immediately verify the exact release manifest
+        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        with:
+          command: sign
+          policy: ${{ steps.policy.outputs.policy-path }}
+          reference: ${{ needs.build.outputs.immutable-reference }}
+          sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
+          trusted-root: ${{ steps.policy.outputs.trusted-root-path }}
+      - name: Keyless-sign the development-to-candidate transition
+        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        with:
+          command: promote
+          policy: ${{ steps.policy.outputs.policy-path }}
+          promotion-to: candidate
+          reference: ${{ needs.build.outputs.immutable-reference }}
+          sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
+          trusted-root: ${{ steps.policy.outputs.trusted-root-path }}
+      - name: Authenticate to GHCR with the short-lived job token
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Push the signed candidate graph without rebuilding
+        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        with:
+          command: push
+          reference: ${{ needs.build.outputs.immutable-reference }}
+          sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
+
+  plan:
+    name: bind an immutable release to observed target state
+    if: inputs.deploy
+    needs: [resolve-sdk, promote]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      plan-digest: ${{ steps.plan.outputs.plan-digest }}
+    steps:
+      - name: Check out the reviewed workflow revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Authenticate for immutable release retrieval
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Pull the immutable release without rebuilding
+        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        with:
+          command: pull
+          reference: ${{ needs.promote.outputs.immutable-reference }}
+          sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
+      - name: Explicitly replay candidate release trust after the clean pull
+        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        with:
+          command: verify-release
+          reference: ${{ needs.promote.outputs.immutable-reference }}
+          sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
+      - name: Create the target-state-bound plan without rebuilding
+        id: plan
+        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        with:
+          command: plan
+          reference: ${{ needs.promote.outputs.immutable-reference }}
+          sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
+          target: ${{ inputs.target }}
+      - name: Preserve the exact target-state-bound plan as inert data
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: prismpm-deployment-plan
+          if-no-files-found: error
+          include-hidden-files: true
+          path: .prism/plans
+          retention-days: 1
+
+  deploy:
+    name: deploy the planned digest without rebuilding
+    if: inputs.deploy
+    needs: [resolve-sdk, promote, plan]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    outputs:
+      evidence-digest: ${{ steps.deploy.outputs.evidence-digest }}
+    steps:
+      - name: Check out the reviewed workflow revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Authenticate for immutable release retrieval
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Pull the immutable release without rebuilding
+        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        with:
+          command: pull
+          reference: ${{ needs.promote.outputs.immutable-reference }}
+          sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
+      - name: Explicitly replay candidate release trust after the clean pull
+        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        with:
+          command: verify-release
+          reference: ${{ needs.promote.outputs.immutable-reference }}
+          sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
+      - name: Restore the exact plan produced against observed target state
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: prismpm-deployment-plan
+          path: .prism/plans
+      - name: Deploy the exact release and exact plan
+        id: deploy
+        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        with:
+          command: deploy
+          plan: ${{ needs.plan.outputs.plan-digest }}
+          reference: ${{ needs.promote.outputs.immutable-reference }}
+          sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
+          target: ${{ inputs.target }}
+      - name: Attach deployment evidence without rebuilding
+        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        with:
+          command: push
+          reference: ${{ needs.promote.outputs.immutable-reference }}
+          sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
+      - name: Preserve target state for independent post-deployment verification
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: prismpm-deployment-state
+          if-no-files-found: error
+          include-hidden-files: true
+          path: .prism/targets
+          retention-days: 1
+
+  verify-deployment:
+    name: Require post-deployment state and release verification
+    if: inputs.deploy
+    needs: [resolve-sdk, promote, deploy]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Check out the reviewed workflow revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Authenticate for immutable release retrieval
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Pull and verify the exact release graph
+        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        with:
+          command: pull
+          reference: ${{ needs.promote.outputs.immutable-reference }}
+          sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
+      - name: Explicitly replay deployed release trust after the clean pull
+        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        with:
+          command: verify-release
+          reference: ${{ needs.promote.outputs.immutable-reference }}
+          sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
+      - name: Restore the deploy job's exact observed target state
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: prismpm-deployment-state
+          path: .prism/targets
+      - name: Require observed deployment state
+        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        with:
+          command: status
+          reference: ${{ needs.promote.outputs.immutable-reference }}
+          sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
+          target: ${{ inputs.target }}
+      - name: Require complete attached release evidence
+        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        with:
+          command: inspect
+          reference: ${{ needs.promote.outputs.immutable-reference }}
+          sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
+
+  accept:
+    name: promote the deployed evidence-bearing graph to accepted
+    if: inputs.deploy
+    needs: [resolve-sdk, promote, deploy, verify-deployment]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    steps:
+      - name: Check out the reviewed workflow revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Authenticate for the exact evidence-bearing release graph
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Pull the deployed graph without rebuilding
+        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        with:
+          command: pull
+          reference: ${{ needs.promote.outputs.immutable-reference }}
+          sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
+      - id: policy
+        name: Re-derive the SDK-owned release policy and trusted root
+        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        with:
+          command: prepare-promotion
+          environment: release
+          reference: ${{ needs.promote.outputs.immutable-reference }}
+          sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
+      - name: Sign and verify the complete deployment-evidence closure
+        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        with:
+          command: sign-evidence
+          policy: ${{ steps.policy.outputs.policy-path }}
+          reference: ${{ needs.promote.outputs.immutable-reference }}
+          sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
+          trusted-root: ${{ steps.policy.outputs.trusted-root-path }}
+      - name: Keyless-sign the candidate-to-accepted transition
+        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        with:
+          command: promote
+          policy: ${{ steps.policy.outputs.policy-path }}
+          promotion-to: accepted
+          reference: ${{ needs.promote.outputs.immutable-reference }}
+          sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
+          trusted-root: ${{ steps.policy.outputs.trusted-root-path }}
+      - name: Push the accepted evidence without rebuilding the release
+        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        with:
+          command: push
+          reference: ${{ needs.promote.outputs.immutable-reference }}
+          sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
+
+  verify-release:
+    name: independently replay the accepted release trust closure
+    if: inputs.deploy
+    needs: [resolve-sdk, promote, accept]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Check out the reviewed workflow revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Authenticate for immutable accepted-release retrieval
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Pull the accepted release into a clean cache
+        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        with:
+          command: pull
+          reference: ${{ needs.promote.outputs.immutable-reference }}
+          sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
+      - name: Independently replay every signature and promotion decision
+        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        with:
+          command: verify-release
+          reference: ${{ needs.promote.outputs.immutable-reference }}
+          sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
