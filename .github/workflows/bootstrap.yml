@@ -23,6 +23,7 @@ jobs:
       - name: Check out the exact event revision
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Run the template gate through the locked SDK
         shell: bash
