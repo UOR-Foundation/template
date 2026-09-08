@@ -25,7 +25,7 @@ added without the other two.
 | `check-model` | `CONFORMANCE.md` disagrees with the register | rejected |
 | `audit-deferral` | a deferral marker in a crate and in the gate's own source | both rejected |
 | honesty meta-gate | an ID with no test | armed by the empty register |
-| `audit-bootstrap` | a floating/copied action, mutable SDK tag, changed universal file, narrowed boundary, or incomplete release lifecycle | all rejected |
+| `audit-bootstrap` | a floating/copied action, mutable SDK tag, changed universal file, narrowed boundary, acceptance bypass, deploy-job signing privilege, or incomplete release lifecycle | all rejected |
 
 `audit-deferral` reads every crate and `xtask`, including itself. Its token
 construction therefore cannot exempt the very gate in which a deferral could

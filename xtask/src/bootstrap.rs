@@ -214,15 +214,27 @@ fn action_reference_is_pinned(line: &str) -> bool {
 
 fn pipeline_lifecycle_is_complete(source: &str) -> bool {
     let count = |needle: &str| source.matches(needle).count();
+    let conformance = source.find("command: conformance");
+    let evidence_signature = source.find("command: sign-evidence");
+    let deploy_has_signing_identity = source
+        .split_once("\n  deploy:\n")
+        .and_then(|(_, rest)| rest.split_once("\n  verify-deployment:\n"))
+        .is_some_and(|(deploy, _)| deploy.contains("id-token: write"));
     count("command: build") == 1
         && count("command: fetch") == 2
         && count("command: pull") == 5
         && count("command: prepare-promotion") == 2
+        && count("command: conformance") == 1
         && count("command: sign-evidence") == 1
-        && count("command: verify-release") == 4
+        && count("command: verify-release") == 5
         && count("Explicitly replay candidate release trust after the clean pull") == 2
         && count("Explicitly replay deployed release trust after the clean pull") == 1
+        && count("Explicitly replay deployed release trust before acceptance") == 1
         && count("Independently replay every signature and promotion decision") == 1
+        && conformance
+            .is_some_and(|offset| evidence_signature.is_some_and(|signature| offset < signature))
+        && source.contains("needs: [resolve-sdk, promote, deploy, verify-deployment, conformance]")
+        && !deploy_has_signing_identity
         && source.contains("policy: ${{ steps.policy.outputs.policy-path }}")
         && source.contains("trusted-root: ${{ steps.policy.outputs.trusted-root-path }}")
         && count("name: prismpm-deployment-plan") == 2
@@ -377,6 +389,7 @@ pub fn audit(root: &Path) -> Result<(), Fail> {
         "id-token: write",
         "deploy the planned digest without rebuilding",
         "Require post-deployment state and release verification",
+        "command: conformance",
         "command: sign",
         "command: prepare-promotion",
         "command: sign-evidence",
@@ -473,7 +486,9 @@ mod tests {
           command: pull
           command: prepare-promotion
           command: prepare-promotion
+          command: conformance
           command: sign-evidence
+          command: verify-release
           command: verify-release
           command: verify-release
           command: verify-release
@@ -481,7 +496,9 @@ mod tests {
           Explicitly replay candidate release trust after the clean pull
           Explicitly replay candidate release trust after the clean pull
           Explicitly replay deployed release trust after the clean pull
+          Explicitly replay deployed release trust before acceptance
           Independently replay every signature and promotion decision
+          needs: [resolve-sdk, promote, deploy, verify-deployment, conformance]
           policy: ${{ steps.policy.outputs.policy-path }}
           trusted-root: ${{ steps.policy.outputs.trusted-root-path }}
           name: prismpm-deployment-plan
@@ -498,7 +515,28 @@ mod tests {
             &complete.replace("          command: sign-evidence\n", "")
         ));
         assert!(!pipeline_lifecycle_is_complete(
+            &complete.replace("          command: conformance\n", "")
+        ));
+        assert!(!pipeline_lifecycle_is_complete(
             &complete.replace("          path: .prism/plans\n", "")
         ));
+        let overprivileged = format!(
+            "{}\n  deploy:\n    permissions:\n      id-token: write\n  verify-deployment:\n",
+            complete
+        );
+        assert!(!pipeline_lifecycle_is_complete(&overprivileged));
+    }
+
+    #[test]
+    fn accepted_promotion_bypass_plant_is_rejected() {
+        let workflow = include_str!("../../.github/workflows/prismpm.yml");
+        assert!(pipeline_lifecycle_is_complete(workflow));
+        assert!(!pipeline_lifecycle_is_complete(
+            &workflow.replace("          command: conformance\n", "")
+        ));
+        assert!(!pipeline_lifecycle_is_complete(&workflow.replace(
+            "needs: [resolve-sdk, promote, deploy, verify-deployment, conformance]",
+            "needs: [resolve-sdk, promote, deploy, verify-deployment]"
+        )));
     }
 }

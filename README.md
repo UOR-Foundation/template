@@ -86,8 +86,11 @@ deployment pushes only the evidence referrers attached to that original
 release digest. The protected release job
 asks the SDK to derive the identity-bound policy and trusted-root paths, signs
 and immediately verifies the local root manifest, records the candidate
-transition, and only then pushes the graph. After deployment verification, a
-second protected release job signs the complete deployment-evidence closure,
+transition, and only then pushes the graph. After deployment verification, an
+unprivileged job clean-pulls and explicitly verifies the candidate, executes
+the SDK's complete public-feature and diagnostic conformance corpus, and
+transfers that acceptance-bearing graph as inert data. A second protected
+release job signs the complete deployment and acceptance evidence closure,
 records the accepted transition, pushes the new referrers without changing the
 root manifest, and a clean final job runs `verify-release` against the pulled
 accepted graph.

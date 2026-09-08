@@ -41,6 +41,9 @@ on:
       release-digest:
         description: Canonical product-release digest built once by the unprivileged job.
         value: ${{ jobs.build.outputs.release-digest }}
+      transcript-digest:
+        description: Canonical complete public-feature and diagnostic acceptance transcript digest.
+        value: ${{ jobs.conformance.outputs.transcript-digest }}
 
 permissions: {}
 
@@ -295,7 +298,6 @@ jobs:
     environment: ${{ inputs.environment }}
     permissions:
       contents: read
-      id-token: write
       packages: write
     outputs:
       evidence-digest: ${{ steps.deploy.outputs.evidence-digest }}
@@ -403,10 +405,61 @@ jobs:
           reference: ${{ needs.promote.outputs.immutable-reference }}
           sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
 
+  conformance:
+    name: execute the complete production acceptance corpus
+    if: inputs.deploy
+    needs: [resolve-sdk, promote, deploy, verify-deployment]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      transcript-digest: ${{ steps.conformance.outputs.transcript-digest }}
+    steps:
+      - name: Check out the reviewed workflow revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Authenticate for immutable release retrieval
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Pull the deployed graph into a clean acceptance cache
+        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        with:
+          command: pull
+          reference: ${{ needs.promote.outputs.immutable-reference }}
+          sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
+      - name: Explicitly replay deployed release trust before acceptance
+        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        with:
+          command: verify-release
+          reference: ${{ needs.promote.outputs.immutable-reference }}
+          sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
+      - id: conformance
+        name: Execute and attach every public feature and diagnostic case
+        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        with:
+          command: conformance
+          reference: ${{ needs.promote.outputs.immutable-reference }}
+          sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
+      - name: Preserve the conformance-bearing graph for protected acceptance
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: prismpm-accepted-input
+          if-no-files-found: error
+          include-hidden-files: true
+          path: .prism
+          retention-days: 1
+
   accept:
     name: promote the deployed evidence-bearing graph to accepted
     if: inputs.deploy
-    needs: [resolve-sdk, promote, deploy, verify-deployment]
+    needs: [resolve-sdk, promote, deploy, verify-deployment, conformance]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: release
@@ -425,12 +478,11 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
-      - name: Pull the deployed graph without rebuilding
-        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+      - name: Restore the exact conformance-bearing graph without rebuilding
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
-          command: pull
-          reference: ${{ needs.promote.outputs.immutable-reference }}
-          sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
+          name: prismpm-accepted-input
+          path: .prism
       - id: policy
         name: Re-derive the SDK-owned release policy and trusted root
         uses: UOR-Foundation/PrismPM/action # prismpm-action-input
