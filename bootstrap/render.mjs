@@ -172,6 +172,8 @@ const devcontainer = `${JSON.stringify(
     name: "UOR PrismPM SDK",
     image: sdkImage,
     containerUser: "root",
+    workspaceMount: "source=${localWorkspaceFolder},target=${localWorkspaceFolder},type=bind",
+    workspaceFolder: "${localWorkspaceFolder}",
     initializeCommand: 'mkdir -p "${localEnv:HOME}/.docker" && if test ! -f "${localEnv:HOME}/.docker/config.json"; then printf "{}\\n" > "${localEnv:HOME}/.docker/config.json"; fi',
     remoteUser: "vscode",
     mounts: [

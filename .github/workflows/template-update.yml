@@ -29,11 +29,13 @@ jobs:
       - name: Check out the protected downstream branch without credentials
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          fetch-depth: 0
           persist-credentials: false
           ref: ${{ github.event.repository.default_branch }}
       - name: Check out the exact reviewed template policy snapshot
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          fetch-depth: 0
           persist-credentials: false
           repository: UOR-Foundation/template
           ref: ${{ inputs.template-revision }}
@@ -49,7 +51,9 @@ jobs:
           [[ $SDK_IMAGE =~ ^[a-z0-9.-]+(:[0-9]{1,5})?/[a-z0-9./_-]+@sha256:[0-9a-f]{64}$ ]]
           [[ $ACTION_REFERENCE =~ ^UOR-Foundation/PrismPM/action@[0-9a-f]{40}$ ]]
           [[ $TEMPLATE_REVISION =~ ^[0-9a-f]{40}$ ]]
-          for path in AGENTS.md VERIFICATION.md template-contract.json .github/workflows/bootstrap.yml .github/workflows/prismpm.yml .github/workflows/template-update.yml TEMPLATE-CONTRACT.md bootstrap/render.mjs bootstrap/render.sh; do
+          # Only universal policy is copied; downstream workflows, renderers,
+          # and conformance documents remain project-owned.
+          for path in AGENTS.md VERIFICATION.md template-contract.json .github/workflows/bootstrap.yml; do
             install -D -m 0644 ".template-policy/$path" "$path"
           done
           chmod 0755 bootstrap/render.sh
@@ -96,7 +100,7 @@ jobs:
             .github/workflows/template-update.yml \
             AGENTS.md TEMPLATE-CONTRACT.md VERIFICATION.md \
             bootstrap/render.mjs bootstrap/render.sh \
-            prismpm.lock template-contract.json template.lock
+            prismpm.lock standards.lock template-contract.json template.lock
           git diff --check
           git diff --binary >.template-update.patch
           test -s .template-update.patch
@@ -121,6 +125,7 @@ jobs:
       - name: Check out the protected default branch without persisted credentials
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          fetch-depth: 0
           persist-credentials: false
           ref: ${{ github.event.repository.default_branch }}
       - name: Restore and apply the inert proposal

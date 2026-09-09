@@ -60,6 +60,7 @@ jobs:
       - name: Check out the exact event revision without credentials
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          fetch-depth: 0
           persist-credentials: false
       - id: lock
         name: Resolve one immutable SDK manifest
@@ -88,6 +89,7 @@ jobs:
       - name: Check out the exact event revision without credentials
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Fetch immutable model inputs through the locked SDK
         uses: UOR-Foundation/PrismPM/action # prismpm-action-input
@@ -119,6 +121,7 @@ jobs:
       - name: Check out the exact event revision without credentials
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          fetch-depth: 0
           persist-credentials: false
       - id: build
         name: Fetch immutable inputs through the locked SDK
@@ -193,6 +196,7 @@ jobs:
       - name: Check out the reviewed workflow revision
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Restore the build job's exact OCI graph
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
@@ -253,6 +257,7 @@ jobs:
       - name: Check out the reviewed workflow revision
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Authenticate for immutable release retrieval
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
@@ -305,6 +310,7 @@ jobs:
       - name: Check out the reviewed workflow revision
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Authenticate for immutable release retrieval
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
@@ -367,6 +373,7 @@ jobs:
       - name: Check out the reviewed workflow revision
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Authenticate for immutable release retrieval
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
@@ -421,6 +428,7 @@ jobs:
       - name: Check out the reviewed workflow revision
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Authenticate for immutable release retrieval
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
@@ -471,6 +479,7 @@ jobs:
       - name: Check out the reviewed workflow revision
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Authenticate for the exact evidence-bearing release graph
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
@@ -528,6 +537,7 @@ jobs:
       - name: Check out the reviewed workflow revision
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Authenticate for immutable accepted-release retrieval
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9

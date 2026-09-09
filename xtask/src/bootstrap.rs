@@ -82,6 +82,25 @@ fn policy_boundary_is_canonical(universal: &[&str], project: &[&str], required: 
             .all(|pair| pair[0].as_bytes() < pair[1].as_bytes())
 }
 
+fn workflow_history_is_complete(source: &str) -> bool {
+    source.split("\n      - ").all(|step| {
+        !step.contains("uses: actions/checkout@")
+            || (step.lines().any(|line| line.trim() == "fetch-depth: 0")
+                && step
+                    .lines()
+                    .any(|line| line.trim() == "persist-credentials: false"))
+    })
+}
+
+fn update_preserves_project_content(source: &str) -> bool {
+    source.lines().find_map(|line| {
+        line.trim()
+            .strip_prefix("for path in ")
+            .and_then(|line| line.strip_suffix("; do"))
+    }) == Some("AGENTS.md VERIFICATION.md template-contract.json .github/workflows/bootstrap.yml")
+        && source.contains("prismpm.lock standards.lock template-contract.json template.lock")
+}
+
 fn audit_policy_files(root: &Path, lock: &serde_json::Value) -> Result<(), Fail> {
     let contract_bytes = std::fs::read(root.join("template-contract.json"))?;
     let contract: serde_json::Value = serde_json::from_slice(&contract_bytes)?;
@@ -357,6 +376,13 @@ pub fn audit(root: &Path) -> Result<(), Fail> {
 
     for path in workflow_files(root)? {
         let source = std::fs::read_to_string(&path)?;
+        if !workflow_history_is_complete(&source) {
+            return Err(format!(
+                "{} omits complete history or retains checkout credentials",
+                path.display()
+            )
+            .into());
+        }
         if source.contains("ubuntu-latest")
             || source.contains("@main")
             || source.contains("@master")
@@ -366,6 +392,11 @@ pub fn audit(root: &Path) -> Result<(), Fail> {
         {
             return Err(format!("{} contains a floating workflow input", path.display()).into());
         }
+    }
+    if !update_preserves_project_content(&read(root, ".github/workflows/template-update.yml")?) {
+        return Err(
+            "template updates overwrite project-owned inputs or omit a derived lock".into(),
+        );
     }
 
     let reusable = read(root, ".github/workflows/prismpm.yml")?;
@@ -434,7 +465,8 @@ mod tests {
     use super::{
         action_reference_is_pinned, content_matches, docker_credentials_are_confined,
         immutable_image, pipeline_lifecycle_is_complete, policy_boundary_is_canonical, sha256,
-        PROJECT_CONTENT_PATHS, UNIVERSAL_POLICY_PATHS,
+        update_preserves_project_content, workflow_history_is_complete, PROJECT_CONTENT_PATHS,
+        UNIVERSAL_POLICY_PATHS,
     };
 
     #[test]
@@ -445,6 +477,35 @@ mod tests {
         ));
         assert!(!action_reference_is_pinned(
             "uses: ./.github/actions/prismpm"
+        ));
+    }
+
+    #[test]
+    fn shallow_checkout_plant_is_rejected() {
+        let workflow = include_str!("../../.github/workflows/prismpm.yml");
+        assert!(workflow_history_is_complete(workflow));
+        assert!(!workflow_history_is_complete(&workflow.replacen(
+            "          fetch-depth: 0\n",
+            "",
+            1
+        )));
+        assert!(!workflow_history_is_complete(&workflow.replacen(
+            "          persist-credentials: false\n",
+            "",
+            1
+        )));
+    }
+
+    #[test]
+    fn project_overwrite_plant_is_rejected() {
+        let workflow = include_str!("../../.github/workflows/template-update.yml");
+        assert!(update_preserves_project_content(workflow));
+        assert!(!update_preserves_project_content(&workflow.replace(
+            "for path in AGENTS.md",
+            "for path in bootstrap/render.sh AGENTS.md"
+        )));
+        assert!(!update_preserves_project_content(
+            &workflow.replace("prismpm.lock standards.lock", "prismpm.lock")
         ));
     }
 
