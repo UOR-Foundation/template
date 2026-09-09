@@ -99,6 +99,9 @@ fn update_preserves_project_content(source: &str) -> bool {
             .and_then(|line| line.strip_suffix("; do"))
     }) == Some("AGENTS.md VERIFICATION.md template-contract.json .github/workflows/bootstrap.yml")
         && source.contains("prismpm.lock standards.lock template-contract.json template.lock")
+        && !source.contains(".github/workflows/ci.yml")
+        && !source.contains(".github/workflows/honesty.yml")
+        && !source.contains(".github/actions/prismpm")
 }
 
 fn audit_policy_files(root: &Path, lock: &serde_json::Value) -> Result<(), Fail> {
@@ -507,6 +510,9 @@ mod tests {
         assert!(!update_preserves_project_content(
             &workflow.replace("prismpm.lock standards.lock", "prismpm.lock")
         ));
+        assert!(!update_preserves_project_content(&format!(
+            "{workflow}\n          rm -f .github/workflows/honesty.yml\n"
+        )));
     }
 
     #[test]

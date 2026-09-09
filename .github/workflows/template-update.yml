@@ -57,10 +57,6 @@ jobs:
             install -D -m 0644 ".template-policy/$path" "$path"
           done
           chmod 0755 bootstrap/render.sh
-          rm -f \
-            .github/workflows/ci.yml \
-            .github/workflows/honesty.yml
-          rm -rf .github/actions/prismpm
           rm -rf .template-policy
           docker run --rm \
             --user "$(id -u):$(id -g)" \
