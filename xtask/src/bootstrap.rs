@@ -59,6 +59,17 @@ fn content_matches(bytes: &[u8], expected: &str) -> bool {
     sha256(bytes) == expected
 }
 
+fn docker_credentials_are_confined(devcontainer: &str, bootstrap: &str) -> bool {
+    devcontainer.contains(
+        "source=${localEnv:HOME}/.docker/config.json,target=/home/vscode/.docker/config.json,type=bind,readonly",
+    ) && devcontainer.contains(".docker/config.json")
+        && !devcontainer.contains(
+            "source=${localEnv:HOME}/.docker,target=/home/vscode/.docker,type=bind,readonly",
+        )
+        && bootstrap.contains("--volume \"$docker_config:/tmp/prismpm-home/.docker:ro\"")
+        && !bootstrap.contains("--volume \"$HOME/.docker:/tmp/prismpm-home/.docker:ro\"")
+}
+
 fn policy_boundary_is_canonical(universal: &[&str], project: &[&str], required: &[&str]) -> bool {
     let mut union = universal.to_vec();
     union.extend(project.iter().copied());
@@ -313,9 +324,12 @@ pub fn audit(root: &Path) -> Result<(), Fail> {
                 mount == "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
             }) || !mounts.iter().any(|mount| {
                 mount
-                == "source=${localEnv:HOME}/.docker,target=/home/vscode/.docker,type=bind,readonly"
+                == "source=${localEnv:HOME}/.docker/config.json,target=/home/vscode/.docker/config.json,type=bind,readonly"
             })
         })
+        || !devcontainer_value["initializeCommand"]
+            .as_str()
+            .is_some_and(|command| command.contains(".docker/config.json"))
         || devcontainer_value["runArgs"]
             .as_array()
             .is_none_or(|arguments| {
@@ -333,8 +347,12 @@ pub fn audit(root: &Path) -> Result<(), Fail> {
     if bootstrap.contains("pull_request_target")
         || !bootstrap.contains("permissions:\n  contents: read")
         || !bootstrap.contains("persist-credentials: false")
+        || !docker_credentials_are_confined(&devcontainer, &bootstrap)
     {
-        return Err("bootstrap.yml is not a read-only pull-request trust root".into());
+        return Err(
+            "bootstrap.yml is not a read-only pull-request trust root with confined credentials"
+                .into(),
+        );
     }
 
     for path in workflow_files(root)? {
@@ -414,8 +432,8 @@ pub fn audit(root: &Path) -> Result<(), Fail> {
 #[cfg(test)]
 mod tests {
     use super::{
-        action_reference_is_pinned, content_matches, immutable_image,
-        pipeline_lifecycle_is_complete, policy_boundary_is_canonical, sha256,
+        action_reference_is_pinned, content_matches, docker_credentials_are_confined,
+        immutable_image, pipeline_lifecycle_is_complete, policy_boundary_is_canonical, sha256,
         PROJECT_CONTENT_PATHS, UNIVERSAL_POLICY_PATHS,
     };
 
@@ -454,6 +472,24 @@ mod tests {
         let recorded = sha256(b"reviewed policy\n");
         assert!(content_matches(b"reviewed policy\n", &recorded));
         assert!(!content_matches(b"changed policy\n", &recorded));
+    }
+
+    #[test]
+    fn host_docker_plugin_plant_is_rejected() {
+        let devcontainer = r#"{
+          "initializeCommand":"create .docker/config.json",
+          "mounts":["source=${localEnv:HOME}/.docker/config.json,target=/home/vscode/.docker/config.json,type=bind,readonly"]
+        }"#;
+        let bootstrap = r#"--volume "$docker_config:/tmp/prismpm-home/.docker:ro""#;
+        assert!(docker_credentials_are_confined(devcontainer, bootstrap));
+        assert!(!docker_credentials_are_confined(
+            &devcontainer.replace("/.docker/config.json,target", "/.docker,target"),
+            bootstrap,
+        ));
+        assert!(!docker_credentials_are_confined(
+            devcontainer,
+            &bootstrap.replace("$docker_config", "$HOME/.docker"),
+        ));
     }
 
     #[test]

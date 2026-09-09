@@ -170,11 +170,11 @@ const devcontainer = `${JSON.stringify(
     name: "UOR PrismPM SDK",
     image: sdkImage,
     containerUser: "root",
-    initializeCommand: 'mkdir -p "${localEnv:HOME}/.docker"',
+    initializeCommand: 'mkdir -p "${localEnv:HOME}/.docker" && if test ! -f "${localEnv:HOME}/.docker/config.json"; then printf "{}\\n" > "${localEnv:HOME}/.docker/config.json"; fi',
     remoteUser: "vscode",
     mounts: [
       "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind",
-      "source=${localEnv:HOME}/.docker,target=/home/vscode/.docker,type=bind,readonly",
+      "source=${localEnv:HOME}/.docker/config.json,target=/home/vscode/.docker/config.json,type=bind,readonly",
     ],
     overrideCommand: false,
     runArgs: ["--init", "--entrypoint", "prismpm-devcontainer-init"],

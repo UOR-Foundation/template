@@ -29,7 +29,9 @@ falsifiable:
 The universal bootstrap workflow has no publication or deployment credential.
 It reads the exact image from `prismpm.lock`, confirms multi-platform Buildx and
 the devcontainer CLI, and invokes the repository's own `just vv` on pinned
-Linux runners. It is intentionally outside model-generated output so PrismPM
+Linux runners. It copies only Docker's credential configuration into an
+ephemeral directory; host CLI plugins never enter the SDK command search path.
+It is intentionally outside model-generated output so PrismPM
 cannot generate the sole policy that authorizes PrismPM.
 
 This file does not assert that any particular product capability passed. Those

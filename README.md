@@ -23,9 +23,10 @@ multi-platform image selected by `prismpm.lock`.
 4. Name the project in `Cargo.toml`. Rename the non-published tooling crates if
    useful, then add the first capability in the order `AGENTS.md` specifies.
 
-The image supports `linux/amd64` and `linux/arm64`. The Docker socket and the
-host's read-only Docker client configuration are mounted into the development
-container, so registry credentials remain Docker-managed. `docker buildx
+The image supports `linux/amd64` and `linux/arm64`. The Docker socket and only
+the host's read-only Docker `config.json` are mounted into the development
+container, so registry credentials remain Docker-managed without admitting
+host CLI plugins. `docker buildx
 inspect --bootstrap` checks the selected builder before a multi-platform build.
 No Rust, Lean, Node, `just`, or deployment tool is required on the host.
 
