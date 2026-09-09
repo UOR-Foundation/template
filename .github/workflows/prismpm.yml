@@ -92,17 +92,17 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Fetch immutable model inputs through the locked SDK
-        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        uses: UOR-Foundation/PrismPM/action@f785ee46d794886c29b7efe80c2b261e48733a15 # prismpm-action-input
         with:
           command: fetch
           sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
       - name: Check through the locked SDK
-        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        uses: UOR-Foundation/PrismPM/action@f785ee46d794886c29b7efe80c2b261e48733a15 # prismpm-action-input
         with:
           command: check
           sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
       - name: Verify generated and formal artifacts through the locked SDK
-        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        uses: UOR-Foundation/PrismPM/action@f785ee46d794886c29b7efe80c2b261e48733a15 # prismpm-action-input
         with:
           command: verify
           sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
@@ -125,13 +125,13 @@ jobs:
           persist-credentials: false
       - id: build
         name: Fetch immutable inputs through the locked SDK
-        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        uses: UOR-Foundation/PrismPM/action@f785ee46d794886c29b7efe80c2b261e48733a15 # prismpm-action-input
         with:
           command: fetch
           sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
       - id: product
         name: Build the locked product release once
-        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        uses: UOR-Foundation/PrismPM/action@f785ee46d794886c29b7efe80c2b261e48733a15 # prismpm-action-input
         with:
           command: build
           reference: ${{ inputs.registry-reference }}
@@ -205,14 +205,14 @@ jobs:
           path: .prism
       - id: policy
         name: Derive the SDK-owned release policy and trusted root
-        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        uses: UOR-Foundation/PrismPM/action@f785ee46d794886c29b7efe80c2b261e48733a15 # prismpm-action-input
         with:
           command: prepare-promotion
           environment: release
           reference: ${{ needs.build.outputs.immutable-reference }}
           sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
       - name: Sign and immediately verify the exact release manifest
-        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        uses: UOR-Foundation/PrismPM/action@f785ee46d794886c29b7efe80c2b261e48733a15 # prismpm-action-input
         with:
           command: sign
           policy: ${{ steps.policy.outputs.policy-path }}
@@ -220,7 +220,7 @@ jobs:
           sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
           trusted-root: ${{ steps.policy.outputs.trusted-root-path }}
       - name: Keyless-sign the development-to-candidate transition
-        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        uses: UOR-Foundation/PrismPM/action@f785ee46d794886c29b7efe80c2b261e48733a15 # prismpm-action-input
         with:
           command: promote
           policy: ${{ steps.policy.outputs.policy-path }}
@@ -235,7 +235,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
       - name: Push the signed candidate graph without rebuilding
-        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        uses: UOR-Foundation/PrismPM/action@f785ee46d794886c29b7efe80c2b261e48733a15 # prismpm-action-input
         with:
           command: push
           reference: ${{ needs.build.outputs.immutable-reference }}
@@ -266,20 +266,20 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
       - name: Pull the immutable release without rebuilding
-        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        uses: UOR-Foundation/PrismPM/action@f785ee46d794886c29b7efe80c2b261e48733a15 # prismpm-action-input
         with:
           command: pull
           reference: ${{ needs.promote.outputs.immutable-reference }}
           sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
       - name: Explicitly replay candidate release trust after the clean pull
-        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        uses: UOR-Foundation/PrismPM/action@f785ee46d794886c29b7efe80c2b261e48733a15 # prismpm-action-input
         with:
           command: verify-release
           reference: ${{ needs.promote.outputs.immutable-reference }}
           sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
       - name: Create the target-state-bound plan without rebuilding
         id: plan
-        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        uses: UOR-Foundation/PrismPM/action@f785ee46d794886c29b7efe80c2b261e48733a15 # prismpm-action-input
         with:
           command: plan
           reference: ${{ needs.promote.outputs.immutable-reference }}
@@ -319,13 +319,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
       - name: Pull the immutable release without rebuilding
-        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        uses: UOR-Foundation/PrismPM/action@f785ee46d794886c29b7efe80c2b261e48733a15 # prismpm-action-input
         with:
           command: pull
           reference: ${{ needs.promote.outputs.immutable-reference }}
           sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
       - name: Explicitly replay candidate release trust after the clean pull
-        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        uses: UOR-Foundation/PrismPM/action@f785ee46d794886c29b7efe80c2b261e48733a15 # prismpm-action-input
         with:
           command: verify-release
           reference: ${{ needs.promote.outputs.immutable-reference }}
@@ -337,7 +337,7 @@ jobs:
           path: .prism/plans
       - name: Deploy the exact release and exact plan
         id: deploy
-        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        uses: UOR-Foundation/PrismPM/action@f785ee46d794886c29b7efe80c2b261e48733a15 # prismpm-action-input
         with:
           command: deploy
           plan: ${{ needs.plan.outputs.plan-digest }}
@@ -345,7 +345,7 @@ jobs:
           sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
           target: ${{ inputs.target }}
       - name: Attach deployment evidence without rebuilding
-        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        uses: UOR-Foundation/PrismPM/action@f785ee46d794886c29b7efe80c2b261e48733a15 # prismpm-action-input
         with:
           command: push
           reference: ${{ needs.promote.outputs.immutable-reference }}
@@ -382,13 +382,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
       - name: Pull and verify the exact release graph
-        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        uses: UOR-Foundation/PrismPM/action@f785ee46d794886c29b7efe80c2b261e48733a15 # prismpm-action-input
         with:
           command: pull
           reference: ${{ needs.promote.outputs.immutable-reference }}
           sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
       - name: Explicitly replay deployed release trust after the clean pull
-        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        uses: UOR-Foundation/PrismPM/action@f785ee46d794886c29b7efe80c2b261e48733a15 # prismpm-action-input
         with:
           command: verify-release
           reference: ${{ needs.promote.outputs.immutable-reference }}
@@ -399,14 +399,14 @@ jobs:
           name: prismpm-deployment-state
           path: .prism/targets
       - name: Require observed deployment state
-        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        uses: UOR-Foundation/PrismPM/action@f785ee46d794886c29b7efe80c2b261e48733a15 # prismpm-action-input
         with:
           command: status
           reference: ${{ needs.promote.outputs.immutable-reference }}
           sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
           target: ${{ inputs.target }}
       - name: Require complete attached release evidence
-        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        uses: UOR-Foundation/PrismPM/action@f785ee46d794886c29b7efe80c2b261e48733a15 # prismpm-action-input
         with:
           command: inspect
           reference: ${{ needs.promote.outputs.immutable-reference }}
@@ -437,20 +437,20 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
       - name: Pull the deployed graph into a clean acceptance cache
-        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        uses: UOR-Foundation/PrismPM/action@f785ee46d794886c29b7efe80c2b261e48733a15 # prismpm-action-input
         with:
           command: pull
           reference: ${{ needs.promote.outputs.immutable-reference }}
           sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
       - name: Explicitly replay deployed release trust before acceptance
-        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        uses: UOR-Foundation/PrismPM/action@f785ee46d794886c29b7efe80c2b261e48733a15 # prismpm-action-input
         with:
           command: verify-release
           reference: ${{ needs.promote.outputs.immutable-reference }}
           sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
       - id: conformance
         name: Execute and attach every public feature and diagnostic case
-        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        uses: UOR-Foundation/PrismPM/action@f785ee46d794886c29b7efe80c2b261e48733a15 # prismpm-action-input
         with:
           command: conformance
           reference: ${{ needs.promote.outputs.immutable-reference }}
@@ -494,14 +494,14 @@ jobs:
           path: .prism
       - id: policy
         name: Re-derive the SDK-owned release policy and trusted root
-        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        uses: UOR-Foundation/PrismPM/action@f785ee46d794886c29b7efe80c2b261e48733a15 # prismpm-action-input
         with:
           command: prepare-promotion
           environment: release
           reference: ${{ needs.promote.outputs.immutable-reference }}
           sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
       - name: Sign and verify the complete deployment-evidence closure
-        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        uses: UOR-Foundation/PrismPM/action@f785ee46d794886c29b7efe80c2b261e48733a15 # prismpm-action-input
         with:
           command: sign-evidence
           policy: ${{ steps.policy.outputs.policy-path }}
@@ -509,7 +509,7 @@ jobs:
           sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
           trusted-root: ${{ steps.policy.outputs.trusted-root-path }}
       - name: Keyless-sign the candidate-to-accepted transition
-        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        uses: UOR-Foundation/PrismPM/action@f785ee46d794886c29b7efe80c2b261e48733a15 # prismpm-action-input
         with:
           command: promote
           policy: ${{ steps.policy.outputs.policy-path }}
@@ -518,7 +518,7 @@ jobs:
           sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
           trusted-root: ${{ steps.policy.outputs.trusted-root-path }}
       - name: Push the accepted evidence without rebuilding the release
-        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        uses: UOR-Foundation/PrismPM/action@f785ee46d794886c29b7efe80c2b261e48733a15 # prismpm-action-input
         with:
           command: push
           reference: ${{ needs.promote.outputs.immutable-reference }}
@@ -546,13 +546,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
       - name: Pull the accepted release into a clean cache
-        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        uses: UOR-Foundation/PrismPM/action@f785ee46d794886c29b7efe80c2b261e48733a15 # prismpm-action-input
         with:
           command: pull
           reference: ${{ needs.promote.outputs.immutable-reference }}
           sdk-image: ${{ needs.resolve-sdk.outputs.sdk-image }}
       - name: Independently replay every signature and promotion decision
-        uses: UOR-Foundation/PrismPM/action # prismpm-action-input
+        uses: UOR-Foundation/PrismPM/action@f785ee46d794886c29b7efe80c2b261e48733a15 # prismpm-action-input
         with:
           command: verify-release
           reference: ${{ needs.promote.outputs.immutable-reference }}
