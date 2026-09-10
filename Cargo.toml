@@ -8,10 +8,9 @@ edition = "2021"
 # Raise this when something here needs a newer compiler; nothing does yet.
 rust-version = "1.89"
 license = "MIT OR Apache-2.0"
-# Set these when the repository takes its name. They are inherited by every
-# crate, so changing them here changes them everywhere.
-repository = "https://github.com/UOR-Foundation/CHANGEME"
-homepage = "https://github.com/UOR-Foundation/CHANGEME"
+# Instantiated repositories set their own URLs here.
+repository = "https://github.com/UOR-Foundation/template"
+homepage = "https://github.com/UOR-Foundation/template"
 authors = ["UOR Foundation"]
 keywords = []
 categories = []

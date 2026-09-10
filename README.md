@@ -1,149 +1,36 @@
 # UOR project template
 
-A repository template with universal production policy and no product content.
-The versioned boundary is `uor/template-contract/1`; see
-[`TEMPLATE-CONTRACT.md`](TEMPLATE-CONTRACT.md).
+Shared repository policy for projects consuming PrismPM as an SDK. No
+application or organizational model is included.
 
-`just vv` passes as it stands. It has no shipped crates, an empty claim
-register, and an empty ledger --- and every check re-arms the moment the first
-capability is added, because the anti-vacuity checks are keyed to the register
-rather than asserted outright.
+## Create a repository
 
-## Create and verify a project
+1. Create a GitHub repository from this template and clone it.
+2. Set `workspace.package.repository` and `homepage` in `Cargo.toml`.
+3. Replace this README with the project's name, purpose, and current status.
+4. Keep the claim and authority registers empty until capabilities are defined.
+   Follow [AGENTS.md](AGENTS.md) when adding them.
 
-The only host prerequisites are Git, Docker with Buildx, and either VS Code's
-Dev Containers extension or the `devcontainer` command. Toolchains, PrismPM,
-LexLean, Lean, deployment adapters, and verification oracles come from the one
-multi-platform image selected by `prismpm.lock`.
+## SDK status
 
-1. Create a repository from the GitHub template and clone it.
-2. Open it in the devcontainer. VS Code pulls the manifest digest committed in
-   `prismpm.lock`; no installer or floating feature runs during creation.
-3. Run `prismpm template check`, then `just vv`.
-4. Name the project in `Cargo.toml`. Rename the non-published tooling crates if
-   useful, then add the first capability in the order `AGENTS.md` specifies.
+This template is not yet bound to a public SDK release. `prismpm.lock` and
+`template.lock` are absent; the devcontainer and complete `just vv` gate require
+those immutable bindings. Creating and naming a repository does
+not require selecting its model, standards, views, or deployment targets.
 
-The image supports `linux/amd64` and `linux/arm64`. The Docker socket and only
-the host's read-only Docker `config.json` are mounted into the development
-container, so registry credentials remain Docker-managed without admitting
-host CLI plugins. `docker buildx
-inspect --bootstrap` checks the selected builder before a multi-platform build.
-No Rust, Lean, Node, `just`, or deployment tool is required on the host.
+Once bound, open the repository in its digest-pinned devcontainer and run
+`just vv`. The host needs only Git, Docker with Buildx, and a devcontainer
+client. Do not substitute a vendored PrismPM checkout or host toolchain.
 
-Projects that need additional development tools may replace the direct image
-with a reviewed project Dockerfile whose `FROM` is the same SDK digest. Every
-added package, archive, and image must be represented in the project lock with
-an immutable digest. Floating Dev Container features and network installers are
-not an extension mechanism.
+## Repository boundary
 
-## What is here
+- `model/`, `features/suites/`, and generated `CONFORMANCE.md` describe project
+  claims. They begin empty; repository tooling is not a product implementation.
+- [TEMPLATE-CONTRACT.md](TEMPLATE-CONTRACT.md) defines inherited policy and the
+  immutable SDK/template update process.
+- [VERIFICATION.md](VERIFICATION.md) defines the full acceptance boundary;
+  [TEMPLATE-VERIFICATION.md](TEMPLATE-VERIFICATION.md) maps the scaffold's gates.
+- Reusable workflows are infrastructure. Do not enable publication or
+  deployment before the project model and its acceptance criteria exist.
 
-| Path | What it is |
-| --- | --- |
-| `model/` | the single source of every claim: the ID register, the ledger, the authorities |
-| `features/suites/` | one Gherkin scenario per conformance ID |
-| `crates/model` | parses `model/*.toml` and generates `CONFORMANCE.md` |
-| `crates/conformance` | the BDD runner and the honesty meta-gate |
-| `xtask/` | the gates: `check-model`, `audit-limits`, `audit-deferral` |
-| `template-contract.json`, `template.lock` | the universal template policy and exact upstream identity |
-| `prismpm.lock` | the exact SDK manifest, tool inventory, and standards identity |
-| `.github/workflows/prismpm.yml` | the reusable pipeline calling the full-commit-pinned shared PrismPM action |
-
-The contract classifies generated `CONFORMANCE.md` as project content, not as
-template-owned bytes. A template update therefore verifies native model
-regeneration but never replaces a downstream repository's generated evidence.
-
-## The gate
-
-| Recipe | What it does |
-| --- | --- |
-| `just vv` | the whole gate; everything below in order |
-| `just fmt-check` | formatting |
-| `just model` | the repository gates: R1, R4, R5 |
-| `just lint` | clippy at `-D warnings` |
-| `just test` | the workspace suite |
-| `just features` | every optional feature compiles, with its tests |
-| `just bdd` | R3 and the honesty meta-gate |
-| `just deny` | advisories, bans, licences and sources (needs `cargo-deny`) |
-| `just template-check` | SDK/template locks, direct devcontainer image, and CI trust-root policy |
-
-`AGENTS.md` defines the universal R1 through R6 discipline and
-`VERIFICATION.md` defines the inherited verification boundary.
-`TEMPLATE-VERIFICATION.md` maps this empty template's own gates and records the
-defects planted to prove they can fail.
-
-## CI and release use
-
-`.github/workflows/bootstrap.yml` is the small, hand-reviewed trust root and is
-not generated by PrismPM. Pull requests receive only `contents: read`; they
-check and build without publication or deployment credentials. The reusable
-`.github/workflows/prismpm.yml` builds one OCI graph in the read-only job,
-preserves it as an artifact, and passes its release digest into separately
-protected promotion, planning, deployment, and post-deployment checks. Each
-clean pull used for planning, deployment, or post-deployment checking is
-followed by an explicit `verify-release`, so the trust replay boundary is
-visible in the workflow. The later jobs never invoke `prismpm build`;
-deployment pushes only the evidence referrers attached to that original
-release digest. The protected release job
-asks the SDK to derive the identity-bound policy and trusted-root paths, signs
-and immediately verifies the local root manifest, records the candidate
-transition, and only then pushes the graph. After deployment verification, an
-unprivileged job clean-pulls and explicitly verifies the candidate, executes
-the SDK's complete public-feature and diagnostic conformance corpus, and
-transfers that acceptance-bearing graph as inert data. A second protected
-release job signs the complete deployment and acceptance evidence closure,
-records the accepted transition, pushes the new referrers without changing the
-root manifest, and a clean final job runs `verify-release` against the pulled
-accepted graph.
-
-An instantiated repository consumes the reusable workflow from a published
-template revision using that revision's complete 40-character commit ID. A tag
-or branch reference is not accepted policy. The repository's release caller
-grants `packages: write` and `id-token: write` only to a protected invocation;
-the reusable workflow further narrows each job. Configure required reviewers
-on the `release`, `production`, and `template-update` environments and protect
-the default branch before enabling deployment. Callers do not author signing
-policy or trust material: the SDK's `prepare-promotion` operation derives
-canonical paths from the locked release and protected Actions identity, and the
-SDK creates and verifies each standard signature bundle itself. Promotion,
-evidence signing, and final release replay fail closed while verifying the
-exact identity, issuer, repository, workflow, ref, environment, runner,
-registry signature, and transparency proof selected by that policy.
-
-`prismpm template check` never writes. `prismpm template update` emits a
-deterministic patch, and `.github/workflows/template-update.yml` turns that
-patch into a pull request from immutable inputs. It never pushes the downstream
-default branch. SDK changes are rendered in the template release process by
-`bootstrap/render.sh SDK_IMAGE ACTION_REFERENCE POLICY_INPUT_COMMIT`, reviewed
-as ordinary source changes, and then propagated through the same pull-request
-path. The source tree contains no value pretending to be a released digest or
-action revision: until a release supplies all three immutable inputs, the
-bootstrap audit and devcontainer deliberately fail closed.
-
-## Claim discipline
-
-Every claim carries one of three honesty levels, and the build fails if the two
-registers are blurred:
-
-| Level | Meaning |
-| --- | --- |
-| `some-true` | reproduced from an authority. **Not established here.** |
-| `build` | constructed here and validated against its oracle. Evidence, not proof. |
-| `open` | measured and reported, **never asserted**. |
-
-`CONFORMANCE.md` is generated from `model/`, so a claim cannot exist in the
-documentation without a register row, or in the register without appearing in
-the documentation.
-
-## Licence
-
-Dual-licensed under either of
-
-- Apache License, Version 2.0 ([`LICENSE-APACHE`](LICENSE-APACHE))
-- MIT license ([`LICENSE-MIT`](LICENSE-MIT))
-
-at your option.
-
-Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in this work by you, as defined in the Apache-2.0 licence, shall
-be dual-licensed as above, without any additional terms or conditions.
+Licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE).
