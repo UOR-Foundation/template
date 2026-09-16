@@ -66,6 +66,14 @@ devcontainer, and workflow pins. The release renderer additionally requires
 the policy commit to be the checked-out `HEAD` and its policy inputs to be
 clean; downstream update automation uses the same renderer module on the
 explicit policy snapshot that it checked out separately.
+The update workflow verifies that snapshot's `HEAD` equals the requested
+template commit and executes its renderer through a read-only mount against
+the downstream `/workspace`. It never labels the downstream repository's own
+`HEAD` as a template revision or executes its older project-owned renderer to
+implement a new template contract. Project-owned sources and conformance
+documents remain intact. A needed update to the downstream native bootstrap
+audit is a separately reviewed source patch, not an automatic overwrite of
+repository-specific acceptance gates.
 The rendered files are committed and checked, so opening a repository never
 depends on mutable discovery.
 

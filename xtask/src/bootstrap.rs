@@ -99,6 +99,9 @@ fn update_preserves_project_content(source: &str) -> bool {
             .and_then(|line| line.strip_suffix("; do"))
     }) == Some("AGENTS.md VERIFICATION.md template-contract.json .github/workflows/bootstrap.yml")
         && source.contains("prismpm.lock standards.lock template-contract.json template.lock")
+        && source.contains("test \"$(git -C .template-policy rev-parse HEAD)\" = \"$TEMPLATE_REVISION\"")
+        && source.contains("--volume \"$PWD/.template-policy:/template-policy:ro\"")
+        && source.contains("/template-policy/bootstrap/render.mjs \"$SDK_IMAGE\" \"$ACTION_REFERENCE\" \"$TEMPLATE_REVISION\" /sdk-platforms")
         && !source.contains(".github/workflows/ci.yml")
         && !source.contains(".github/workflows/honesty.yml")
         && !source.contains(".github/actions/prismpm")
@@ -588,6 +591,14 @@ mod tests {
         assert!(!update_preserves_project_content(
             &workflow.replace("prismpm.lock standards.lock", "prismpm.lock")
         ));
+        assert!(!update_preserves_project_content(&workflow.replace(
+            "/template-policy/bootstrap/render.mjs",
+            "bootstrap/render.mjs"
+        )));
+        assert!(!update_preserves_project_content(&workflow.replace(
+            "$PWD/.template-policy:/template-policy:ro",
+            "$PWD/.template-policy:/template-policy"
+        )));
         assert!(!update_preserves_project_content(&format!(
             "{workflow}\n          rm -f .github/workflows/honesty.yml\n"
         )));

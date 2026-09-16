@@ -51,13 +51,12 @@ jobs:
           [[ $SDK_IMAGE =~ ^[a-z0-9.-]+(:[0-9]{1,5})?/[a-z0-9./_-]+@sha256:[0-9a-f]{64}$ ]]
           [[ $ACTION_REFERENCE =~ ^UOR-Foundation/PrismPM/action@[0-9a-f]{40}$ ]]
           [[ $TEMPLATE_REVISION =~ ^[0-9a-f]{40}$ ]]
+          test "$(git -C .template-policy rev-parse HEAD)" = "$TEMPLATE_REVISION"
           # Only universal policy is copied; downstream workflows, renderers,
           # and conformance documents remain project-owned.
           for path in AGENTS.md VERIFICATION.md template-contract.json .github/workflows/bootstrap.yml; do
             install -D -m 0644 ".template-policy/$path" "$path"
           done
-          chmod 0755 bootstrap/render.sh
-          rm -rf .template-policy
           platform_bundle=$(mktemp -d)
           platform_container=
           cleanup_platform_bundle() {
@@ -86,11 +85,13 @@ jobs:
             --cap-drop ALL \
             --security-opt no-new-privileges \
             --volume "$PWD:/workspace" \
+            --volume "$PWD/.template-policy:/template-policy:ro" \
             --volume "$platform_bundle:/sdk-platforms:ro" \
             --workdir /workspace \
             --entrypoint node \
             "$SDK_IMAGE" \
-            bootstrap/render.mjs "$SDK_IMAGE" "$ACTION_REFERENCE" "$TEMPLATE_REVISION" /sdk-platforms
+            /template-policy/bootstrap/render.mjs "$SDK_IMAGE" "$ACTION_REFERENCE" "$TEMPLATE_REVISION" /sdk-platforms
+          rm -r -- .template-policy
           docker run --rm \
             --user "$(id -u):$(id -g)" \
             --network none \
