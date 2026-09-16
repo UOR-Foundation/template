@@ -31,6 +31,12 @@ It reads the exact image from `prismpm.lock`, confirms multi-platform Buildx and
 the devcontainer CLI, and invokes the repository's own `just vv` on pinned
 Linux runners. It copies only Docker's credential configuration into an
 ephemeral directory; host CLI plugins never enter the SDK command search path.
+Buildx state uses a separate private writable directory on the container's
+ephemeral `/tmp` mount, never the read-only credential directory or its parent.
+The native bootstrap guard rejects missing, misplaced or duplicate Buildx
+configuration, missing temporary storage, and permissive state creation.
+The reviewed container script must contain exactly one `umask 077` directive,
+before its first Buildx command.
 It is intentionally outside model-generated output so PrismPM
 cannot generate the sole policy that authorizes PrismPM.
 

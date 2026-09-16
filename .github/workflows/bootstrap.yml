@@ -50,11 +50,13 @@ jobs:
             --volume "$docker_config:/tmp/prismpm-home/.docker:ro" \
             --workdir "$PWD" \
             --env DOCKER_CONFIG=/tmp/prismpm-home/.docker \
+            --env BUILDX_CONFIG=/tmp/prismpm-buildx \
             --env HOME=/tmp/prismpm-home \
             --env PRISMPM_EPHEMERAL_HOME=1 \
             --env SDK_IMAGE="$image" \
             "$image" bash -c '
               set -euo pipefail
+              umask 077
               docker buildx version
               docker buildx inspect --bootstrap
               manifest=$(docker buildx imagetools inspect "$SDK_IMAGE")

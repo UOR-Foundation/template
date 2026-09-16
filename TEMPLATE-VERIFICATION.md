@@ -56,3 +56,42 @@ exact supplied bytes; a differing existing lock is rejected without changing
 it. The complete 11-test `xtask` suite, all-target Clippy and shell/Node syntax
 checks passed inside the SDK as UID 1000. This is byte-binding evidence, not a
 claim that the project has adopted or conforms to every referenced standard.
+
+## Private Buildx state with read-only credentials
+
+Foundry bootstrap run `35104180230` failed on both runner architectures before
+the repository gate: Buildx tried to create `.docker/buildx` inside the
+read-only credentials mount. The exact amd64 SDK candidate
+`ghcr.io/uor-foundation/prismpm-sdk-candidate@sha256:c2e0e50437e13d9b2e382d3af4ae7a962b469721b9b80f14f215d9254e8ed78f`
+reproduced `mkdir /tmp/prismpm-home/.docker/buildx: read-only file system`
+under UID 1000, with network disabled, an empty test-only credentials file
+mounted read-only, the socket's group, and the same private `/tmp` tmpfs.
+No owner credentials were read or mounted.
+
+With `BUILDX_CONFIG=/tmp/prismpm-buildx` and `umask 077`, actual `docker buildx
+version` and `docker buildx inspect --bootstrap` passed. The state directory
+was mode 0700, credentials stayed read-only and byte-identical, and no state
+was created inside the credential directory. The default Docker driver was
+inspected; no builder was created, selected, or removed. The disposable
+container's state vanished when it exited. This is native amd64 execution,
+not a claim that the updated hosted ARM job has already passed.
+
+The native guard's planted missing-state regression failed before the fix.
+It now rejects missing/duplicate configuration, paths inside either the
+credentials directory or its parent, missing tmpfs and permissive creation.
+An additional real-workflow mutation pair reproduced that the initial guard
+accepted an appended `umask 022` before Buildx and a `umask 077` moved after
+inspection. Both now fail: the scoped container-script check requires exactly
+one umask directive, exactly 077, before its first Buildx command. The final
+12-test xtask suite, both invoked Node tests, formatting and Clippy passed
+again; the actual Docker workflow was already correct and remained unchanged.
+All 20 workspace Rust tests (including all 12 xtask tests), both invoked
+Node tests, locked offline Clippy, all-features/all-target checks, formatting,
+model comparison and YAML/embedded-shell syntax passed under that exact SDK.
+The YAML check used the SDK's existing `js-yaml`; no tooling was installed.
+Raw RED/GREEN logs are retained under `target/template-buildx-*`.
+
+The template remains unbound: these component checks do not replace its
+required complete `just vv`, accept a production SDK, or waive universal
+policy. Downstream repositories must receive the changed workflow and policy
+through their normal reviewed template update.
