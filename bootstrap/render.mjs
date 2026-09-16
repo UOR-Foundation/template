@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 import { readFile, readdir, writeFile } from "node:fs/promises";
+import { createPlatformLock } from "/opt/prismpm/platform-lock.mjs";
 
-const [sdkImage, actionReference, templateRevision] = process.argv.slice(2);
+const [sdkImage, actionReference, templateRevision, platformDirectory] = process.argv.slice(2);
 const immutableImage = /^[a-z0-9.-]+(?::[0-9]{1,5})?\/[a-z0-9./_-]+@sha256:[0-9a-f]{64}$/;
 const immutableAction = /^UOR-Foundation\/PrismPM\/action@[0-9a-f]{40}$/;
 const revision = /^[0-9a-f]{40}$/;
@@ -42,79 +43,10 @@ const readCanonicalJson = async (path) => {
   return { bytes, value };
 };
 
-const inventory = await readCanonicalJson("/opt/prismpm/share/inventory.json");
-if (
-  inventory.value.schema !== "prismpm/sdk-inventory/1" ||
-  !Array.isArray(inventory.value.commands) ||
-  inventory.value.commands.length === 0 ||
-  !Array.isArray(inventory.value.artifacts) ||
-  inventory.value.artifacts.length === 0
-) {
-  throw new Error("SDK command or artifact inventory is absent or empty");
-}
-const inventoryRows = inventory.value.artifacts.map((row) => ({ ...row }));
-if (inventoryRows.some((row) => row.id === "sdk-manifest")) {
-  throw new Error("SDK artifact inventory must not predeclare its enclosing manifest");
-}
-inventoryRows.push({
-  digest: sdkImage.slice(sdkImage.indexOf("sha256:")),
-  id: "sdk-manifest",
-  kind: "image",
-  version: "0.3.0",
-});
-inventoryRows.sort((left, right) => Buffer.from(left.id).compare(Buffer.from(right.id)));
-if (new Set(inventoryRows.map((row) => row.id)).size !== inventoryRows.length) {
-  throw new Error("SDK artifact inventory contains duplicate IDs");
-}
-for (const row of inventoryRows) {
-  if (
-    typeof row !== "object" ||
-    Object.keys(row).sort().join("\n") !== "digest\nid\nkind\nversion" ||
-    !/^[^\n]{1,128}$/.test(row.id ?? "") ||
-    !/^[^\n]{1,128}$/.test(row.version ?? "") ||
-    !/^sha256:[0-9a-f]{64}$/.test(row.digest ?? "") ||
-    ![
-      "adapter",
-      "base-image",
-      "binary",
-      "crate",
-      "dependency-lock",
-      "image",
-      "oracle",
-      "schema",
-      "test-corpus",
-      "trust-root",
-      "workflow",
-    ].includes(row.kind)
-  ) {
-    throw new Error("SDK inventory has a malformed row");
-  }
-}
-const requiredKinds = [
-  "adapter",
-  "base-image",
-  "binary",
-  "crate",
-  "dependency-lock",
-  "image",
-  "oracle",
-  "schema",
-  "test-corpus",
-  "trust-root",
-  "workflow",
-];
-for (const kind of requiredKinds) {
-  if (!inventoryRows.some((row) => row.kind === kind)) {
-    throw new Error(`SDK inventory does not close ${kind} artifacts`);
-  }
-}
-for (const command of ["cargo", "devcontainer", "docker", "just", "prismpm"]) {
-  if (!inventory.value.commands.some((row) => row.command === command)) {
-    throw new Error(`SDK command inventory does not contain ${command}`);
-  }
-}
-
+if (platformDirectory !== "/sdk-platforms") throw new Error("SDK platform extraction bundle is required");
+const inventory = await readFile("/opt/prismpm/share/inventory.json");
 const standards = await readFile("/opt/prismpm/share/standards.lock");
+const platformLock = await createPlatformLock(platformDirectory, sdkImage, inventory, standards, process.arch);
 let previousSdkImage;
 try {
   const previousSdkLock = JSON.parse(await readFile("/workspace/prismpm.lock", "utf8"));
@@ -160,13 +92,7 @@ if (
 ) {
   throw new Error("template contract does not match uor/template-contract/1");
 }
-const sdkLock = encode({
-  inventory: inventoryRows,
-  schema: "prismpm/sdk-lock/1",
-  sdk_image: sdkImage,
-  sdk_version: "0.3.0",
-  standards_lock: sha(standards),
-});
+const sdkLock = encode(platformLock);
 const devcontainer = `${JSON.stringify(
   {
     name: "UOR PrismPM SDK",

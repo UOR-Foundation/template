@@ -37,7 +37,13 @@ policy.
 
 ## Locks and updates
 
-`prismpm.lock` selects one multi-platform SDK manifest by digest. `template.lock`
+`prismpm.lock` uses `prismpm/sdk-lock/2`: one exact multi-platform SDK index by
+digest and bytes, plus both `linux/amd64` and `linux/arm64` child manifests and
+their actual platform-specific artifact inventories. The SDK owns validation
+and generation; the template only extracts files from digest-selected images.
+It does not run foreign-architecture binaries or substitute host tools for
+the SDK. Legacy `/1` locks retain their strict native inventory comparison and
+are not treated as cross-platform inventories. `template.lock`
 binds that SDK identity, this contract's content digest, the template repository,
 and the full commit revision of the policy input from which the lock-bearing
 release was rendered. The policy-input revision is intentionally the preceding
@@ -55,7 +61,7 @@ independently published commit, and the preceding policy-input commit. No
 placeholder or mutable discovery file is committed. The renderer refuses
 anything except an OCI name with a lowercase SHA-256 manifest digest and a
 complete 40-character PrismPM action and policy commit, reads the inventory
-from that digest-selected SDK image, and regenerates the SDK-derived locks,
+from both exact children of that digest-selected SDK image index, and regenerates the SDK-derived locks,
 devcontainer, and workflow pins. The release renderer additionally requires
 the policy commit to be the checked-out `HEAD` and its policy inputs to be
 clean; downstream update automation uses the same renderer module on the

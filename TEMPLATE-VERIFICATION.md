@@ -30,3 +30,22 @@ added without the other two.
 `audit-deferral` reads every crate and `xtask`, including itself. Its token
 construction therefore cannot exempt the very gate in which a deferral could
 otherwise be hidden.
+
+## Platform-indexed SDK bootstrap
+
+The `/2` SDK lock renderer delegates index and inventory validation to the
+SDK-owned `platform-lock.mjs` helper. Transport extracts inventory and standards
+files from each exact `linux/amd64` and `linux/arm64` image child using Docker
+without executing the foreign architecture. The template native audit compares
+the detected platform's complete inventory and bytes; the legacy `/1` branch
+keeps its original exact comparison.
+
+All 10 template `xtask` tests and all-target Clippy passed, locked and offline,
+inside the existing PrismPM SDK as UID 1000. The new negative test rejects a
+swapped native inventory, missing platform, and legacy architecture drift.
+Shell and Node syntax checks passed. An isolated ignored Cargo target was used
+because older root-owned fingerprints prevented reuse of the default target;
+those unrelated artifacts were not changed. These focused tests do not claim
+the template's full `just vv` has accepted an unpublished candidate SDK. A real
+immutable multi-platform candidate and policy-input commit are still required
+before generating and committing the new locks.

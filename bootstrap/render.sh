@@ -87,13 +87,40 @@ if ! git -C "$repository_root" diff --quiet -- "$@" || \
   exit 64
 fi
 
+# Extract image-local facts from both exact index children without executing
+# foreign-architecture code. JSON and identity validation belongs to the SDK.
+platform_bundle=$(mktemp -d)
+platform_container=
+cleanup_platform_bundle() {
+  if [ -n "$platform_container" ]; then docker rm "$platform_container" >/dev/null; fi
+  if [ -d "$platform_bundle" ]; then rm -r -- "$platform_bundle"; fi
+}
+trap cleanup_platform_bundle EXIT HUP INT TERM
+docker buildx imagetools inspect --raw "$sdk_ref" > "$platform_bundle/index.json"
+docker run --rm -i \
+  --user "$(id -u):$(id -g)" --network none --cap-drop ALL \
+  --security-opt no-new-privileges --entrypoint node "$sdk_ref" \
+  /opt/prismpm/platform-lock.mjs index "$sdk_ref" \
+  < "$platform_bundle/index.json" > "$platform_bundle/children.txt"
+while read -r architecture child_ref; do
+  mkdir "$platform_bundle/$architecture"
+  docker pull --platform "linux/$architecture" "$child_ref"
+  docker image inspect --format '{{json .}}' "$child_ref" > "$platform_bundle/$architecture/image.json"
+  platform_container=$(docker create --platform "linux/$architecture" "$child_ref")
+  docker cp "$platform_container:/opt/prismpm/share/inventory.json" "$platform_bundle/$architecture/inventory.json"
+  docker cp "$platform_container:/opt/prismpm/share/standards.lock" "$platform_bundle/$architecture/standards.lock"
+  docker rm "$platform_container" >/dev/null
+  platform_container=
+done < "$platform_bundle/children.txt"
+
 docker run --rm \
   --user "$(id -u):$(id -g)" \
   --network none \
   --cap-drop ALL \
   --security-opt no-new-privileges \
   --volume "$repository_root:/workspace" \
+  --volume "$platform_bundle:/sdk-platforms:ro" \
   --workdir /workspace \
   --entrypoint node \
   "$sdk_ref" \
-  bootstrap/render.mjs "$sdk_ref" "$action_ref" "$template_revision"
+  bootstrap/render.mjs "$sdk_ref" "$action_ref" "$template_revision" /sdk-platforms
