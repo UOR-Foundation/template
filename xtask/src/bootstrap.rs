@@ -514,10 +514,10 @@ pub fn audit(root: &Path) -> Result<(), Fail> {
 #[cfg(test)]
 mod tests {
     use super::{
-        PROJECT_CONTENT_PATHS, UNIVERSAL_POLICY_PATHS, action_reference_is_pinned, content_matches,
-        docker_credentials_are_confined, immutable_image, pipeline_lifecycle_is_complete,
-        policy_boundary_is_canonical, sha256, update_preserves_project_content,
-        workflow_history_is_complete,
+        action_reference_is_pinned, content_matches, docker_credentials_are_confined,
+        immutable_image, pipeline_lifecycle_is_complete, policy_boundary_is_canonical, sha256,
+        update_preserves_project_content, workflow_history_is_complete, PROJECT_CONTENT_PATHS,
+        UNIVERSAL_POLICY_PATHS,
     };
 
     #[test]
