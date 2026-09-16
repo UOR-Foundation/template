@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import { createPlatformLock } from "/opt/prismpm/platform-lock.mjs";
+import { bindStandardsLock } from "./standards-lock.mjs";
 
 const [sdkImage, actionReference, templateRevision, platformDirectory] = process.argv.slice(2);
 const immutableImage = /^[a-z0-9.-]+(?::[0-9]{1,5})?\/[a-z0-9./_-]+@sha256:[0-9a-f]{64}$/;
@@ -47,6 +48,7 @@ if (platformDirectory !== "/sdk-platforms") throw new Error("SDK platform extrac
 const inventory = await readFile("/opt/prismpm/share/inventory.json");
 const standards = await readFile("/opt/prismpm/share/standards.lock");
 const platformLock = await createPlatformLock(platformDirectory, sdkImage, inventory, standards, process.arch);
+await bindStandardsLock("/workspace/standards.lock", standards);
 let previousSdkImage;
 try {
   const previousSdkLock = JSON.parse(await readFile("/workspace/prismpm.lock", "utf8"));

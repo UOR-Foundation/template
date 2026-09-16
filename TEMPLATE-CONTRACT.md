@@ -55,6 +55,12 @@ check` is read-only. `prismpm template update`
 emits a patch for review; automation may open a pull request
 containing that patch but may not write a downstream default branch directly.
 
+Initial rendering writes `standards.lock` from the selected SDK's exact,
+platform-validated bytes only when the project has no standards lock. An
+identical existing lock is retained; different project bytes stop rendering
+for explicit standards-change review. Bootstrap does not silently choose or
+overwrite project standards.
+
 Publishing a template release passes three explicit arguments to
 `bootstrap/render.sh`: the SDK manifest-list digest, the shared action's
 independently published commit, and the preceding policy-input commit. No

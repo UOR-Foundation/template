@@ -49,3 +49,10 @@ those unrelated artifacts were not changed. These focused tests do not claim
 the template's full `just vv` has accepted an unpublished candidate SDK. A real
 immutable multi-platform candidate and policy-input commit are still required
 before generating and committing the new locks.
+
+The initial standards binding adds two executable Node cases, also invoked
+by the ordinary `xtask` test suite: absent and matching locks preserve the
+exact supplied bytes; a differing existing lock is rejected without changing
+it. The complete 11-test `xtask` suite, all-target Clippy and shell/Node syntax
+checks passed inside the SDK as UID 1000. This is byte-binding evidence, not a
+claim that the project has adopted or conforms to every referenced standard.

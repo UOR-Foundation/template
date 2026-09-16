@@ -521,6 +521,19 @@ mod tests {
     };
 
     #[test]
+    fn initial_standards_binding_refuses_project_drift() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap();
+        let result = std::process::Command::new("node")
+            .args(["--test", "bootstrap/standards-lock.test.mjs"])
+            .current_dir(root)
+            .status()
+            .expect("the locked SDK supplies Node");
+        assert!(result.success(), "standards binding negative tests failed");
+    }
+
+    #[test]
     fn native_platform_inventory_rejects_swaps_missing_platforms_and_legacy_drift() {
         let bytes = |architecture: &str| {
             serde_json::to_vec(&serde_json::json!({"artifacts":[{

@@ -74,7 +74,8 @@ set -- \
   .github/workflows/prismpm.yml \
   .github/workflows/template-update.yml \
   AGENTS.md CONFORMANCE.md TEMPLATE-CONTRACT.md TEMPLATE-VERIFICATION.md VERIFICATION.md \
-  bootstrap/render.mjs bootstrap/render.sh template-contract.json
+  bootstrap/render.mjs bootstrap/render.sh \
+  bootstrap/standards-lock.mjs bootstrap/standards-lock.test.mjs template-contract.json
 for path do
   if ! git -C "$repository_root" ls-files --error-unmatch "$path" >/dev/null 2>&1; then
     printf '%s\n' "policy input is not committed: $path" >&2
