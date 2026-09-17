@@ -18,7 +18,7 @@ categories.workspace = true
 # Build-time and CI only. Not a dependency of any shipped crate; it may use std.
 [dependencies]
 serde = { version = "1", features = ["derive"] }
-toml = "0.8"
+toml = "1.1"
 
 [lints]
 workspace = true
