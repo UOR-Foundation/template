@@ -1,16 +1,47 @@
-version: 2
-updates:
-  - package-ecosystem: github-actions
-    directory: /
-    schedule:
-      interval: weekly
-    groups:
-      pinned-actions:
-        patterns: ["*"]
-  - package-ecosystem: cargo
-    directory: /
-    schedule:
-      interval: weekly
-    groups:
-      build-policy:
-        patterns: ["*"]
+{
+  "updates": [
+    {
+      "commit-message": {
+        "prefix": "chore(deps)"
+      },
+      "directory": "/",
+      "exclude-paths": [
+        ".github/workflows/bootstrap.yml"
+      ],
+      "groups": {
+        "pinned-actions": {
+          "patterns": [
+            "*"
+          ]
+        }
+      },
+      "ignore": [
+        {
+          "dependency-name": "UOR-Foundation/PrismPM/action"
+        }
+      ],
+      "package-ecosystem": "github-actions",
+      "schedule": {
+        "interval": "weekly"
+      }
+    },
+    {
+      "commit-message": {
+        "prefix": "chore(deps)"
+      },
+      "directory": "/",
+      "groups": {
+        "build-policy": {
+          "patterns": [
+            "*"
+          ]
+        }
+      },
+      "package-ecosystem": "cargo",
+      "schedule": {
+        "interval": "weekly"
+      }
+    }
+  ],
+  "version": 2
+}

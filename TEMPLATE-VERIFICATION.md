@@ -95,3 +95,35 @@ The template remains unbound: these component checks do not replace its
 required complete `just vv`, accept a production SDK, or waive universal
 policy. Downstream repositories must receive the changed workflow and policy
 through their normal reviewed template update.
+
+## SDK-owned dependency maintenance
+
+Dependabot uses canonical JSON-form YAML, checked structurally by
+`audit-dependency-updates` within `audit-bootstrap`. Duplicate keys, malformed
+values, missing or broader exclusions, and disabled maintenance are rejected.
+Only the SHA-pinned `UOR-Foundation/PrismPM/action` and byte-bound
+`.github/workflows/bootstrap.yml` use the reviewed SDK/template update flow.
+Other Actions and Cargo dependencies retain their weekly schedules and groups;
+both now request Conventional Commit prefixes.
+
+GitHub documents [dependency ignores and path exclusions](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference).
+The upstream [SHA-pinned subpath parser](https://github.com/dependabot/dependabot-core/blob/dc25739e082c6d97399b476ad4eb06b5559895e7/github_actions/lib/dependabot/github_actions/file_parser.rb#L148)
+confirms the exact action dependency name. The existing SDK's `js-yaml` 4.3.2
+independently parsed the configuration and preserved the prior schedules and
+groups; this inspection is not a new SDK API or general YAML conformance claim.
+
+The previous configuration failed the new gate. A canonical broad `*` ignore
+also failed the actual command; restoring the exact action passed. Negative
+tests cover omitted/wrong/extra exclusions, disabled or duplicate ecosystems,
+removed Cargo coverage, altered scheduling, and duplicate JSON keys.
+The byte-wise SHA formatter preserves exact empty-string and `abc` digests
+with unchanged sha2 0.10.9; the same correction fixes sha2 0.11 compilation in
+the separately verified Foundry dependency update. No dependency was changed
+here. Logs are retained under `target/template-dependabot-*` and
+`target/template-maintenance-*`.
+
+In the exact native AMD64 SDK above, all 22 workspace Rust tests and both
+invoked Node tests, formatting, Clippy, all-feature/all-target compilation,
+model/limit/deferral audits and dependency checks passed. Full `just vv`
+passes the new policy check, then rejects the template's existing absent
+`prismpm.lock`. No universal policy bytes changed or release gate was waived.

@@ -25,6 +25,7 @@ fn main() -> ExitCode {
         "audit-limits" => audit::audit_limits(&root),
         "audit-deferral" => audit::audit_deferral(&root),
         "audit-bootstrap" => bootstrap::audit(&root),
+        "audit-dependency-updates" => bootstrap::audit_dependency_updates(&root),
         "validate" => validate(&root),
         _ => {
             eprintln!(
@@ -34,6 +35,7 @@ fn main() -> ExitCode {
                  audit-limits      R5:  no bound that cannot be traced to a parameter\n\
                  audit-deferral    R4: no deferral marker, no stub, no capability behind a flag\n\
                  audit-bootstrap   immutable SDK and least-privilege workflow trust root\n\
+                 audit-dependency-updates   SDK ownership and ordinary dependency maintenance\n\
                  validate          run every gate above\n\
                  \n\
                  --write           check-model only: rewrite the generated file"

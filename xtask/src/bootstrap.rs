@@ -52,7 +52,12 @@ fn sdk_image(lock: &str) -> Option<&str> {
 }
 
 fn sha256(bytes: &[u8]) -> String {
-    format!("sha256:{:x}", Sha256::digest(bytes))
+    let digest = Sha256::digest(bytes);
+    let hex = digest
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    format!("sha256:{hex}")
 }
 
 fn content_matches(bytes: &[u8], expected: &str) -> bool {
@@ -372,8 +377,54 @@ fn workflow_files(root: &Path) -> Result<Vec<PathBuf>, Fail> {
     Ok(paths)
 }
 
+fn dependency_updates_are_confined(source: &str) -> bool {
+    let Ok(config) = serde_json::from_str::<serde_json::Value>(source) else {
+        return false;
+    };
+    // This policy uses canonical JSON-form YAML, not a general YAML parser.
+    // Round-tripping also rejects duplicate keys instead of accepting the last.
+    let Ok(encoded) = serde_json::to_string_pretty(&config) else {
+        return false;
+    };
+    if format!("{encoded}\n") != source {
+        return false;
+    }
+    config
+        == serde_json::json!({
+            "version": 2,
+            "updates": [
+                {
+                    "package-ecosystem": "github-actions",
+                    "directory": "/",
+                    "schedule": {"interval": "weekly"},
+                    "groups": {"pinned-actions": {"patterns": ["*"]}},
+                    "commit-message": {"prefix": "chore(deps)"},
+                    "ignore": [{"dependency-name": "UOR-Foundation/PrismPM/action"}],
+                    "exclude-paths": [".github/workflows/bootstrap.yml"]
+                },
+                {
+                    "package-ecosystem": "cargo",
+                    "directory": "/",
+                    "schedule": {"interval": "weekly"},
+                    "groups": {"build-policy": {"patterns": ["*"]}},
+                    "commit-message": {"prefix": "chore(deps)"}
+                }
+            ]
+        })
+}
+
+/// Keep SDK/template updates owned by their release flow, without disabling dependency maintenance.
+pub fn audit_dependency_updates(root: &Path) -> Result<(), Fail> {
+    if !dependency_updates_are_confined(&read(root, ".github/dependabot.yml")?) {
+        return Err("Dependabot policy must use canonical JSON-form YAML, exclude only the locked bootstrap and SDK action, and retain weekly Actions/Cargo maintenance".into());
+    }
+    println!("audit-dependency-updates: SDK ownership and ordinary maintenance are preserved");
+    Ok(())
+}
+
 /// Validate immutable SDK selection and the independent workflow trust root.
 pub fn audit(root: &Path) -> Result<(), Fail> {
+    audit_dependency_updates(root)?;
     if root.join(".github/actions/prismpm").exists() {
         return Err(
             "the template must consume the shared PrismPM action, not a copied wrapper".into(),
@@ -546,11 +597,125 @@ pub fn audit(root: &Path) -> Result<(), Fail> {
 #[cfg(test)]
 mod tests {
     use super::{
-        action_reference_is_pinned, content_matches, docker_credentials_are_confined,
-        immutable_image, pipeline_lifecycle_is_complete, policy_boundary_is_canonical, sha256,
-        update_preserves_project_content, workflow_history_is_complete, PROJECT_CONTENT_PATHS,
-        UNIVERSAL_POLICY_PATHS,
+        action_reference_is_pinned, content_matches, dependency_updates_are_confined,
+        docker_credentials_are_confined, immutable_image, pipeline_lifecycle_is_complete,
+        policy_boundary_is_canonical, sha256, update_preserves_project_content,
+        workflow_history_is_complete, PROJECT_CONTENT_PATHS, UNIVERSAL_POLICY_PATHS,
     };
+
+    #[test]
+    fn dependency_updates_preserve_sdk_ownership_and_ordinary_maintenance() {
+        let source = include_str!("../../.github/dependabot.yml");
+        assert!(dependency_updates_are_confined(source));
+        let original: serde_json::Value = serde_json::from_str(source).unwrap();
+        let encode = |value: &serde_json::Value| {
+            format!("{}\n", serde_json::to_string_pretty(value).unwrap())
+        };
+        for (pointer, value) in [
+            ("/updates/0/ignore", serde_json::json!([])),
+            (
+                "/updates/0/ignore",
+                serde_json::json!([
+                    {"dependency-name": "UOR-Foundation/PrismPM/action"},
+                    {"dependency-name": "actions/checkout"}
+                ]),
+            ),
+            (
+                "/updates/0/ignore/0/dependency-name",
+                serde_json::json!("*"),
+            ),
+            (
+                "/updates/0/ignore/0/dependency-name",
+                serde_json::json!("UOR-Foundation/PrismPM"),
+            ),
+            (
+                "/updates/0/ignore/0/dependency-name",
+                serde_json::json!("actions/checkout"),
+            ),
+            ("/updates/0/exclude-paths", serde_json::json!([])),
+            (
+                "/updates/0/exclude-paths",
+                serde_json::json!([
+                    ".github/workflows/bootstrap.yml",
+                    ".github/workflows/prismpm.yml"
+                ]),
+            ),
+            (
+                "/updates/0/exclude-paths/0",
+                serde_json::json!(".github/workflows/**"),
+            ),
+            (
+                "/updates/0/exclude-paths/0",
+                serde_json::json!("bootstrap.yml"),
+            ),
+            ("/updates/0/directory", serde_json::json!("/other")),
+            ("/updates/0/schedule/interval", serde_json::json!("never")),
+            (
+                "/updates/1/package-ecosystem",
+                serde_json::json!("github-actions"),
+            ),
+            (
+                "/updates/1/groups/build-policy/patterns",
+                serde_json::json!([]),
+            ),
+            (
+                "/updates/1/commit-message/prefix",
+                serde_json::json!("Bump"),
+            ),
+        ] {
+            let mut changed = original.clone();
+            *changed.pointer_mut(pointer).unwrap() = value;
+            assert!(
+                !dependency_updates_are_confined(&encode(&changed)),
+                "{pointer}"
+            );
+        }
+        for (key, value) in [
+            ("open-pull-requests-limit", serde_json::json!(0)),
+            ("target-branch", serde_json::json!("unused")),
+            ("allow", serde_json::json!([])),
+        ] {
+            for index in [0, 1] {
+                let mut changed = original.clone();
+                changed["updates"][index][key] = value.clone();
+                assert!(
+                    !dependency_updates_are_confined(&encode(&changed)),
+                    "{index}/{key}"
+                );
+            }
+        }
+        for field in ["ignore", "exclude-paths"] {
+            let mut changed = original.clone();
+            changed["updates"][0].as_object_mut().unwrap().remove(field);
+            assert!(!dependency_updates_are_confined(&encode(&changed)));
+        }
+        let mut changed = original.clone();
+        changed["updates"].as_array_mut().unwrap().pop();
+        assert!(!dependency_updates_are_confined(&encode(&changed)));
+        for malformed in [
+            source.replacen("\"version\": 2", "\"version\": 2, \"version\": 2", 1),
+            source.replace(
+                ".github/workflows/bootstrap.yml",
+                ".github/workflows/bootstrap.yml\", \"another.yml",
+            ),
+            "{}\n".to_string(),
+            "version: 2\n".to_string(),
+        ] {
+            assert!(!dependency_updates_are_confined(&malformed));
+        }
+    }
+
+    #[test]
+    fn sha256_identity_retains_canonical_lowercase_bytes() {
+        assert_eq!(
+            sha256(b""),
+            "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
+        assert_eq!(
+            sha256(b"abc"),
+            "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+    }
 
     #[test]
     fn initial_standards_binding_refuses_project_drift() {
