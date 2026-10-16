@@ -604,6 +604,33 @@ mod tests {
     };
 
     #[test]
+    fn bootstrap_retains_bounded_complete_acceptance_capacity() {
+        let source = include_str!("../../.github/workflows/bootstrap.yml");
+        let deadlines = source
+            .lines()
+            .filter_map(|line| line.trim().strip_prefix("timeout-minutes:"))
+            .collect::<Vec<_>>();
+        assert_eq!(deadlines.len(), 1, "one explicit native-job deadline");
+        let deadline = deadlines[0]
+            .trim()
+            .parse::<u64>()
+            .expect("a finite whole-minute deadline");
+        // Eight normal generations at the observed rounded-up 651 seconds
+        // already consume 87 minutes before proofs, oracles and mutations.
+        let observed_generation_seconds = 8 * 651;
+        assert!(
+            deadline * 60 > observed_generation_seconds,
+            "complete acceptance generations alone exceed the job budget"
+        );
+        assert!(deadline <= 180, "the job deadline remains bounded");
+        assert!(source.contains("runner: [ubuntu-24.04, ubuntu-24.04-arm]"));
+        assert!(source.contains("fail-fast: false"));
+        assert_eq!(source.matches("exec just vv").count(), 1);
+        assert!(!source.contains("continue-on-error:"));
+        assert!(!source.lines().any(|line| line.trim().starts_with("if:")));
+    }
+
+    #[test]
     fn dependency_updates_preserve_sdk_ownership_and_ordinary_maintenance() {
         let source = include_str!("../../.github/dependabot.yml");
         assert!(dependency_updates_are_confined(source));
