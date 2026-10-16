@@ -31,6 +31,47 @@ added without the other two.
 construction therefore cannot exempt the very gate in which a deferral could
 otherwise be hidden.
 
+## Capacity for the complete acceptance boundary
+
+The capacity scenario retains both native runners and the complete `just vv`
+command within one finite job deadline. The matrix application's current gate
+invokes eight complete application generations: ordinary build (one), ordinary
+verification (build plus independent replay, two), native product release
+(verification plus build, three), and two independent clean-root builds.
+The unchanged SDK implementation at
+[`c86c7156f7a36c0a164298c3a93dfe5d264d7a64`](https://github.com/UOR-Foundation/PrismPM/tree/c86c7156f7a36c0a164298c3a93dfe5d264d7a64)
+owns those build and replay calls: `verification::run` builds before its
+independent `application_build::generate_owned` replay, and
+`Controller::product_build` calls verification and then construction.
+
+Two complete 158-vector source-maintenance builds took 628.662812710 and
+650.163141852 seconds. Those are observations, not runtime guarantees or
+installed-SDK acceptance. A subsequent optimized source build took
+510.658195992 seconds, illustrating that timings vary. Eight generations at
+the larger observed duration would consume about 87 minutes before source
+proofs, the native corpus, browser oracles, authority scans and planted defects.
+The bootstrap therefore admits 180 minutes on each existing native runner.
+The policy regression uses the observed workload as a capacity scenario and
+also requires a finite deadline no greater than 180 minutes, both native
+platforms, the complete command and failure propagation. The template's empty
+product register and all universal acceptance gates remain intact.
+
+Before the deadline change, the actual named Rust regression failed with
+`complete acceptance generations alone exceed the job budget`. The changed
+policy is validated through the same test and the complete native template
+suite. This is a reviewed policy-input revision; immutable SDK rendering and
+the downstream complete `just vv` remain separate required gates.
+
+The 23 workspace Rust tests (including all 15 native bootstrap tests), both
+invoked Node cases, workspace/all-target Clippy with warnings denied,
+formatting, model comparison and all-features/all-target checks passed through
+the existing immutable amd64 SDK
+`sha256:46cf404780a7f05fe2bc667690320198fbed1ffadf4bb1899fd0472c6171e44d`.
+Restoring the old 45-minute value then failed the actual named regression;
+restoring the exact 180-minute workflow bytes passed again. These component
+checks do not claim complete hosted acceptance on either architecture or an
+installed new SDK qualification.
+
 ## Platform-indexed SDK bootstrap
 
 The `/2` SDK lock renderer delegates index and inventory validation to the
