@@ -122,11 +122,15 @@ fn no_scenario_is_pending_cm_02() {
 }
 
 /// `CM-03`: every `some-true` claim cites an authority that exists, with a
-/// citation and either a checksum or a stated reason for its absence.
+/// citation and either a checksum over a committed artifact that still matches
+/// it, or a stated reason for its absence.
 #[test]
 fn every_some_true_claim_cites_an_authority_cm_03() {
     let model = Model::load(&root().join("model")).expect("model loads");
     model.check().expect("the model is consistent");
+    model
+        .check_artifacts(&root())
+        .expect("every committed artifact is the one its checksum records");
 
     let mut some_true = 0usize;
     for claim in &model.ledger.claim {

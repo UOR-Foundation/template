@@ -95,7 +95,7 @@ pub fn render_conformance(model: &Model) -> String {
     let _ = writeln!(w);
     let _ = writeln!(w, "## Cited authorities");
     let _ = writeln!(w);
-    let _ = writeln!(w, "Never re-derived, vendored, or gated on.");
+    let _ = writeln!(w, "{}", crate::registry::AUTHORITY_RULE);
     let _ = writeln!(w);
     let _ = writeln!(w, "| Authority | Citation | Evidence here |");
     let _ = writeln!(w, "| --- | --- | --- |");

@@ -61,6 +61,7 @@ type Fail = Box<dyn std::error::Error>;
 fn check_model(root: &Path, write: bool) -> Result<(), Fail> {
     let model = Model::load(&root.join("model"))?;
     model.check()?;
+    model.check_artifacts(root)?;
 
     let conformance = codegen::render_conformance(&model);
     let conformance_path: PathBuf = root.join(codegen::CONFORMANCE_PATH);
