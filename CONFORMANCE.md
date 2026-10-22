@@ -20,7 +20,7 @@ model does not sanction.
 
 ## Cited authorities
 
-Never re-derived, vendored, or gated on.
+An authority is cited, never re-derived, and never gated on: what it states is not claimed as established here, so the claim that reproduces it stays `some-true`, and that is all "gated on" excludes. Its artifact (a standard's text, a corpus) may be committed when its row names the path in `artifact` and records in `checksum` a SHA-256 over the committed bytes, which `cargo xtask check-model` recomputes; a conformance test may then use a committed corpus as its oracle, as evidence for a `build` claim. With nothing committed, `checksum` is `none` and `checksum_reason` says why.
 
 | Authority | Citation | Evidence here |
 | --- | --- | --- |
