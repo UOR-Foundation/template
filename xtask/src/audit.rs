@@ -265,3 +265,266 @@ fn gather_all(dir: &Path, out: &mut Vec<PathBuf>) -> Result<(), Fail> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    //! The fixtures of `audit-limits`. Each builds a throwaway repository root
+    //! with its own register, one shipped crate and, where the case needs one,
+    //! the negative test, then runs the audit on it.
+    //!
+    //! The register rows live here and not in `model/ids.toml`: that register
+    //! is the template's own, it is empty, and a row in it would be copied into
+    //! every repository cut from the template.
+
+    use super::*;
+
+    const HEADER: &str = "spec = \"template/1\"\n";
+
+    /// A declared failure type, and the row whose test is its negative test.
+    const DECLARED: &str = "\n[[id]]\nid = \"OV-01\"\nlevel = \"build\"\nsuite = \"fixture\"\n\
+        statement = \"A value past the bound is refused as Overflow.\"\n\
+        failure = \"Overflow\"\nnegative = \"OV-02\"\n\
+        \n[[id]]\nid = \"OV-02\"\nlevel = \"build\"\nsuite = \"fixture\"\n\
+        statement = \"The refusal of a value past the bound is observed.\"\n";
+
+    /// The negative test, as a file of the shipped crate. One source line, so
+    /// that this file is not itself read as containing a test.
+    const NEGATIVE_TEST: &str = "#[test]\nfn refuses_a_value_past_the_bound_ov_02() {}\n";
+
+    const SHIPPED: &str = "[package]\nname = \"shipped\"\nversion = \"0.1.0\"\n";
+
+    struct Fixture {
+        root: PathBuf,
+    }
+
+    impl Fixture {
+        fn new(name: &str, ids: &str, lib: &str, test: Option<&str>) -> Self {
+            let root = std::env::temp_dir().join(format!(
+                "template-audit-limits-{}-{name}",
+                std::process::id()
+            ));
+            let _ = std::fs::remove_dir_all(&root);
+            let write = |rel: &str, text: &str| {
+                let path = root.join(rel);
+                std::fs::create_dir_all(path.parent().expect("a parent")).expect("mkdir");
+                std::fs::write(path, text).expect("write");
+            };
+            write(
+                "model/ids.toml",
+                &format!("{HEADER}{}", ids_with_header(ids)),
+            );
+            write("model/ledger.toml", &format!("{HEADER}claim = []\n"));
+            write(
+                "model/authorities.toml",
+                &format!("{HEADER}authority = []\n"),
+            );
+            write("crates/shipped/Cargo.toml", SHIPPED);
+            write("crates/shipped/src/lib.rs", lib);
+            if let Some(test) = test {
+                write("crates/shipped/tests/negative.rs", test);
+            }
+            Self { root }
+        }
+
+        fn audit(&self) -> Result<(), String> {
+            audit_limits(&self.root).map_err(|e| e.to_string())
+        }
+    }
+
+    impl Drop for Fixture {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.root);
+        }
+    }
+
+    fn ids_with_header(rows: &str) -> String {
+        if rows.trim().is_empty() {
+            "id = []\n".to_string()
+        } else {
+            rows.to_string()
+        }
+    }
+
+    fn rejected(fixture: &Fixture, needles: &[&str]) {
+        let message = fixture
+            .audit()
+            .expect_err("the audit must reject this fixture");
+        for needle in needles {
+            assert!(
+                message.contains(needle),
+                "the diagnostic must contain `{needle}`:\n{message}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_declared_failure_type_passes() {
+        let f = Fixture::new(
+            "declared",
+            DECLARED,
+            "pub type R<T> = Result<T, Overflow>;\n\
+             pub struct Overflow;\n\
+             pub fn f(x: u8) -> Result<u8, crate::Overflow> { Ok(x) }\n",
+            Some(NEGATIVE_TEST),
+        );
+        f.audit().expect("a declared type with its test passes");
+    }
+
+    #[test]
+    fn a_result_broken_across_lines_is_read_whole() {
+        let ok = Fixture::new(
+            "multiline-ok",
+            DECLARED,
+            "pub fn f() -> Result<\n    Vec<(u8, u8)>,\n    Overflow,\n> { body() }\n",
+            Some(NEGATIVE_TEST),
+        );
+        ok.audit().expect("the error type is on a later line");
+        let bad = Fixture::new(
+            "multiline-bad",
+            DECLARED,
+            "pub fn f() -> Result<\n    Vec<(u8, u8)>,\n    Other,\n> { body() }\n",
+            Some(NEGATIVE_TEST),
+        );
+        rejected(&bad, &["src/lib.rs:1", "`Other`", "not declared"]);
+    }
+
+    #[test]
+    fn an_undeclared_failure_type_fails() {
+        let f = Fixture::new(
+            "undeclared",
+            DECLARED,
+            "pub fn f() -> Result<u8, Other> { Ok(0) }\n",
+            Some(NEGATIVE_TEST),
+        );
+        rejected(&f, &["R5", "src/lib.rs:1", "`Other`", "not declared"]);
+    }
+
+    #[test]
+    fn no_error_type_is_sanctioned_without_a_declaration() {
+        // The three names the audit once carried are errors of one library; a
+        // register that does not declare them does not sanction them.
+        for name in ["NotAProduct", "ObservedBound", "KappaError"] {
+            let f = Fixture::new(
+                &format!("fixed-{name}"),
+                "",
+                &format!("pub fn f() -> Result<u8, {name}> {{ Ok(0) }}\n"),
+                None,
+            );
+            rejected(&f, &["R5", &format!("`{name}`"), "not declared"]);
+        }
+    }
+
+    #[test]
+    fn an_alias_that_hides_the_error_type_fails() {
+        for ret in ["std::io::Result<u8>", "Result<u8>"] {
+            let f = Fixture::new(
+                "alias",
+                DECLARED,
+                &format!("pub fn f() -> {ret} {{ Ok(0) }}\n"),
+                Some(NEGATIVE_TEST),
+            );
+            rejected(&f, &["R5", "names no error type"]);
+        }
+    }
+
+    #[test]
+    fn a_declared_type_without_its_negative_test_fails() {
+        let f = Fixture::new(
+            "no-test",
+            DECLARED,
+            "pub fn f() -> Result<u8, Overflow> { Ok(0) }\n",
+            None,
+        );
+        rejected(
+            &f,
+            &["R5", "`Overflow`", "OV-02", "no test name ends in `ov_02`"],
+        );
+    }
+
+    #[test]
+    fn a_declared_type_whose_negative_test_is_not_registered_fails() {
+        let ids = DECLARED.replace("negative = \"OV-02\"", "negative = \"OV-09\"");
+        let f = Fixture::new(
+            "unregistered",
+            &ids,
+            "pub fn f() -> Result<u8, Overflow> { Ok(0) }\n",
+            Some(NEGATIVE_TEST),
+        );
+        rejected(&f, &["OV-01", "`Overflow`", "OV-09", "not a registered ID"]);
+    }
+
+    #[test]
+    fn a_negative_test_is_a_build_claim() {
+        // An `open` claim is measured and never asserted, so it cannot be the
+        // row whose test asserts a refusal.
+        let ids = DECLARED.replace(
+            "id = \"OV-02\"\nlevel = \"build\"",
+            "id = \"OV-02\"\nlevel = \"open\"",
+        );
+        let f = Fixture::new(
+            "open-negative",
+            &ids,
+            "pub fn f() -> Result<u8, Overflow> { Ok(0) }\n",
+            Some(NEGATIVE_TEST),
+        );
+        rejected(&f, &["OV-02", "must be a `build` claim"]);
+    }
+
+    #[test]
+    fn a_declaration_is_a_pair_and_is_made_once() {
+        let no_negative = DECLARED.replace("negative = \"OV-02\"\n", "");
+        rejected(
+            &Fixture::new("no-negative", &no_negative, "", Some(NEGATIVE_TEST)),
+            &["OV-01", "names no negative test"],
+        );
+        let no_failure = DECLARED.replace("failure = \"Overflow\"\n", "");
+        rejected(
+            &Fixture::new("no-failure", &no_failure, "", Some(NEGATIVE_TEST)),
+            &["OV-01", "declares no failure type"],
+        );
+        let twice = format!(
+            "{DECLARED}\n[[id]]\nid = \"OV-03\"\nlevel = \"build\"\nsuite = \"fixture\"\n\
+             statement = \"Declared again.\"\nfailure = \"Overflow\"\nnegative = \"OV-02\"\n"
+        );
+        rejected(
+            &Fixture::new("twice", &twice, "", Some(NEGATIVE_TEST)),
+            &["Overflow", "OV-01", "OV-03", "declared twice"],
+        );
+    }
+
+    #[test]
+    fn a_crate_that_does_not_ship_is_not_audited() {
+        let f = Fixture::new(
+            "unshipped",
+            "",
+            "pub fn f() -> Result<u8, Other> { Ok(0) }\n",
+            None,
+        );
+        std::fs::write(
+            f.root.join("crates/shipped/Cargo.toml"),
+            format!("{SHIPPED}publish = false\n"),
+        )
+        .expect("write");
+        f.audit()
+            .expect("a publish = false crate may return anything");
+    }
+
+    #[test]
+    fn a_result_in_a_comment_or_a_test_module_is_not_audited() {
+        let f = Fixture::new(
+            "comments",
+            "",
+            "// fn f() -> Result<u8, Other>\n\
+             pub fn g() {}\n\
+             #[cfg(test)]\n\
+             mod tests {\n    fn h() -> Result<u8, Other> { Ok(0) }\n}\n",
+            None,
+        );
+        f.audit().expect("neither is behavior");
+    }
+
+    #[test]
+    fn the_template_itself_passes() {
+        audit_limits(&repo_model::repo_root()).expect("the template ships no failure");
+    }
+}
