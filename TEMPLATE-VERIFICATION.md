@@ -76,9 +76,11 @@ Rust 1.97.1 on `x86_64-pc-windows-gnu`, locked. Formatting passed, and
 all-target Clippy with warnings denied passed for `xtask`. These ran outside
 the SDK image, because no Docker host was available. Workspace Clippy on that
 target also reports `result_large_err` in `repo-model` on unchanged `main`; it
-is not part of this change. No hosted run exercised the new matrix or
-concurrency. The template's own bootstrap still stops before the gate because
-the template commits no `prismpm.lock`.
+is not part of this change. The change's own pull-request run on GitHub
+evaluated both expressions and started exactly one job,
+`acceptance / ubuntu-24.04`. That job then stopped before the gate, as every
+template run does, because the template commits no `prismpm.lock`. The main,
+tag and cancellation behavior have not yet run on a hosted runner.
 
 ## Platform-indexed SDK bootstrap
 
