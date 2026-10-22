@@ -7,6 +7,9 @@
 
 use std::path::{Path, PathBuf};
 
+use repo_conformance::workspace_test_names;
+use repo_model::Model;
+
 use crate::Fail;
 
 /// The crates that ship: every crate under `crates/` that is not
@@ -113,44 +116,130 @@ fn effective_lines(text: &str) -> Vec<(usize, &str)> {
     out
 }
 
-/// R5: no arbitrary limitation. Every bound is a property of the caller's
-/// chosen instantiation, never of the code.
+/// R5: every public failure is typed, modeled, documented, and covered by a
+/// negative test.
 ///
-/// Concretely: no shipped crate may return an error the model does not
-/// sanction. The absence of a class of error is checked here --- the absence of
-/// negative testing is only honest if there is nothing to test negatively.
+/// Concretely: a shipped crate may name an error type in a `Result` only if
+/// `model/ids.toml` declares that type (`failure`) together with the registered
+/// `build` row whose test is its negative test (`negative`), and that test
+/// exists. The sanctioned set is read off the register rather than listed here:
+/// a list in the gate would be a second source for what the model says (R1), and
+/// the error types of one repository are not the error types of the next.
 pub fn audit_limits(root: &Path) -> Result<(), Fail> {
-    let sources = shipped_sources(root)?;
-    // The only error type a shipped crate may name, plus the declaration check at
-    // a declared boundary, which is not the operation failing.
-    let sanctioned = ["NotAProduct", "ObservedBound", "KappaError"];
+    let model = Model::load(&root.join("model"))?;
+    let declared = model.ids.declared_failures()?;
+    let tests = workspace_test_names(root);
 
     let mut violations = Vec::new();
-    for src in &sources {
-        for (line_no, line) in effective_lines(&src.text) {
-            let Some(pos) = line.find("Result<") else {
+    for d in &declared {
+        let slug = d.negative.to_lowercase().replace('-', "_");
+        if !tests.iter().any(|t| t.ends_with(&slug)) {
+            violations.push(format!(
+                "{}: failure `{}` has negative test {}, but no test name ends in `{slug}`",
+                d.declared_by, d.type_name, d.negative
+            ));
+        }
+    }
+    for src in shipped_sources(root)? {
+        for (line_no, error) in result_errors(&src.text) {
+            let Some(error) = error else {
+                violations.push(format!(
+                    "{}:{line_no}: a `Result` that names no error type (an alias hides it); \
+                     write `Result<T, E>` with a declared `E`",
+                    src.rel
+                ));
                 continue;
             };
-            let tail = &line[pos..];
-            if sanctioned.iter().any(|s| tail.contains(s)) {
-                continue;
+            // The last segment of a path, so `crate::Overflow` is `Overflow`. A
+            // generic or compound type (`Box<dyn Error>`) is no declared name.
+            let name = error.rsplit("::").next().unwrap_or(&error).trim();
+            if !declared.iter().any(|d| d.type_name == name) {
+                violations.push(format!(
+                    "{}:{line_no}: error type `{error}` is not declared in model/ids.toml",
+                    src.rel
+                ));
             }
-            violations.push(format!("{}:{line_no}:{}", src.rel, line.trim()));
         }
     }
     if !violations.is_empty() {
         return Err(format!(
-            "R5: every bound is derived from declared parameters and is a \
-             property of the caller's chosen instantiation. The only reportable \
-             condition is that the requested object does not exist, reported at view \
-             construction. A `Result` over anything else is a limitation the model does \
-             not sanction.\n\n{}",
+            "R5: every public failure is typed, modeled, documented, and covered by a \
+             negative test. A shipped crate may name an error type in a `Result` only when a \
+             row of model/ids.toml declares it (`failure`) and names its negative test \
+             (`negative`), and that test exists.\n\n{}",
             violations.join("\n")
         )
         .into());
     }
-    println!("audit-limits: no shipped crate returns an unsanctioned error (R5)");
+    println!(
+        "audit-limits: every error type a shipped crate names is declared with a negative \
+         test ({} declared) (R5)",
+        declared.len()
+    );
     Ok(())
+}
+
+/// Every `Result<..>` in the effective code of `text`, with the line it opens
+/// on and the error type it names, or `None` when it names none.
+///
+/// Read across lines: a signature that rustfmt has broken over several lines is
+/// still one `Result`. The argument list is split on its top-level commas, so
+/// `Result<Vec<(u8, u8)>, E>` has the error type `E`.
+fn result_errors(text: &str) -> Vec<(usize, Option<String>)> {
+    let mut flat = String::new();
+    let mut starts: Vec<(usize, usize)> = Vec::new();
+    for (line_no, line) in effective_lines(text) {
+        starts.push((flat.len(), line_no));
+        flat.push_str(line);
+        flat.push(' ');
+    }
+    let line_of = |at: usize| {
+        let i = starts.partition_point(|(offset, _)| *offset <= at);
+        starts[i.saturating_sub(1)].1
+    };
+
+    let mut out = Vec::new();
+    let mut from = 0;
+    while let Some(found) = flat[from..].find("Result<") {
+        let open = from + found + "Result<".len();
+        from = open;
+        let mut depth = 1usize;
+        let mut args: Vec<&str> = Vec::new();
+        let mut arg_start = open;
+        let mut closed = false;
+        let bytes = flat.as_bytes();
+        for (i, &b) in bytes.iter().enumerate().skip(open) {
+            match b {
+                b'<' | b'(' | b'[' | b'{' => depth += 1,
+                // The arrow of `fn() -> T` is not a closing bracket.
+                b'>' if bytes[i - 1] == b'-' => {}
+                b'>' | b')' | b']' | b'}' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        args.push(&flat[arg_start..i]);
+                        closed = true;
+                        break;
+                    }
+                }
+                b',' if depth == 1 => {
+                    args.push(&flat[arg_start..i]);
+                    arg_start = i + 1;
+                }
+                _ => {}
+            }
+        }
+        let line = line_of(open);
+        // A trailing comma leaves an empty last argument.
+        while args.last().is_some_and(|a| a.trim().is_empty()) {
+            args.pop();
+        }
+        let error = match (closed, args.as_slice()) {
+            (true, [_, error]) => Some(error.trim().to_string()),
+            _ => None,
+        };
+        out.push((line, error));
+    }
+    out
 }
 
 /// R4: nothing is deferred. No deferral marker, no stub, no placeholder
@@ -425,6 +514,27 @@ mod tests {
             );
             rejected(&f, &["R5", "names no error type"]);
         }
+    }
+
+    #[test]
+    fn only_a_bare_type_name_is_a_declared_name() {
+        // `Box<dyn Error>` is not the declared type merely because it begins
+        // with a name; and the arrow of a function type does not end the
+        // argument list early.
+        let boxed = Fixture::new(
+            "boxed",
+            DECLARED,
+            "pub fn f() -> Result<u8, Box<dyn Overflow>> { Ok(0) }\n",
+            Some(NEGATIVE_TEST),
+        );
+        rejected(&boxed, &["R5", "`Box<dyn Overflow>`", "not declared"]);
+        let arrow = Fixture::new(
+            "arrow",
+            DECLARED,
+            "pub fn f() -> Result<fn(u8) -> u8, Other> { Ok(id) }\n",
+            Some(NEGATIVE_TEST),
+        );
+        rejected(&arrow, &["R5", "`Other`", "not declared"]);
     }
 
     #[test]

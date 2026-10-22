@@ -15,6 +15,16 @@
 # state: a capability that is not built does not get a row, and every row in this
 # file is built.
 #
+# A row that specifies a public failure declares its error type (R5):
+#
+#   failure   the error type, as written in `Result<_, E>`
+#   negative  the ID of the `build` row whose test provokes the refusal and
+#             observes it; this row's own ID when the row is that claim
+#
+# `cargo xtask audit-limits` lets a shipped crate name an error type in a
+# `Result` only when a row here declares it and the negative test exists. A type
+# is declared once. Nothing else sanctions a type: there is no list in the gate.
+#
 # The register is empty. This repository has no claims yet; adding one starts
 # with a row here, in the order `AGENTS.md` sets out.
 

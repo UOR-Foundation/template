@@ -23,9 +23,16 @@ added without the other two.
 | Gate | Planted defect | Result |
 | --- | --- | --- |
 | `check-model` | `CONFORMANCE.md` disagrees with the register | rejected |
+| `audit-limits` | a shipped crate returns `Result<_, E>` for an `E` no register row declares; a declared `E` whose negative test does not exist; one whose negative test is not a registered ID | all rejected |
 | `audit-deferral` | a deferral marker in a crate and in the gate's own source | both rejected |
 | honesty meta-gate | an ID with no test | armed by the empty register |
 | `audit-bootstrap` | a floating/copied action, mutable SDK tag, changed universal file, narrowed boundary, shallow/credential-retaining checkout, copied project renderer, omitted standards lock, acceptance bypass, deploy-job signing privilege, or incomplete release lifecycle | all rejected |
+
+`audit-limits` reads the sanctioned error types from `failure` and `negative` on
+register rows and has no list of its own. The template's register is empty, so
+its fixtures build throwaway repositories with their own registers: a declared
+type passes, an undeclared type fails, and a declared type without its negative
+test fails.
 
 `audit-deferral` reads every crate and `xtask`, including itself. Its token
 construction therefore cannot exempt the very gate in which a deferral could

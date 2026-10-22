@@ -23,4 +23,4 @@ pub mod meta;
 pub mod runner;
 
 pub use meta::{check_honesty, HonestyReport};
-pub use runner::{scenarios_in, Scenario, SuiteReport};
+pub use runner::{scenarios_in, workspace_test_names, Scenario, SuiteReport};

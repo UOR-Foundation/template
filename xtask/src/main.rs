@@ -32,7 +32,7 @@ fn main() -> ExitCode {
                 "cargo xtask <task>\n\
                  \n\
                  check-model       R1: model/*.toml is the single source; regenerate and diff\n\
-                 audit-limits      R5:  no bound that cannot be traced to a parameter\n\
+                 audit-limits      R5: a shipped crate names only error types the register declares, each with a negative test\n\
                  audit-deferral    R4: no deferral marker, no stub, no capability behind a flag\n\
                  audit-bootstrap   immutable SDK and least-privilege workflow trust root\n\
                  audit-dependency-updates   SDK ownership and ordinary dependency maintenance\n\

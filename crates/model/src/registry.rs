@@ -145,12 +145,102 @@ pub struct IdRow {
     pub suite: String,
     /// What the ID claims.
     pub statement: String,
+    /// The error type this row declares, when the row specifies a public
+    /// failure (R5). `cargo xtask audit-limits` sanctions a shipped crate's
+    /// `Result<_, E>` only for an `E` declared here.
+    #[serde(default)]
+    pub failure: Option<String>,
+    /// The ID of the `build` row whose test is the negative test of
+    /// [`Self::failure`]: the test that provokes the refusal and observes it. It
+    /// may be this row's own ID. Present exactly when `failure` is.
+    #[serde(default)]
+    pub negative: Option<String>,
+}
+
+/// A public failure type the register declares (R5).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DeclaredFailure<'a> {
+    /// The error type, as written in `Result<_, E>`.
+    pub type_name: &'a str,
+    /// The row that declares it.
+    pub declared_by: &'a str,
+    /// The ID of the row whose test is its negative test.
+    pub negative: &'a str,
 }
 
 impl Ids {
     /// Look up a row.
     pub fn get(&self, id: &str) -> Option<&IdRow> {
         self.id.iter().find(|r| r.id == id)
+    }
+
+    /// Every failure type the register declares, each with its negative test.
+    ///
+    /// A declaration is a pair: `failure` names the type and `negative` names a
+    /// registered `build` row, so the register itself says which test refuses
+    /// it. A type is declared once --- two rows declaring it would be two
+    /// sources for one failure (R1).
+    pub fn declared_failures(&self) -> Result<Vec<DeclaredFailure<'_>>, ModelError> {
+        let bad = |m: String| ModelError::Inconsistent(m);
+        let mut out: Vec<DeclaredFailure<'_>> = Vec::new();
+        for row in &self.id {
+            let (type_name, negative) = match (&row.failure, &row.negative) {
+                (None, None) => continue,
+                (Some(_), None) => {
+                    return Err(bad(format!(
+                        "{}: declares failure `{}` and names no negative test. Every public \
+                         failure is covered by a negative test (R5)",
+                        row.id,
+                        row.failure.as_deref().unwrap_or_default()
+                    )))
+                }
+                (None, Some(negative)) => {
+                    return Err(bad(format!(
+                        "{}: names negative test {negative} and declares no failure type",
+                        row.id
+                    )))
+                }
+                (Some(type_name), Some(negative)) => (type_name.as_str(), negative.as_str()),
+            };
+            if type_name.is_empty()
+                || type_name.starts_with(|c: char| c.is_ascii_digit())
+                || !type_name
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '_')
+            {
+                return Err(bad(format!(
+                    "{}: failure `{type_name}` is not a bare Rust type name",
+                    row.id
+                )));
+            }
+            if let Some(first) = out.iter().find(|d| d.type_name == type_name) {
+                return Err(bad(format!(
+                    "{}: failure `{type_name}` is declared twice, by {} and {} (R1)",
+                    row.id, first.declared_by, row.id
+                )));
+            }
+            let Some(target) = self.get(negative) else {
+                return Err(bad(format!(
+                    "{}: failure `{type_name}` names negative test {negative}, which is \
+                     not a registered ID (R5)",
+                    row.id
+                )));
+            };
+            if target.level != Level::Build {
+                return Err(bad(format!(
+                    "{}: negative test {negative} of failure `{type_name}` must be a `build` \
+                     claim, not `{}`: only a claim constructed here asserts a refusal (R2)",
+                    row.id,
+                    target.level.as_str()
+                )));
+            }
+            out.push(DeclaredFailure {
+                type_name,
+                declared_by: &row.id,
+                negative,
+            });
+        }
+        Ok(out)
     }
 }
 
