@@ -25,11 +25,60 @@ added without the other two.
 | `check-model` | `CONFORMANCE.md` disagrees with the register | rejected |
 | `audit-deferral` | a deferral marker in a crate and in the gate's own source | both rejected |
 | honesty meta-gate | an ID with no test | armed by the empty register |
-| `audit-bootstrap` | a floating/copied action, mutable SDK tag, changed universal file, narrowed boundary, shallow/credential-retaining checkout, copied project renderer, omitted standards lock, acceptance bypass, deploy-job signing privilege, or incomplete release lifecycle | all rejected |
+| `audit-bootstrap` | a floating/copied action, mutable SDK tag, changed universal file, narrowed boundary, shallow/credential-retaining checkout, copied project renderer, omitted standards lock, acceptance bypass, deploy-job signing privilege, incomplete release lifecycle, or a bootstrap that drops a native architecture from main or tags, cancels or replaces a main run, or skips runs by path, condition or matrix exclusion | all rejected |
 
 `audit-deferral` reads every crate and `xtask`, including itself. Its token
 construction therefore cannot exempt the very gate in which a deferral could
 otherwise be hidden.
+
+## One pull-request run, complete native coverage on main and tags
+
+Every instance inherits this bootstrap. Before this change, each pull request
+and each main push ran the complete `just vv` on both native runners, and
+nothing cancelled a superseded pull-request run. Those runner minutes are
+shared across the organization (UOR-Foundation/PrismPM#187). Repeating a
+deterministic gate on the same inputs adds time, not evidence
+(UOR-Foundation/PrismPM#210, UOR-Foundation/prism-code#25).
+
+A pull request now runs the complete gate once, natively on amd64, and a newer
+push to the same pull request cancels its older run. Every main push and every
+tag runs the complete gate on both native architectures. Each non-pull-request
+run has a concurrency group of its own. GitHub keeps at most one pending run
+per group, so a shared main group would replace a queued commit's run before
+it produced a verdict. The pull request's arm64 evidence therefore arrives on
+the merge commit, before any tag of it publishes.
+
+`native_coverage_is_complete`, part of `audit-bootstrap`, keeps that saving
+sound. It requires the main and tag triggers, one of exactly two runner
+matrices, and either no concurrency or exactly the pull-request-only
+cancellation. The two admissible matrices are both architectures on every
+event, or amd64 on pull requests and both elsewhere. The gate also rejects job
+conditions, `continue-on-error`, matrix inclusions or exclusions, and path,
+branch or tag filters.
+
+The new test, `dropped_native_coverage_plant_is_rejected`, failed against the
+previous workflow bytes: `assertion failed: native_coverage_is_complete(bootstrap)`.
+It passes against the changed workflow, and rejects eight planted defects:
+- arm64 removed from main and tags;
+- the two matrix legs swapped;
+- the tag trigger removed;
+- unconditional cancellation;
+- one shared main group;
+- a `paths-ignore` filter;
+- a job condition that skips arm64;
+- a matrix exclusion of arm64.
+
+Running both architectures on every event without concurrency stays
+admissible, because it is stronger than the policy.
+
+All 15 `xtask` tests, including both invoked Node cases, passed with the pinned
+Rust 1.97.1 on `x86_64-pc-windows-gnu`, locked. Formatting passed, and
+all-target Clippy with warnings denied passed for `xtask`. These ran outside
+the SDK image, because no Docker host was available. Workspace Clippy on that
+target also reports `result_large_err` in `repo-model` on unchanged `main`; it
+is not part of this change. No hosted run exercised the new matrix or
+concurrency. The template's own bootstrap still stops before the gate because
+the template commits no `prismpm.lock`.
 
 ## Platform-indexed SDK bootstrap
 
