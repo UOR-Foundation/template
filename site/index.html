@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Try Prism</title>
+<meta name="description" content="Run a verified Prism application in your browser. Nothing to install, no sign-in.">
+<script type="importmap">
+{ "imports": {
+  "prism-code/browser": "./vendor/prism-code-0.2.0/src/browser.mjs",
+  "node:crypto": "./shims/node-crypto.mjs"
+} }
+</script>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fbfaf7; --fg: #1d1c1a; --muted: #6b675f; --line: #dcd8cf; --card: #fff;
+    --ok: #17683a; --ok-bg: #e4f3ea; --bad: #a3261d; --bad-bg: #fbe6e3; --accent: #1d1c1a; --accent-fg: #fbfaf7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1f1f1e; --fg: #ecebe6; --muted: #a09c93; --line: #3a3936; --card: #272726;
+      --ok: #7fd6a0; --ok-bg: #1d3427; --bad: #f0a099; --bad-bg: #3b2321; --accent: #ecebe6; --accent-fg: #1f1f1e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 34rem; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  h2 { font-size: 1rem; margin: 0 0 12px; }
+  p { margin: 0 0 12px; }
+  .lede { color: var(--muted); margin-bottom: 20px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  .status { display: inline-block; padding: 2px 10px; border-radius: 999px; font-weight: 600; background: var(--line); }
+  .status.ok { background: var(--ok-bg); color: var(--ok); }
+  .status.bad { background: var(--bad-bg); color: var(--bad); }
+  .mono { font: 0.8rem/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow-wrap: anywhere; }
+  .muted { color: var(--muted); }
+  form { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  label { display: grid; gap: 2px; font-size: 0.85rem; color: var(--muted); }
+  input, select, button { font: inherit; min-height: 44px; border-radius: 8px; border: 1px solid var(--line); padding: 8px 12px; background: var(--bg); color: var(--fg); width: 100%; }
+  button { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 600; cursor: pointer; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid #4c8dff; outline-offset: 2px; }
+  .answer { margin-top: 12px; min-height: 3rem; }
+  .answer strong { font-size: 1.5rem; overflow-wrap: anywhere; }
+  .answer.bad strong { color: var(--bad); }
+  .result { margin-top: 12px; font-weight: 600; }
+  .result.ok { color: var(--ok); }
+  .result.bad { color: var(--bad); }
+  ul { padding-left: 1.2rem; margin: 0; }
+  a { color: inherit; }
+  @media (min-width: 30rem) { form { grid-template-columns: 1fr 9rem 1fr; align-items: end; } form button { grid-column: 1 / -1; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Try Prism</h1>
+  <p class="lede">A verified Prism application, running in this page. Nothing to install, no sign-in.</p>
+
+  <section aria-labelledby="h-verify">
+    <h2 id="h-verify">1. Is it the real thing?</h2>
+    <p><span id="verified" class="status" role="status">Loading…</span></p>
+    <p class="muted">Calculator.holo was fetched and its BLAKE3 hashes recomputed in your browser. Fingerprint:</p>
+    <p class="mono" id="fingerprint">-</p>
+    <p class="muted">The hashes prove these are the exact bytes that were built. The Lean proofs are shipped inside the archive; this page does not re-check them.</p>
+  </section>
+
+  <section aria-labelledby="h-ask">
+    <h2 id="h-ask">2. Ask the application</h2>
+    <form id="ask" autocomplete="off">
+      <label>First number<input id="a" inputmode="numeric" value="20" required></label>
+      <label>Operation
+        <select id="op">
+          <option value="add">add</option>
+          <option value="subtract">subtract</option>
+          <option value="multiply">multiply</option>
+          <option value="divide">divide</option>
+        </select>
+      </label>
+      <label>Second number<input id="b" inputmode="numeric" value="22" required></label>
+      <button type="submit" id="send" disabled>Ask</button>
+    </form>
+    <div class="answer" id="answer" aria-live="polite"></div>
+    <p class="mono muted" id="wire"></p>
+  </section>
+
+  <section aria-labelledby="h-vectors">
+    <h2 id="h-vectors">3. Replay its acceptance tests</h2>
+    <p class="muted">The model ships 22 request and response pairs, including overflow and malformed input. Each runs on a fresh instance of the guest.</p>
+    <button type="button" id="replay" disabled>Replay acceptance vectors</button>
+    <p class="result" id="vectors" role="status" aria-live="polite"></p>
+  </section>
+
+  <section aria-labelledby="h-next">
+    <h2 id="h-next">Next</h2>
+    <ul>
+      <li><a id="codespace" href="https://codespaces.new/UOR-Foundation/template?devcontainer_path=.devcontainer%2Ftry%2Fdevcontainer.json">Open it in a GitHub Codespace</a> and run it from a terminal.</li>
+      <li><a href="https://www.npmjs.com/package/prism-code/v/0.2.0">prism-code 0.2.0</a> on npm: <code>npx prism-code run Calculator.holo</code></li>
+      <li><a href="https://github.com/UOR-Foundation/PrismPM">PrismPM</a>, the SDK that builds these.</li>
+    </ul>
+  </section>
+</main>
+
+<script type="module">
+import { load } from 'prism-code/browser';
+
+const $ = (id) => document.getElementById(id);
+const enc = new TextEncoder();
+const dec = new TextDecoder();
+const started = performance.now();
+let app;
+
+try {
+  app = await load('./Calculator.holo');
+  const ok = app.identities.verified === true;
+  $('verified').textContent = ok ? 'Verified' : 'Not verified';
+  $('verified').className = `status ${ok ? 'ok' : 'bad'}`;
+  $('fingerprint').textContent = app.identities.archiveFingerprint;
+  $('send').disabled = false;
+  $('replay').disabled = false;
+  document.documentElement.dataset.ready = String(Math.round(performance.now() - started));
+} catch (error) {
+  $('verified').textContent = 'Could not load';
+  $('verified').className = 'status bad';
+  $('fingerprint').textContent = String(error && error.message || error);
+}
+
+// Wire format: version 1, operation and two integers, tab-separated.
+$('ask').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (!app) return;
+  const request = `1\t${$('op').value}\t${$('a').value.trim()}\t${$('b').value.trim()}`;
+  const response = dec.decode(await app.dispatch(enc.encode(request)));
+  const [, status, value] = response.split('\t');
+  const answer = $('answer');
+  answer.className = `answer ${status === 'ok' ? '' : 'bad'}`;
+  answer.replaceChildren();
+  const strong = document.createElement('strong');
+  strong.id = 'answer-value';
+  strong.textContent = status === 'ok' ? value : `refused: ${value ?? response}`;
+  answer.append(strong);
+  $('wire').textContent = `sent ${JSON.stringify(request)}  guest answered ${JSON.stringify(response)}`;
+});
+
+$('replay').addEventListener('click', async () => {
+  const out = $('vectors');
+  out.className = 'result';
+  out.textContent = 'Running…';
+  const { total, passed, failed } = await app.acceptance();
+  const good = failed.length === 0 && passed === total;
+  out.className = `result ${good ? 'ok' : 'bad'}`;
+  out.textContent = `${passed}/${total} passed${good ? '' : `, ${failed.length} failed`}`;
+});
+</script>
+</body>
+</html>
