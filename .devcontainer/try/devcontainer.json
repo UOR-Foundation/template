@@ -1,0 +1,13 @@
+{
+  "name": "Prism try",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22-bookworm@sha256:6d8043227ca99e19621859b847bbdb95a985f592e2f23b289d631a7184957b9a",
+  "postCreateCommand": "npm install --global --no-audit --no-fund prism-code@0.2.0",
+  "postStartCommand": "nohup prism-code run \"$(npm root --global)/prism-code/fixtures/Calculator.holo\" --port 8080 > /tmp/calculator.log 2>&1 &",
+  "forwardPorts": [8080],
+  "portsAttributes": {
+    "8080": {
+      "label": "Calculator",
+      "onAutoForward": "openBrowser"
+    }
+  }
+}
