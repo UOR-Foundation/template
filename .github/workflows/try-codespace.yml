@@ -1,0 +1,57 @@
+name: try codespace
+
+# Builds the try-tier devcontainer exactly as a codespace does (devcontainer up),
+# then requires the Calculator inside it to be serving and to replay 22/22.
+
+on:
+  pull_request:
+    paths: ['.devcontainer/try/**', '.github/workflows/try-codespace.yml']
+  push:
+    branches: [main]
+    paths: ['.devcontainer/try/**', '.github/workflows/try-codespace.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: try-codespace-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  devcontainer:
+    name: devcontainer up, 22/22
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - name: Install the devcontainer CLI
+        run: npm install --global --no-audit --no-fund @devcontainers/cli@0.89.0
+      - name: devcontainer up
+        run: |
+          start=$(date +%s)
+          devcontainer up --workspace-folder . --config .devcontainer/try/devcontainer.json
+          echo "devcontainer up took $(( $(date +%s) - start )) s" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: The Calculator is serving the view and answering through the guest
+        run: |
+          devcontainer exec --workspace-folder . --config .devcontainer/try/devcontainer.json bash -euc '
+            for i in $(seq 1 30); do curl -fs localhost:8080/ >/dev/null && break; sleep 1; done
+            curl -fs localhost:8080/ | grep -qi "<html"
+            answer=$(curl -fs -X POST localhost:8080/_hologram/intent \
+              -d "{\"version\":1,\"name\":\"application.invoke\",\"payload\":\"1\tadd\t20\t22\"}")
+            echo "$answer"
+            test "$answer" = "{\"version\":1,\"outputs\":[\"1\tok\t42\"]}"
+          '
+      - name: Replay the acceptance vectors, 22/22 required
+        run: |
+          devcontainer exec --workspace-folder . --config .devcontainer/try/devcontainer.json bash -euc '
+            out=$(npx --no-install prism-code vectors "$(npm root --global)/prism-code/fixtures/Calculator.holo")
+            echo "$out"
+            grep -q "^22 of 22 vectors passed" <<< "$out"
+          '

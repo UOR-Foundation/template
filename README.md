@@ -5,12 +5,29 @@ application or organizational model is included.
 
 ## Try Prism first
 
-[Run a verified Prism application in your browser](https://uor-foundation.github.io/template/):
-nothing to install, no sign-in. The page loads `Calculator.holo`, recomputes its
-BLAKE3 hashes, asks it `add 20 22`, and replays its 22 acceptance vectors. It is
-plain static files in [`site/`](site/), running [`prism-code`](https://www.npmjs.com/package/prism-code)
-0.2.0 vendored from npm; `site/vendor.mjs --check` proves the copy is the
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/UOR-Foundation/template?quickstart=1&devcontainer_path=.devcontainer%2Ftry%2Fdevcontainer.json)
+&nbsp;or&nbsp;
+[run it in your browser](https://uor-foundation.github.io/template/), no sign-in.
+
+The page loads `Calculator.holo`, recomputes its BLAKE3 hashes, asks it
+`add 20 22`, and replays its 22 acceptance vectors. It is plain static files in
+[`site/`](site/), running [`prism-code`](https://www.npmjs.com/package/prism-code)
+0.2.0 vendored from npm; `node site/vendor.mjs --check` proves the copy is the
 published release.
+
+The badge opens a small Node 22 codespace ([`.devcontainer/try/`](.devcontainer/try/devcontainer.json),
+no SDK image) that installs `prism-code` and serves the same Calculator on
+port 8080; your browser opens on it with no command typed. Then, in its terminal:
+
+```
+npx prism-code vectors "$(npm root -g)/prism-code/fixtures/Calculator.holo"   # replay 22 acceptance vectors, exit 1 on a failure
+npx prism-code inspect "$(npm root -g)/prism-code/fixtures/Calculator.holo"   # identities, limits, provenance
+tail /tmp/calculator.log                                                      # the running server
+```
+
+To build your own application you need the SDK image and Docker, which the try
+codespace deliberately does not carry; see the build tier in
+[`prism-code`](https://github.com/UOR-Foundation/prism-code).
 
 ## Create a repository
 
