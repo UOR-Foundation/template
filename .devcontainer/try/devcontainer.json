@@ -1,0 +1,14 @@
+{
+  "name": "Try Prism",
+  "image": "node:22-bookworm@sha256:63538dfe497cc29dfafdda25ada09b46db68a3f4cc205abf1f5d6bf0913f3384",
+  "remoteUser": "root",
+  "postCreateCommand": "npm install --no-save --omit=dev prism-code@0.2.0",
+  "postStartCommand": "bash -lc 'nohup ./node_modules/.bin/prism-code run try/vendor/prism-code/fixtures/Calculator.holo --port 8080 --host 0.0.0.0 > /tmp/prism-code.log 2>&1 &'",
+  "forwardPorts": [8080],
+  "portsAttributes": {
+    "8080": {
+      "label": "Calculator",
+      "onAutoForward": "openBrowser"
+    }
+  }
+}
