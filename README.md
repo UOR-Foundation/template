@@ -3,6 +3,11 @@
 Shared repository policy for projects consuming PrismPM as an SDK. No
 application or organizational model is included.
 
+## Try it
+
+- [Open the browser try page](https://uor-foundation.github.io/template/) — load, verify and run `Calculator.holo` entirely in the page, with no install.
+- [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/UOR-Foundation/template?devcontainer_path=.devcontainer/try/devcontainer.json) — a terminal runs the Calculator and opens the port-8080 view.
+
 ## Create a repository
 
 1. Create a GitHub repository from this template and clone it.

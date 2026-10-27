@@ -1,0 +1,11 @@
+{
+  "name": "uor-template-try",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:try": "node --test try/test.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}

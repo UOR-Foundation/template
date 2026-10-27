@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Load, verify and run a Prism SDK application entirely in the browser."
+    />
+    <title>Try Prism — a verified application</title>
+    <link rel="stylesheet" href="./try.css" />
+  </head>
+  <body>
+    <main>
+      <header class="intro">
+        <p class="eyebrow">Prism SDK</p>
+        <h1>Run a verified app in your browser</h1>
+        <p class="lede">
+          This page loads <code>Calculator.holo</code> with the vendored
+          <code>prism-code</code> runtime, verifies its BLAKE3 archive
+          fingerprint, and dispatches requests through the Core-Wasm guest.
+          Nothing is uploaded and nothing is installed.
+        </p>
+      </header>
+
+      <section class="card" aria-labelledby="identity-title">
+        <h2 id="identity-title">Archive identity</h2>
+        <dl class="facts">
+          <div>
+            <dt>Status</dt>
+            <dd id="verified" aria-live="polite">loading…</dd>
+          </div>
+          <div>
+            <dt>Fingerprint</dt>
+            <dd><code id="fingerprint">—</code></dd>
+          </div>
+          <div>
+            <dt>Application</dt>
+            <dd id="application">—</dd>
+          </div>
+          <div>
+            <dt>Limits</dt>
+            <dd id="limits">—</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="card" aria-labelledby="request-title">
+        <h2 id="request-title">Send a request</h2>
+        <form id="calc" class="request">
+          <label>
+            <span>Operation</span>
+            <select id="op">
+              <option value="add" selected>add</option>
+              <option value="sub">sub</option>
+              <option value="mul">mul</option>
+              <option value="div">div</option>
+            </select>
+          </label>
+          <label>
+            <span>A</span>
+            <input id="a" type="number" inputmode="numeric" value="20" required />
+          </label>
+          <label>
+            <span>B</span>
+            <input id="b" type="number" inputmode="numeric" value="22" required />
+          </label>
+          <button type="submit">Send request</button>
+        </form>
+        <p class="answer" aria-live="polite">
+          Answer: <strong id="answer">—</strong>
+        </p>
+        <p class="wire">Response: <code id="raw">—</code></p>
+      </section>
+
+      <section class="card" aria-labelledby="vectors-title">
+        <h2 id="vectors-title">Replay the proof</h2>
+        <p>
+          The archive carries the modeled acceptance vectors. Replaying them
+          compares bytes through the same guest on a fresh instance.
+        </p>
+        <button id="replay" type="button">Replay acceptance vectors</button>
+        <p class="vectors" aria-live="polite">
+          Vectors: <strong id="vectors">—</strong>
+        </p>
+        <ul id="failures" class="failures"></ul>
+      </section>
+
+      <footer class="outro">
+        <p>
+          Want a terminal?
+          <a
+            href="https://codespaces.new/UOR-Foundation/template?devcontainer_path=.devcontainer/try/devcontainer.json"
+            >Open this repository in a Codespace</a
+          >.
+        </p>
+        <p class="small">
+          The archive and the vendored runtime are served from this page's own
+          origin. The runtime is pinned to <code>prism-code@0.2.0</code>.
+        </p>
+      </footer>
+    </main>
+    <script type="importmap">
+      {
+        "imports": {
+          "node:crypto": "./vendor/node-crypto-shim.mjs"
+        }
+      }
+    </script>
+    <script type="module" src="./try.mjs"></script>
+  </body>
+</html>
