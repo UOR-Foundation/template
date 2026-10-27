@@ -4,11 +4,19 @@ name: bootstrap
 on:
   push:
     branches: [main]
+    tags: ['**']
   pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
+
+# A newer push to a pull request cancels its older run. Every other run has a
+# group of its own, so a main or tag run is never cancelled, and never replaced
+# while queued, and every merged or released commit keeps its verdict.
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('bootstrap-pr-{0}', github.event.pull_request.number) || format('bootstrap-run-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   template-gate:
@@ -16,7 +24,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+        # A pull request runs the complete gate once, natively on amd64. Main and
+        # tags run it on both native architectures before anything is published.
+        runner: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-24.04"]' || '["ubuntu-24.04", "ubuntu-24.04-arm"]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     steps:

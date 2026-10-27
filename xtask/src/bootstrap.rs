@@ -119,6 +119,49 @@ fn policy_boundary_is_canonical(universal: &[&str], project: &[&str], required: 
             .all(|pair| pair[0].as_bytes() < pair[1].as_bytes())
 }
 
+/// A pull request may run the complete gate once, on amd64, because its merge
+/// commit is verified again on main. That saving is only sound while every main
+/// push and tag still runs the complete gate on both native architectures, and
+/// while nothing except a newer push to the same pull request can cancel or
+/// replace a run: GitHub keeps one pending run per concurrency group, so a
+/// shared main group would silently drop the verdict of a queued commit.
+fn native_coverage_is_complete(bootstrap: &str) -> bool {
+    const TRIGGERS: &str = "on:\n  push:\n    branches: [main]\n    tags: ['**']\n  pull_request:\n  workflow_dispatch:\n\n";
+    const BOTH: &str = "[ubuntu-24.04, ubuntu-24.04-arm]";
+    const PULL_REQUEST_AMD64: &str = r#"${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-24.04"]' || '["ubuntu-24.04", "ubuntu-24.04-arm"]') }}"#;
+    const GROUP: &str = "${{ github.event_name == 'pull_request' && format('bootstrap-pr-{0}', github.event.pull_request.number) || format('bootstrap-run-{0}', github.run_id) }}";
+    const CANCEL: &str = "${{ github.event_name == 'pull_request' }}";
+    let values = |key: &str| {
+        bootstrap
+            .lines()
+            .filter_map(|line| line.trim().strip_prefix(key))
+            .map(str::trim)
+            .collect::<Vec<_>>()
+    };
+    let runners = values("runner:");
+    let groups = values("group:");
+    let cancels = values("cancel-in-progress:");
+    let skips_runs = bootstrap.lines().map(str::trim).any(|line| {
+        [
+            "if:",
+            "continue-on-error:",
+            "include:",
+            "exclude:",
+            "paths:",
+            "paths-ignore:",
+            "branches-ignore:",
+            "tags-ignore:",
+        ]
+        .iter()
+        .any(|key| line.starts_with(key))
+    });
+    bootstrap.contains(TRIGGERS)
+        && (runners == [BOTH] || runners == [PULL_REQUEST_AMD64])
+        && values("runs-on:") == ["${{ matrix.runner }}"]
+        && ((groups.is_empty() && cancels.is_empty()) || (groups == [GROUP] && cancels == [CANCEL]))
+        && !skips_runs
+}
+
 fn workflow_history_is_complete(source: &str) -> bool {
     source.split("\n      - ").all(|step| {
         !step.contains("uses: actions/checkout@")
@@ -507,6 +550,12 @@ pub fn audit(root: &Path) -> Result<(), Fail> {
                 .into(),
         );
     }
+    if !native_coverage_is_complete(&bootstrap) {
+        return Err(
+            "bootstrap.yml must run the complete gate on both native architectures for every main push and tag, and never cancel or replace those runs"
+                .into(),
+        );
+    }
 
     for path in workflow_files(root)? {
         let source = std::fs::read_to_string(&path)?;
@@ -598,10 +647,66 @@ pub fn audit(root: &Path) -> Result<(), Fail> {
 mod tests {
     use super::{
         action_reference_is_pinned, content_matches, dependency_updates_are_confined,
-        docker_credentials_are_confined, immutable_image, pipeline_lifecycle_is_complete,
-        policy_boundary_is_canonical, sha256, update_preserves_project_content,
-        workflow_history_is_complete, PROJECT_CONTENT_PATHS, UNIVERSAL_POLICY_PATHS,
+        docker_credentials_are_confined, immutable_image, native_coverage_is_complete,
+        pipeline_lifecycle_is_complete, policy_boundary_is_canonical, sha256,
+        update_preserves_project_content, workflow_history_is_complete, PROJECT_CONTENT_PATHS,
+        UNIVERSAL_POLICY_PATHS,
     };
+
+    #[test]
+    fn dropped_native_coverage_plant_is_rejected() {
+        let bootstrap = include_str!("../../.github/workflows/bootstrap.yml");
+        assert!(native_coverage_is_complete(bootstrap));
+        let matrix = r#"'["ubuntu-24.04"]' || '["ubuntu-24.04", "ubuntu-24.04-arm"]'"#;
+        let plants = [
+            // Main and tags lose the arm64 leg.
+            bootstrap.replace(matrix, r#"'["ubuntu-24.04"]' || '["ubuntu-24.04"]'"#),
+            // The legs are swapped: pull requests get both, main gets one.
+            bootstrap.replace(matrix, r#"'["ubuntu-24.04", "ubuntu-24.04-arm"]' || '["ubuntu-24.04"]'"#),
+            // Tags stop running the gate.
+            bootstrap.replace("    tags: ['**']\n", ""),
+            // A main run becomes cancellable by its successor.
+            bootstrap.replace(
+                "cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
+                "cancel-in-progress: true",
+            ),
+            // Main runs share one group, so a queued commit is replaced unverified.
+            bootstrap.replace("format('bootstrap-run-{0}', github.run_id)", "github.ref"),
+            // A path filter skips main for some commits.
+            bootstrap.replace(
+                "    branches: [main]\n",
+                "    branches: [main]\n    paths-ignore: ['**.md']\n",
+            ),
+            // A job condition skips the arm64 leg.
+            bootstrap.replace(
+                "    runs-on: ${{ matrix.runner }}\n",
+                "    runs-on: ${{ matrix.runner }}\n    if: matrix.runner == 'ubuntu-24.04'\n",
+            ),
+            // A matrix exclusion removes the arm64 leg.
+            bootstrap.replace(
+                "    runs-on: ${{ matrix.runner }}\n",
+                "        exclude:\n          - runner: ubuntu-24.04-arm\n    runs-on: ${{ matrix.runner }}\n",
+            ),
+        ];
+        for plant in &plants {
+            assert_ne!(plant, bootstrap, "every plant must change the workflow");
+            assert!(!native_coverage_is_complete(plant));
+        }
+        // Running both architectures on every event, without concurrency, is
+        // stronger than the policy and stays admissible.
+        let mut unconditional = bootstrap.replace(
+            r#"${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-24.04"]' || '["ubuntu-24.04", "ubuntu-24.04-arm"]') }}"#,
+            "[ubuntu-24.04, ubuntu-24.04-arm]",
+        );
+        let concurrency = unconditional
+            .find("concurrency:\n")
+            .expect("the workflow declares concurrency");
+        let jobs = unconditional
+            .find("jobs:\n")
+            .expect("the workflow has jobs");
+        unconditional.replace_range(concurrency..jobs, "");
+        assert!(native_coverage_is_complete(&unconditional));
+    }
 
     #[test]
     fn dependency_updates_preserve_sdk_ownership_and_ordinary_maintenance() {
