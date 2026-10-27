@@ -3,6 +3,15 @@
 Shared repository policy for projects consuming PrismPM as an SDK. No
 application or organizational model is included.
 
+## Try Prism first
+
+[Run a verified Prism application in your browser](https://uor-foundation.github.io/template/):
+nothing to install, no sign-in. The page loads `Calculator.holo`, recomputes its
+BLAKE3 hashes, asks it `add 20 22`, and replays its 22 acceptance vectors. It is
+plain static files in [`site/`](site/), running [`prism-code`](https://www.npmjs.com/package/prism-code)
+0.2.0 vendored from npm; `site/vendor.mjs --check` proves the copy is the
+published release.
+
 ## Create a repository
 
 1. Create a GitHub repository from this template and clone it.

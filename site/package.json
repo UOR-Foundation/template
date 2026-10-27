@@ -1,0 +1,15 @@
+{
+  "name": "template-try-site",
+  "private": true,
+  "type": "module",
+  "description": "The try page: a verified Prism application running in the browser.",
+  "scripts": {
+    "serve": "node serve.mjs",
+    "vendor": "node vendor.mjs",
+    "vendor:check": "node vendor.mjs --check",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1"
+  }
+}

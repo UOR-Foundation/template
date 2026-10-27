@@ -1,0 +1,75 @@
+name: try page
+
+# Tests site/ (a verified Prism application running in the browser) and, once
+# the repository has opted in, publishes it with GitHub Pages. Publishing needs
+# Pages set to "GitHub Actions" in the repository settings and the repository
+# variable PAGES_ENABLED=true; without both, only the test runs.
+
+on:
+  pull_request:
+    paths: ['site/**', '.github/workflows/try-page.yml']
+  push:
+    branches: [main]
+    paths: ['site/**', '.github/workflows/try-page.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: try-page-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: browser test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm ci
+      - name: The vendored copy is the pinned npm release
+        run: npm run vendor:check
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - name: Load the page cold and require 22/22
+        run: npx playwright test
+
+  publish:
+    name: publish with GitHub Pages
+    needs: test
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.PAGES_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b
+      - name: Stage only what the page serves
+        run: |
+          mkdir _site
+          cp -r site/index.html site/Calculator.holo site/vendor site/shims _site/
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa
+        with:
+          path: _site
+      - id: deploy
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e
