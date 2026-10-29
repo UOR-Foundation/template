@@ -1,0 +1,44 @@
+name: scratch render
+on:
+  push:
+    branches: [scratch/render-14]
+permissions:
+  contents: read
+jobs:
+  render:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      SDK_IMAGE: ghcr.io/uor-foundation/prismpm-sdk-candidate@sha256:cd3b47d7a370c4a26b8285f5e9c3bb15e639973c55505c3809ddbe55352fea58
+      ACTION_REF: UOR-Foundation/PrismPM/action@35e9f01d5415ed4b0b64c152238f291546957ec4
+      POLICY_COMMIT: 1f631d7fa89489dfb26cd706736f4f773f9e7488
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: 1f631d7fa89489dfb26cd706736f4f773f9e7488
+      - name: Render at policy commit A
+        run: |
+          set -euo pipefail
+          df -h / | tail -1
+          sh bootstrap/render.sh "$SDK_IMAGE" "$ACTION_REF" "$POLICY_COMMIT"
+          git status --short
+      - name: Check inside the SDK
+        run: |
+          set -euo pipefail
+          for c in "template check" "lock check"; do
+            docker run --rm --user "$(id -u):$(id -g)" --network none --cap-drop ALL \
+              --security-opt no-new-privileges --volume "$PWD:/workspace" --workdir /workspace \
+              "$SDK_IMAGE" prismpm --json $c
+          done
+      - name: Collect
+        run: |
+          mkdir out
+          cp --parents $(git status --short | awk '{print $2}') out/
+          find out -type f | sort
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rendered
+          path: out
+          retention-days: 3
