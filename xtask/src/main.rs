@@ -12,12 +12,13 @@ use repo_model::{codegen, Model};
 
 mod audit;
 mod bootstrap;
+mod scaffold;
 
 fn main() -> ExitCode {
     let task = std::env::args()
         .nth(1)
         .unwrap_or_else(|| "help".to_string());
-    let write = std::env::args().any(|a| a == "--write");
+    let write = std::env::args().nth(2).is_some_and(|a| a == "--write");
     let root = repo_model::repo_root();
 
     let result = match task.as_str() {
@@ -27,6 +28,10 @@ fn main() -> ExitCode {
         "audit-bootstrap" => bootstrap::audit(&root),
         "audit-dependency-updates" => bootstrap::audit_dependency_updates(&root),
         "validate" => validate(&root),
+        "new-capability" => {
+            let args: Vec<String> = std::env::args().skip(2).collect();
+            scaffold::new_capability(&root, &args)
+        }
         _ => {
             eprintln!(
                 "cargo xtask <task>\n\
@@ -37,6 +42,8 @@ fn main() -> ExitCode {
                  audit-bootstrap   immutable SDK and least-privilege workflow trust root\n\
                  audit-dependency-updates   SDK ownership and ordinary dependency maintenance\n\
                  validate          run every gate above\n\
+                 new-capability <ID> <level> <suite> <statement>\n\
+                                   R3: write the register row, scenario and failing test\n\
                  \n\
                  --write           check-model only: rewrite the generated file"
             );
