@@ -49,18 +49,10 @@ definition{
 }
 
 theorem{
-  name: conformant_sound,
+  name: conformant_decides,
   parameters: [observation : Observation],
-  statement: (((conformant observation) = true) -> (Conformant observation)),
-  proof: linear_arithmetic{definitions: [Conformant, conformant, pinMatches]},
-  axioms: [propext]
-}
-
-theorem{
-  name: conformant_complete,
-  parameters: [observation : Observation],
-  statement: ((Conformant observation) -> ((conformant observation) = true)),
-  proof: linear_arithmetic{definitions: [Conformant, conformant, pinMatches]},
+  statement: (((conformant observation) = true) <-> (Conformant observation)),
+  proof: simplify{definitions: [Bool.and_eq_true, Conformant, Nat.beq_eq, conformant, pinMatches]},
   axioms: [propext]
 }
 

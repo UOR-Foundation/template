@@ -35,27 +35,18 @@ fn contract_tc_01() {
     let model = std::fs::read_to_string(root().join("app/src/Contract.lex.tex"))
         .expect("the contract model");
 
-    let sound = declaration(&model, "conformant_sound");
+    let decides = declaration(&model, "conformant_decides");
     assert!(
-        sound.contains(
-            "statement: (((conformant observation) = true) -> (Conformant observation)),"
+        decides.contains(
+            "statement: (((conformant observation) = true) <-> (Conformant observation)),"
         ),
-        "TC-01's soundness statement changed:\n{sound}"
+        "TC-01's statement changed: conformant must be true exactly when Conformant holds:\n{decides}"
     );
-    let complete = declaration(&model, "conformant_complete");
     assert!(
-        complete.contains(
-            "statement: ((Conformant observation) -> ((conformant observation) = true)),"
-        ),
-        "TC-01's completeness statement changed:\n{complete}"
+        decides.contains("parameters: [observation : Observation],")
+            && decides.contains("axioms: [propext]"),
+        "TC-01 quantifies over every observation and rests on propext only:\n{decides}"
     );
-    for theorem in [sound, complete] {
-        assert!(
-            theorem.contains("parameters: [observation : Observation],")
-                && theorem.contains("axioms: [propext]"),
-            "TC-01 quantifies over every observation and rests on propext only:\n{theorem}"
-        );
-    }
 
     // The proposition names every universal policy file whose digest
     // `template.lock` binds: all of them but the self-referential lock.

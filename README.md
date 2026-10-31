@@ -77,8 +77,7 @@ actually on disk, and answers `conformant` or names every file that drifted.
 What makes it Prism and not a script: Lean proves the verdict is right.
 
 ```
-theorem conformant_sound    : conformant observation = true → Conformant observation
-theorem conformant_complete : Conformant observation → conformant observation = true
+theorem conformant_decides : conformant observation = true ↔ Conformant observation
 ```
 
 `Conformant` says every observed digest equals its locked digest. The holo that

@@ -224,12 +224,19 @@ request is 384 bytes: for each universal policy file, in `template.lock`
 other length. Lean proves, with only `propext`, that the executable verdict is
 both sound and complete for the specification:
 
-- `conformant_sound`: `conformant observation = true → Conformant observation`;
-- `conformant_complete`: `Conformant observation → conformant observation = true`.
+- `conformant_decides`: `conformant observation = true ↔ Conformant observation`.
+
+The proof is `simplify` over the definitions and Lean's `Bool.and_eq_true` and
+`Nat.beq_eq`, not `linear_arithmetic`. A `linear_arithmetic` proof makes the
+generated module import `LexLeanRuntime.Laws`, and `prismpm build` then
+compiles that module to C, which did not finish within the build's ten-minute
+limit in CI or in 25 minutes locally (without C generation it takes four
+seconds). The first CI run of this app failed exactly there, with
+`PP5007: application-lean timed out`.
 
 `Conformant` is the conjunction of six digest equalities, one per universal
-policy path. `contract_tc_01` reads the model as text and requires both theorem
-statements, their axiom list, one `Conformant` conjunct for each path in
+policy path. `contract_tc_01` reads the model as text and requires the theorem
+statement, its axiom list, one `Conformant` conjunct for each path in
 `template-contract.json` other than `template.lock` (which cannot pin its own
 digest), each path in the drift report, and a `dispatch` decided by
 `conformant`. The nine acceptance vectors (conformant, four drift cases, 383,
