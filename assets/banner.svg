@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="320" viewBox="0 0 1280 320" role="img" aria-labelledby="title desc">
+  <title id="title">UOR Prism template</title>
+  <desc id="desc">A beam of light enters a prism and leaves as a spectrum, beside the words: Model it. Prove it. Ship the proof.</desc>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1026"/>
+      <stop offset="0.55" stop-color="#151a3d"/>
+      <stop offset="1" stop-color="#22114a"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.34"/>
+      <stop offset="1" stop-color="#9fb4ff" stop-opacity="0.08"/>
+    </linearGradient>
+    <linearGradient id="beam" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.95"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#8b7bff" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#8b7bff" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#ffffff" stroke-opacity="0.04"/>
+    </pattern>
+  </defs>
+
+  <rect width="1280" height="320" rx="24" fill="url(#sky)"/>
+  <rect width="1280" height="320" rx="24" fill="url(#grid)"/>
+  <circle cx="300" cy="170" r="190" fill="url(#glow)"/>
+
+  <!-- the incoming beam -->
+  <path d="M0 196 L238 170" stroke="url(#beam)" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- the spectrum, fanning out of the far face -->
+  <g stroke-width="7" stroke-linecap="round" fill="none" opacity="0.95">
+    <path d="M338 150 L600 92" stroke="#ff5f6d"/>
+    <path d="M340 160 L600 128" stroke="#ffa94d"/>
+    <path d="M342 170 L600 164" stroke="#ffe066"/>
+    <path d="M344 180 L600 200" stroke="#69db7c"/>
+    <path d="M346 190 L600 236" stroke="#4dabf7"/>
+    <path d="M348 200 L600 272" stroke="#9775fa"/>
+  </g>
+
+  <!-- the prism -->
+  <path d="M290 62 L380 238 L200 238 Z" fill="url(#glass)" stroke="#dfe6ff" stroke-opacity="0.85" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M290 62 L262 238" stroke="#ffffff" stroke-opacity="0.18" stroke-width="2"/>
+
+  <!-- the spectrum lands on a holo: a digest-addressed package -->
+  <g transform="translate(612 76)">
+    <rect width="88" height="212" rx="14" fill="#ffffff" fill-opacity="0.06" stroke="#dfe6ff" stroke-opacity="0.35" stroke-width="2"/>
+    <text x="44" y="40" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" fill="#c9d3ff">.holo</text>
+    <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" fill="#8f9bd6">
+      <text x="44" y="84" text-anchor="middle">model</text>
+      <text x="44" y="112" text-anchor="middle">proof</text>
+      <text x="44" y="140" text-anchor="middle">wasm</text>
+      <text x="44" y="168" text-anchor="middle">view</text>
+      <text x="44" y="196" text-anchor="middle">sha256</text>
+    </g>
+  </g>
+
+  <!-- words -->
+  <g font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+    <text x="748" y="118" font-size="20" font-weight="600" letter-spacing="4" fill="#9fb0ff">UOR FOUNDATION</text>
+    <text x="746" y="178" font-size="56" font-weight="800" fill="#ffffff">Prism template</text>
+    <text x="748" y="222" font-size="23" fill="#d7dcff">Model it. Prove it. Ship the proof.</text>
+    <text x="748" y="260" font-size="16" fill="#8f9bd6">LexLean model · Lean 4 proof · verified holo · one locked SDK</text>
+  </g>
+</svg>
