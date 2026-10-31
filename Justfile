@@ -8,7 +8,7 @@
 default: vv
 
 # The whole gate.
-vv: fmt-check model template-check lint test deny
+vv: fmt-check model template-check lint test deny app
     @echo "vv: the acceptance gate passed"
 
 fmt-check:
@@ -44,6 +44,15 @@ test:
 # supplied by the locked SDK.
 deny:
     cargo deny --all-features check
+
+# The template's own Prism application. The model must be canonical and
+# locked; `prismpm build` compiles it to the holo and replays its acceptance
+# vectors, and `prismpm verify` has the Lean kernel check every theorem
+# (`BA-01`) and the generated code against the model.
+app:
+    cd app && lexlean fmt --check && lexlean lock --check
+    prismpm --project app build
+    prismpm --project app verify
 
 # Only the meta-gate, while iterating on a scenario. `test` already runs it.
 bdd:

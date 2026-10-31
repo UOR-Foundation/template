@@ -1,7 +1,9 @@
 # Build output.
 /target/
 **/target/
-/.prism/
+**/.prism/
+**/.lexlean/
+**/.lake/
 
 # Editor and OS noise.
 .DS_Store

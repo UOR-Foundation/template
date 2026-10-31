@@ -18,6 +18,12 @@ The three honesty levels (R2):
 `cargo xtask audit-limits` fails if any code path returns an error the
 model does not sanction.
 
+## ballot
+
+| ID | Level | Statement |
+| --- | --- | --- |
+| `BA-01` | `build` | Every ballot is counted exactly once: ayes plus nays equals ballots cast, for every list of ballots |
+
 ## Cited authorities
 
 Never re-derived, vendored, or gated on.

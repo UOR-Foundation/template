@@ -1,0 +1,6 @@
+name = "PrismBallot"
+version = "0.1.0"
+defaultTargets = ["PrismBallot"]
+
+[[lean_lib]]
+name = "PrismBallot"
