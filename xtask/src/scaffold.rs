@@ -228,7 +228,7 @@ mod tests {
         values.iter().map(|v| (*v).to_string()).collect()
     }
 
-    /// A scratch repository holding a copy of this one's model and suites.
+    /// A scratch repository with an empty register and this one's authorities and ledger.
     fn scratch(name: &str) -> PathBuf {
         let root = std::env::temp_dir().join(format!(
             "xtask-new-capability-{name}-{}",
@@ -239,9 +239,16 @@ mod tests {
         for dir in ["model", "features/suites", "crates/conformance/tests"] {
             std::fs::create_dir_all(root.join(dir)).unwrap();
         }
-        for file in ["authorities.toml", "ids.toml", "ledger.toml"] {
+        for file in ["authorities.toml", "ledger.toml"] {
             std::fs::copy(real.join("model").join(file), root.join("model").join(file)).unwrap();
         }
+        // An empty register, as a freshly instantiated repository has; this
+        // repository's own rows are not the scratch repository's.
+        std::fs::write(
+            root.join("model/ids.toml"),
+            "spec = \"template/1\"\n\nid = []\n",
+        )
+        .unwrap();
         root
     }
 
