@@ -1,3 +1,43 @@
 {
-  "name": "PrismPM SDK release binding required"
+  "name": "UOR PrismPM SDK",
+  "image": "ghcr.io/uor-foundation/prismpm-sdk-candidate@sha256:cd3b47d7a370c4a26b8285f5e9c3bb15e639973c55505c3809ddbe55352fea58",
+  "containerUser": "root",
+  "workspaceMount": "source=${localWorkspaceFolder},target=${localWorkspaceFolder},type=bind",
+  "workspaceFolder": "${localWorkspaceFolder}",
+  "initializeCommand": "mkdir -p \"${localEnv:HOME}/.docker\" && if test ! -f \"${localEnv:HOME}/.docker/config.json\"; then printf \"{}\\n\" > \"${localEnv:HOME}/.docker/config.json\"; fi",
+  "remoteUser": "vscode",
+  "mounts": [
+    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind",
+    "source=${localEnv:HOME}/.docker/config.json,target=/home/vscode/.docker/config.json,type=bind,readonly"
+  ],
+  "overrideCommand": false,
+  "runArgs": [
+    "--init",
+    "--entrypoint",
+    "prismpm-devcontainer-init"
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "leanprover.lean4",
+        "rust-lang.rust-analyzer"
+      ],
+      "settings": {
+        "[rust]": {
+          "editor.defaultFormatter": "rust-lang.rust-analyzer"
+        },
+        "editor.formatOnSave": true,
+        "files.watcherExclude": {
+          "**/target/**": true
+        },
+        "rust-analyzer.cargo.allFeatures": true,
+        "rust-analyzer.check.command": "clippy",
+        "rust-analyzer.procMacro.enable": true,
+        "search.exclude": {
+          "**/target": true
+        }
+      }
+    }
+  },
+  "postCreateCommand": "prismpm template check && prismpm lock check && just vv"
 }
