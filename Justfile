@@ -1,57 +1,64 @@
-# `just vv` is the normative acceptance gate. Everything else is a slice of it.
+# `just vv` is the normative acceptance gate. Every other recipe is either one
+# of its parts or a writer the gate checks the output of.
+#
+# Each check in `vv` runs exactly once. The parts are ordered so the cheapest
+# failure is reported first: formatting needs no compiler, the repository gates
+# compile only `xtask`, and the SDK's checks run before the workspace build.
 
 default: vv
 
 # The whole gate.
-vv: template-check fmt-check model lint test features bdd deny
+vv: fmt-check model template-check lint test deny
     @echo "vv: the acceptance gate passed"
-
-# R1, R4, R5 --- the repository gates, each falsifiable.
-model:
-    cargo run -q -p xtask -- validate
-
-# The hand-reviewed trust root is checked independently of generated project
-# content. PrismPM then validates the canonical contract and both locks.
-template-check:
-    cargo run -q -p xtask -- check-model
-    cargo run -q -p xtask -- audit-bootstrap
-    prismpm template check
-    prismpm lock check
-
-# Regenerate everything the model owns: CONFORMANCE.md.
-model-write:
-    cargo run -q -p xtask -- check-model --write
-
-fmt:
-    cargo fmt --all
 
 fmt-check:
     cargo fmt --all -- --check
 
+# R1, R4, R5 and the bootstrap trust root: `check-model`, `audit-limits`,
+# `audit-deferral` and `audit-bootstrap` (which includes
+# `audit-dependency-updates`), in one `xtask` process.
+model:
+    cargo run -q --locked -p xtask -- validate
+
+# The SDK's own checks of the contract and both locks. `template check` also
+# regenerates `CONFORMANCE.md` in an isolated copy through `model-write`.
+template-check:
+    prismpm template check
+    prismpm lock check
+
+# Clippy at `-D warnings` over every target with every feature enabled. This is
+# the one place an optional feature is compiled: a rename upstream of an
+# optional dependency fails nowhere else until someone turns the flag on, and
+# `--all-targets` because the tests behind a flag are code too. `test` compiles
+# the default feature set.
 lint:
-    cargo clippy --workspace --all-targets -- -D warnings
+    cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 
+# The workspace suite, which includes the `repo-conformance` meta-gate (R3,
+# `CM-02`, `CM-03`).
 test:
-    cargo test --workspace
-
-# A feature only its author has built is a feature that does not work: nothing
-# else in the gate compiles a crate at anything but its default features, so a
-# rename upstream of an optional dependency fails nowhere until someone turns
-# the flag on. `--all-targets` because the tests behind a flag are code too.
-#
-# Every optional feature compiles, with its tests.
-features:
-    cargo check --workspace --all-features --all-targets
-
-# R3: every capability begins as a Gherkin scenario, and every scenario has a
-# test whose name ends in its ID.
-bdd:
-    cargo test -p repo-conformance
+    cargo test --workspace --locked
 
 # R6: nothing shipped depends on a dev-only crate, no wildcard version
 # requirement, no advisory against anything in the tree. `cargo-deny` is
-# supplied by the locked SDK, so this is part of `just vv`.
-#
-# Advisories, bans, licences and sources, over the dependency graph.
+# supplied by the locked SDK.
 deny:
     cargo deny --all-features check
+
+# Only the meta-gate, while iterating on a scenario. `test` already runs it.
+bdd:
+    cargo test --locked -p repo-conformance
+
+fmt:
+    cargo fmt --all
+
+# Regenerate everything the model owns: CONFORMANCE.md.
+model-write:
+    cargo run -q --locked -p xtask -- check-model --write
+
+# R3's first step in one command: a register row, its scenario, a failing test
+# named for the ID, and the regenerated CONFORMANCE.md.
+#
+#     just new-capability CX-01 build parsing "A parsed document round-trips"
+new-capability id level suite statement:
+    cargo run -q --locked -p xtask -- new-capability {{quote(id)}} {{quote(level)}} {{quote(suite)}} {{quote(statement)}}

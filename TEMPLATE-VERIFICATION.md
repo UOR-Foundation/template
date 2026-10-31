@@ -6,13 +6,14 @@ This repository's `just vv` instantiates the universal verification policy in
 | `just` recipe | Enforces | ID classes |
 | --- | --- | --- |
 | `just fmt-check` | the diff is reviewable | --- |
-| `just model` | R1, R4, R5 | `CM-01` |
-| `just lint` | clippy at `-D warnings` | --- |
-| `just test` | the workspace suite | --- |
-| `just features` | every optional feature compiles, with its tests | --- |
-| `just bdd` | R3 and R2's behavioral half | `CM-02`, `CM-03` |
+| `just model` | R1, R4, R5 and the bootstrap trust root, in one `xtask validate` | `CM-01` |
+| `just template-check` | immutable SDK selection and template drift, checked by the SDK | --- |
+| `just lint` | Clippy at `-D warnings`, every target, every optional feature | --- |
+| `just test` | the workspace suite, including the R3 meta-gate | `CM-02`, `CM-03` |
 | `just deny` | R6 over the dependency graph | --- |
-| `just template-check` | immutable SDK selection, template drift, and bootstrap least privilege | --- |
+
+Each check runs once per `just vv`. `just bdd` runs only the meta-gate while a
+scenario is being written; `just test` already includes it.
 
 The register is empty, so its anti-vacuity check is armed rather than claiming
 that features exist. It becomes an error as soon as an ID, scenario, or test is
@@ -178,3 +179,34 @@ invoked Node tests, formatting, Clippy, all-feature/all-target compilation,
 model/limit/deferral audits and dependency checks passed. Full `just vv`
 passes the new policy check, then rejects the template's existing absent
 `prismpm.lock`. No universal policy bytes changed or release gate was waived.
+
+## Each check once, and the R3 scaffold
+
+`just vv` used to run `check-model` and `audit-bootstrap` twice (once in
+`template-check`, again inside `xtask validate`), the `repo-conformance` tests
+twice (`test`, then `bdd`), and the workspace through two compilers that differ
+only in features (`lint` at the default features, then `features`, a
+`cargo check --all-features`). Repeating a deterministic check on the same
+inputs adds time, not evidence. Now `model` is the one `xtask validate`,
+`template-check` is only the SDK's two checks, `lint` is Clippy with
+`--all-features` (so an optional feature is still compiled, with its tests, and
+now also linted), and `test` compiles the default features. Every Cargo
+invocation passes `--locked`, so no part of the gate can resolve a dependency
+the lock does not name (R6). The `cargo vv` alias, which ran `xtask validate`
+and so was not the gate its name claimed, is removed.
+
+`cargo xtask new-capability <ID> <level> <suite> <statement>` (`just
+new-capability`) writes the register row, the tagged scenario and a test named
+`<suite>_<id>` that fails until the capability is built, then regenerates
+`CONFORMANCE.md`. Its tests run the honesty meta-gate on a scratch copy of the
+register: two scaffolded capabilities leave it clean, and a lowercase ID, a
+missing hyphen or number, an unknown level, an uppercase or path-escaping
+suite, an empty or two-line statement, too few arguments and a duplicate ID
+are all refused with the register byte-identical and no suite file written.
+
+On a copy of this repository, `just new-capability CX-01 build parsing ...`
+produced files that passed `cargo fmt --check` and all-feature Clippy, and
+`cargo test` then failed exactly at `parsing_cx_01`, as R3 requires. The 18
+`xtask` tests, all-target all-feature Clippy, formatting and `audit-deferral`
+passed with the pinned Rust 1.97.1 on `x86_64-unknown-linux-gnu`, locked,
+outside the SDK image; the SDK checks run in the pull request's bootstrap job.
