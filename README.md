@@ -54,7 +54,7 @@ the `devcontainer` CLI. Nothing else is installed on the host.
 1. **Create your repository.** Choose [Use this template](https://github.com/new?template_owner=UOR-Foundation&template_name=template), then clone it.
 2. **Name it.** Set `workspace.package.repository` and `homepage` in `Cargo.toml`, and replace this README with your project's name and purpose.
 3. **Open it in the devcontainer.** It runs the exact SDK image `prismpm.lock` selects.
-4. **Run the gate.** `just vv` passes on the empty template: the register is empty, so its anti-vacuity checks are armed rather than claiming that features exist.
+4. **Run the gate.** `just vv` passes as cloned. It builds and verifies the template's own Prism application (below), so you start from a working, proved, shipped example.
 5. **Add your first capability.**
 
    ```sh
@@ -67,7 +67,37 @@ the `devcontainer` CLI. Nothing else is installed on the host.
    Make the test assert the scenario, build the capability until it passes,
    plant the defect the test exists to catch, and run `just vv` again.
 
-To see a finished Prism application first, the
+## The template is a Prism application
+
+`app/` is the **template contract checker**. A repository built from this
+template inherits seven universal policy files that it must never edit. The
+checker takes, for six of them, the digest `template.lock` pins and the digest
+actually on disk, and answers `conformant` or names every file that drifted.
+
+What makes it Prism and not a script: Lean proves the verdict is right.
+
+```
+theorem conformant_sound    : conformant observation = true → Conformant observation
+theorem conformant_complete : Conformant observation → conformant observation = true
+```
+
+`Conformant` says every observed digest equals its locked digest. The holo that
+`prismpm build` produces carries this proof, the WebAssembly guest that runs
+the check, and the acceptance vectors it passed, so anyone can confirm the
+checker before trusting its answer:
+
+```sh
+prismpm --project app build
+prismpm --project app verify
+npx prism-code inspect app/.prism/build/*.holo
+```
+
+The claim is registered as `TC-01`, specified in
+`features/suites/contract.feature`, and pinned by the test `contract_tc_01`.
+Keep it as a worked example of all three, or replace `app/src/Contract.lex.tex`
+with your own model and `TC-01` with your own claims.
+
+To see a larger Prism application, the
 [Calculator](https://github.com/UOR-Foundation/PrismPM/tree/main/examples/Calculator)
 in PrismPM is modeled, proved and built the same way, and `prism-code` ships it
 as a sample holo:
@@ -81,7 +111,8 @@ npx prism-code vectors node_modules/prism-code/fixtures/Calculator.holo
 
 | Command | What it does |
 | --- | --- |
-| `just vv` | The whole gate: format, model and audits, the SDK's template and lock checks, Clippy over every feature, the tests, and `cargo deny`. |
+| `just vv` | The whole gate: format, model and audits, the SDK's template and lock checks, Clippy over every feature, the tests, `cargo deny`, and the Prism app's build and verify. |
+| `just app` | Formats, builds and verifies the Prism application in `app/`. |
 | `just new-capability <ID> <level> <suite> "<statement>"` | Registers a capability with its scenario and failing test (R3). `level` is `build`, `open` or `some-true`. |
 | `just model-write` | Regenerates `CONFORMANCE.md` from `model/`. |
 | `just fmt` | Formats the workspace. |
@@ -102,6 +133,7 @@ enforces, so a red `just vv` says which promise was broken.
 
 | Path | Owner | Purpose |
 | --- | --- | --- |
+| `app/` | project | The Prism application: its LexLean model, the Foundation library it imports, and its PrismPM manifest. |
 | `model/` | project | The claim, authority and ledger registers: the single source of every claim (R1). |
 | `features/suites/` | project | One Gherkin scenario per registered ID (R3). |
 | `CONFORMANCE.md` | generated | Written by `just model-write`, never by hand. |
