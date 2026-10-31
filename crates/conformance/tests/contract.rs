@@ -2,7 +2,7 @@
 //!
 //! The proofs are checked by the Lean kernel when `just vv` runs
 //! `prismpm verify` on `app/`. What this test holds fixed is the claim those
-//! proofs are about: both theorems' exact statements and axioms, the six
+//! proofs are about: the theorem's exact statement and axioms, the six
 //! universal policy files they quantify over, and that the verdict the
 //! application returns is decided by the function they prove. A weakened
 //! statement, a dropped file, an extra axiom, or a verdict decided some other
@@ -76,14 +76,24 @@ fn contract_tc_01() {
     for (field, path) in fields.iter().zip(&bound) {
         assert!(
             proposition.contains(&format!(
-                "((project (project observation {field}) expected) = (project (project observation {field}) observed))"
+                "(SameDigest (project (project observation {field}) expected) (project (project observation {field}) observed))"
             )),
             "Conformant must require {path} ({field}) to match"
         );
         assert!(
-            drifted.contains(&format!("(pinMatches (project observation {field}))"))
-                && drifted.contains(&format!("\"{path}\"")),
+            drifted.contains(&format!("(driftEntry (project observation {field})"))
+                && drifted.contains(&format!("\" {path}\"")),
             "a drifted {path} must be named in the verdict"
+        );
+    }
+
+    // A digest is four 64-bit words, the widest a Nat is compiled to, and
+    // two digests are the same only when every word is.
+    let same = declaration(&model, "SameDigest");
+    for word in ["w0", "w1", "w2", "w3"] {
+        assert!(
+            same.contains(&format!("((project left {word}) = (project right {word}))")),
+            "SameDigest must compare digest word {word}"
         );
     }
 

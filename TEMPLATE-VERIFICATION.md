@@ -220,7 +220,8 @@ outside the SDK image; the SDK checks run in the pull request's bootstrap job.
 `app/` is a Prism text application modeled in `app/src/Contract.lex.tex`. Its
 request is 384 bytes: for each universal policy file, in `template.lock`
 `policy_files` order, the locked SHA-256 then the observed SHA-256. It answers
-`conformant`, or `drift: ` and the drifted paths, or `invalid request` for any
+`conformant`, or `drift:` followed by each drifted path after a space, or
+`invalid request` for any
 other length. Lean proves, with only `propext`, that the executable verdict is
 both sound and complete for the specification:
 
@@ -232,10 +233,14 @@ generated module import `LexLeanRuntime.Laws`, and `prismpm build` then
 compiles that module to C, which did not finish within the build's ten-minute
 limit in CI or in 25 minutes locally (without C generation it takes four
 seconds). The first CI run of this app failed exactly there, with
-`PP5007: application-lean timed out`.
+`PP5007: application-lean timed out`. The second failed in code generation
+(`PP4102`), because the drift report was a `List String` built as an
+intermediate value. It is now `Bytes` appended straight into the response.
 
 `Conformant` is the conjunction of six digest equalities, one per universal
-policy path. `contract_tc_01` reads the model as text and requires the theorem
+policy path. A digest is four big-endian 64-bit words, because generated code
+represents a `Nat` as a checked `u64`, and `SameDigest` requires all four words
+to be equal, so two digests are the same exactly when their 32 bytes are. `contract_tc_01` reads the model as text and requires the theorem
 statement, its axiom list, one `Conformant` conjunct for each path in
 `template-contract.json` other than `template.lock` (which cannot pin its own
 digest), each path in the drift report, and a `dispatch` decided by
