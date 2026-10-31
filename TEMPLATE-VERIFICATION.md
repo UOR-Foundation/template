@@ -12,7 +12,7 @@ template contract checker in `app/`.
 | `just lint` | Clippy at `-D warnings`, every target, every optional feature | --- |
 | `just test` | the workspace suite, including the R3 meta-gate | `CM-02`, `CM-03` |
 | `just deny` | R6 over the dependency graph | --- |
-| `just app` | the Prism application: LexLean format and lock, then `prismpm build` and `prismpm verify` of the holo | `TC-01` |
+| `just app` | the Prism application: LexLean format and lock, then `prismpm verify`, which builds the holo and checks it | `TC-01` |
 
 Each check runs once per `just vv`. `just bdd` runs only the meta-gate while a
 scenario is being written; `just test` already includes it.
@@ -29,7 +29,7 @@ or test is added without the other two.
 | `audit-deferral` | a deferral marker in a crate and in the gate's own source | both rejected |
 | honesty meta-gate | an ID with no test | rejected |
 | `contract_tc_01` | `Conformant` drops the `bootstrap` conjunct, or `dispatch` answers on `true` instead of `conformant` | both rejected |
-| `prismpm build` | an acceptance vector set without the exact guest-allocation boundary | rejected (PP2009) |
+| `prismpm verify` | an acceptance vector set without the exact guest-allocation boundary | rejected (PP2009) |
 | `audit-bootstrap` | a floating/copied action, mutable SDK tag, changed universal file, narrowed boundary, shallow/credential-retaining checkout, copied project renderer, omitted standards lock, acceptance bypass, deploy-job signing privilege, incomplete release lifecycle, or a bootstrap that drops a native architecture from main or tags, cancels or replaces a main run, or skips runs by path, condition or matrix exclusion | all rejected |
 
 `audit-deferral` reads every crate and `xtask`, including itself. Its token
@@ -245,12 +245,15 @@ statement, its axiom list, one `Conformant` conjunct for each path in
 `template-contract.json` other than `template.lock` (which cannot pin its own
 digest), each path in the drift report, and a `dispatch` decided by
 `conformant`. The nine acceptance vectors (conformant, four drift cases, 383,
-385, 0 and 512 bytes) are executed by `prismpm build` against the compiled
-guest, and `prismpm verify` checks the resulting holo, so the proof, the code
+385, 0 and 512 bytes) are executed against the compiled guest by the build
+that `prismpm verify` runs before it checks the resulting holo, so the proof, the code
 and the observed behaviour ship as one artifact.
 
 Locally, with LexLean 0.3.0 (the SDK's compiler), `lexlean check` and
 `lexlean verify` passed, verifying three modules; both planted defects in the
 table above made `contract_tc_01` fail with a message naming the defect. The
 holo build and verify run in the pull request's bootstrap job inside the
-locked SDK.
+locked SDK. `just app` runs only `prismpm verify`: it begins with the same
+build `prismpm build` performs, so running both built the holo twice. In the
+first green run, `prismpm build` took 82 seconds and `prismpm verify` 6
+minutes 14 seconds.

@@ -81,14 +81,13 @@ theorem conformant_decides : conformant observation = true ↔ Conformant observ
 ```
 
 `Conformant` says every observed digest equals its locked digest. The holo that
-`prismpm build` produces carries this proof, the WebAssembly guest that runs
+`prismpm verify` builds carries this proof, the WebAssembly guest that runs
 the check, and the acceptance vectors it passed, so anyone can confirm the
 checker before trusting its answer:
 
 ```sh
-prismpm --project app build
-prismpm --project app verify
-npx prism-code inspect app/.prism/build/*.holo
+just app
+npx prism-code inspect app/.prism/build/*/*.holo
 ```
 
 The claim is registered as `TC-01`, specified in
@@ -110,8 +109,8 @@ npx prism-code vectors node_modules/prism-code/fixtures/Calculator.holo
 
 | Command | What it does |
 | --- | --- |
-| `just vv` | The whole gate: format, model and audits, the SDK's template and lock checks, Clippy over every feature, the tests, `cargo deny`, and the Prism app's build and verify. |
-| `just app` | Formats, builds and verifies the Prism application in `app/`. |
+| `just vv` | The whole gate: format, model and audits, the SDK's template and lock checks, Clippy over every feature, the tests, `cargo deny`, and the Prism app's verified build. |
+| `just app` | Checks the Prism application's model is canonical and locked, then builds and verifies its holo. |
 | `just new-capability <ID> <level> <suite> "<statement>"` | Registers a capability with its scenario and failing test (R3). `level` is `build`, `open` or `some-true`. |
 | `just model-write` | Regenerates `CONFORMANCE.md` from `model/`. |
 | `just fmt` | Formats the workspace. |
