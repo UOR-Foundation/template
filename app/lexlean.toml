@@ -1,9 +1,9 @@
 spec = "lexlean/project/1"
-name = "prism-ballot"
+name = "prism-template-contract"
 language = "1.2"
-module_prefix = "PrismBallot"
+module_prefix = "PrismTemplateContract"
 source_roots = ["src"]
-entrypoints = ["src/Ballot.lex.tex"]
+entrypoints = ["src/Contract.lex.tex"]
 build_root = ".lexlean"
 lockfile = "lexlean.lock"
 lean_workspace = "."

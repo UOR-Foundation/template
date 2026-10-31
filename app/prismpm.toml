@@ -1,5 +1,5 @@
 spec = "prismpm/project/1"
-project = "Ballot"
+project = "TemplateContract"
 lexlean_project = "lexlean.toml"
 build_root = ".prism"
 

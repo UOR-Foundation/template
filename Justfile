@@ -45,10 +45,10 @@ test:
 deny:
     cargo deny --all-features check
 
-# The template's own Prism application. The model must be canonical and
-# locked; `prismpm build` compiles it to the holo and replays its acceptance
-# vectors, and `prismpm verify` has the Lean kernel check every theorem
-# (`BA-01`) and the generated code against the model.
+# The template's own Prism application, the contract checker. The model must
+# be canonical and locked; `prismpm build` compiles it to the holo and replays
+# its acceptance vectors, and `prismpm verify` has the Lean kernel check every
+# theorem (`TC-01`) and the generated code against the model.
 app:
     cd app && lexlean fmt --check && lexlean lock --check
     prismpm --project app build

@@ -18,11 +18,11 @@ The three honesty levels (R2):
 `cargo xtask audit-limits` fails if any code path returns an error the
 model does not sanction.
 
-## ballot
+## contract
 
 | ID | Level | Statement |
 | --- | --- | --- |
-| `BA-01` | `build` | Every ballot is counted exactly once: ayes plus nays equals ballots cast, for every list of ballots |
+| `TC-01` | `build` | The checker answers conformant exactly when every universal policy file's observed digest equals its locked digest |
 
 ## Cited authorities
 
