@@ -14,3 +14,8 @@
 
 # `Cargo.lock` is NOT ignored: the resolved version of every dependency is part
 # of the claim made against it (R6).
+
+# Node and the try-page browser test.
+node_modules/
+test-results/
+playwright-report/

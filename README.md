@@ -35,6 +35,11 @@ before it runs, offline, with [`prism-code`](https://www.npmjs.com/package/prism
 This template supplies everything around the model so you write only the model
 and the claims it makes.
 
+## Try it
+
+- [Open the browser try page](https://uor-foundation.github.io/template/) — load, verify and run `Calculator.holo` entirely in the page, with no install.
+- [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/UOR-Foundation/template?devcontainer_path=.devcontainer/try/devcontainer.json) — a terminal runs the Calculator and opens the port-8080 view.
+
 ## What you get
 
 | Feature | What it means |

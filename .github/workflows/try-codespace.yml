@@ -1,0 +1,36 @@
+name: Try Prism codespace
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: try-codespace-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  devcontainer:
+    name: devcontainer up and replay 22/22
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out the exact event revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - name: Install the devcontainer CLI
+        run: npm install --global @devcontainers/cli@0.89.0
+      - name: Start the try-tier devcontainer
+        run: devcontainer up --workspace-folder . --config .devcontainer/try/devcontainer.json
+      - name: Replay the acceptance vectors inside it
+        run: devcontainer exec --workspace-folder . --config .devcontainer/try/devcontainer.json bash -lc './node_modules/.bin/prism-code vectors try/vendor/prism-code/fixtures/Calculator.holo'
