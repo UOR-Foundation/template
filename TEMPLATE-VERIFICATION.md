@@ -1,22 +1,25 @@
 # Template repository verification
 
 This repository's `just vv` instantiates the universal verification policy in
-`VERIFICATION.md` for the empty template itself.
+`VERIFICATION.md` for the template itself, which is a Prism application: the
+template contract checker in `app/`.
 
 | `just` recipe | Enforces | ID classes |
 | --- | --- | --- |
 | `just fmt-check` | the diff is reviewable | --- |
-| `just model` | R1, R4, R5 | `CM-01` |
-| `just lint` | clippy at `-D warnings` | --- |
-| `just test` | the workspace suite | --- |
-| `just features` | every optional feature compiles, with its tests | --- |
-| `just bdd` | R3 and R2's behavioral half | `CM-02`, `CM-03` |
+| `just model` | R1, R4, R5 and the bootstrap trust root, in one `xtask validate` | `CM-01` |
+| `just template-check` | immutable SDK selection and template drift, checked by the SDK | --- |
+| `just lint` | Clippy at `-D warnings`, every target, every optional feature | --- |
+| `just test` | the workspace suite, including the R3 meta-gate | `CM-02`, `CM-03` |
 | `just deny` | R6 over the dependency graph | --- |
-| `just template-check` | immutable SDK selection, template drift, and bootstrap least privilege | --- |
+| `just app` | the Prism application: LexLean format and lock, then `prismpm verify`, which builds the holo and checks it | `TC-01` |
 
-The register is empty, so its anti-vacuity check is armed rather than claiming
-that features exist. It becomes an error as soon as an ID, scenario, or test is
-added without the other two.
+Each check runs once per `just vv`. `just bdd` runs only the meta-gate while a
+scenario is being written; `just test` already includes it.
+
+The register holds one claim, `TC-01`, so the meta-gate checks a real row, a
+real scenario and a real test. It becomes an error as soon as an ID, scenario,
+or test is added without the other two.
 
 ## Planted defects
 
@@ -24,7 +27,9 @@ added without the other two.
 | --- | --- | --- |
 | `check-model` | `CONFORMANCE.md` disagrees with the register | rejected |
 | `audit-deferral` | a deferral marker in a crate and in the gate's own source | both rejected |
-| honesty meta-gate | an ID with no test | armed by the empty register |
+| honesty meta-gate | an ID with no test | rejected |
+| `contract_tc_01` | `Conformant` drops the `bootstrap` conjunct, or `dispatch` answers on `true` instead of `conformant` | both rejected |
+| `prismpm verify` | an acceptance vector set without the exact guest-allocation boundary | rejected (PP2009) |
 | `audit-bootstrap` | a floating/copied action, mutable SDK tag, changed universal file, narrowed boundary, shallow/credential-retaining checkout, copied project renderer, omitted standards lock, acceptance bypass, deploy-job signing privilege, incomplete release lifecycle, or a bootstrap that drops a native architecture from main or tags, cancels or replaces a main run, or skips runs by path, condition or matrix exclusion | all rejected |
 
 `audit-deferral` reads every crate and `xtask`, including itself. Its token
@@ -178,3 +183,77 @@ invoked Node tests, formatting, Clippy, all-feature/all-target compilation,
 model/limit/deferral audits and dependency checks passed. Full `just vv`
 passes the new policy check, then rejects the template's existing absent
 `prismpm.lock`. No universal policy bytes changed or release gate was waived.
+
+## Each check once, and the R3 scaffold
+
+`just vv` used to run `check-model` and `audit-bootstrap` twice (once in
+`template-check`, again inside `xtask validate`), the `repo-conformance` tests
+twice (`test`, then `bdd`), and the workspace through two compilers that differ
+only in features (`lint` at the default features, then `features`, a
+`cargo check --all-features`). Repeating a deterministic check on the same
+inputs adds time, not evidence. Now `model` is the one `xtask validate`,
+`template-check` is only the SDK's two checks, `lint` is Clippy with
+`--all-features` (so an optional feature is still compiled, with its tests, and
+now also linted), and `test` compiles the default features. Every Cargo
+invocation passes `--locked`, so no part of the gate can resolve a dependency
+the lock does not name (R6). The `cargo vv` alias, which ran `xtask validate`
+and so was not the gate its name claimed, is removed.
+
+`cargo xtask new-capability <ID> <level> <suite> <statement>` (`just
+new-capability`) writes the register row, the tagged scenario and a test named
+`<suite>_<id>` that fails until the capability is built, then regenerates
+`CONFORMANCE.md`. Its tests run the honesty meta-gate on a scratch copy of the
+register: two scaffolded capabilities leave it clean, and a lowercase ID, a
+missing hyphen or number, an unknown level, an uppercase or path-escaping
+suite, an empty or two-line statement, too few arguments and a duplicate ID
+are all refused with the register byte-identical and no suite file written.
+
+On a copy of this repository, `just new-capability CX-01 build parsing ...`
+produced files that passed `cargo fmt --check` and all-feature Clippy, and
+`cargo test` then failed exactly at `parsing_cx_01`, as R3 requires. The 18
+`xtask` tests, all-target all-feature Clippy, formatting and `audit-deferral`
+passed with the pinned Rust 1.97.1 on `x86_64-unknown-linux-gnu`, locked,
+outside the SDK image; the SDK checks run in the pull request's bootstrap job.
+
+## The template contract checker
+
+`app/` is a Prism text application modeled in `app/src/Contract.lex.tex`. Its
+request is 384 bytes: for each universal policy file, in `template.lock`
+`policy_files` order, the locked SHA-256 then the observed SHA-256. It answers
+`conformant`, or `drift:` followed by each drifted path after a space, or
+`invalid request` for any
+other length. Lean proves, with only `propext`, that the executable verdict is
+both sound and complete for the specification:
+
+- `conformant_decides`: `conformant observation = true ↔ Conformant observation`.
+
+The proof is `simplify` over the definitions and Lean's `Bool.and_eq_true` and
+`Nat.beq_eq`, not `linear_arithmetic`. A `linear_arithmetic` proof makes the
+generated module import `LexLeanRuntime.Laws`, and `prismpm build` then
+compiles that module to C, which did not finish within the build's ten-minute
+limit in CI or in 25 minutes locally (without C generation it takes four
+seconds). The first CI run of this app failed exactly there, with
+`PP5007: application-lean timed out`. The second failed in code generation
+(`PP4102`), because the drift report was a `List String` built as an
+intermediate value. It is now `Bytes` appended straight into the response.
+
+`Conformant` is the conjunction of six digest equalities, one per universal
+policy path. A digest is four big-endian 64-bit words, because generated code
+represents a `Nat` as a checked `u64`, and `SameDigest` requires all four words
+to be equal, so two digests are the same exactly when their 32 bytes are. `contract_tc_01` reads the model as text and requires the theorem
+statement, its axiom list, one `Conformant` conjunct for each path in
+`template-contract.json` other than `template.lock` (which cannot pin its own
+digest), each path in the drift report, and a `dispatch` decided by
+`conformant`. The nine acceptance vectors (conformant, four drift cases, 383,
+385, 0 and 512 bytes) are executed against the compiled guest by the build
+that `prismpm verify` runs before it checks the resulting holo, so the proof, the code
+and the observed behaviour ship as one artifact.
+
+Locally, with LexLean 0.3.0 (the SDK's compiler), `lexlean check` and
+`lexlean verify` passed, verifying three modules; both planted defects in the
+table above made `contract_tc_01` fail with a message naming the defect. The
+holo build and verify run in the pull request's bootstrap job inside the
+locked SDK. `just app` runs only `prismpm verify`: it begins with the same
+build `prismpm build` performs, so running both built the holo twice. In the
+first green run, `prismpm build` took 82 seconds and `prismpm verify` 6
+minutes 14 seconds.

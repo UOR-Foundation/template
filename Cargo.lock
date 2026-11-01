@@ -275,6 +275,7 @@ dependencies = [
 name = "xtask"
 version = "0.1.0"
 dependencies = [
+ "repo-conformance",
  "repo-model",
  "serde_json",
  "sha2",
