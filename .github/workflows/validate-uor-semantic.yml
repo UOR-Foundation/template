@@ -1,0 +1,242 @@
+name: validate-uor-semantic
+
+on:
+  push:
+    branches: [validation/uor-semantic-cli]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -Dwarnings
+
+jobs:
+  acceptance:
+    name: Rust 1.97.1 acceptance gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.97.1
+          components: rustfmt, clippy
+          targets: thumbv7em-none-eabihf
+
+      - uses: extractions/setup-just@v2
+
+      - name: Reconstruct and patch uor-semantic workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/uor-semantic
+          mkdir -p /tmp/uor-semantic
+          cat .ci/uor-semantic.b64.part* | base64 --decode > /tmp/uor-semantic.tar.xz
+          tar -xJf /tmp/uor-semantic.tar.xz -C /tmp/uor-semantic
+          test -f /tmp/uor-semantic/Cargo.toml
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('/tmp/uor-semantic')
+
+          def replace(path, old, new, label):
+              text = path.read_text()
+              if old in text:
+                  path.write_text(text.replace(old, new, 1))
+                  return
+              if new not in text:
+                  raise SystemExit(f'{label} patch anchor not found')
+
+          artifact = root / 'crates/uor-semantic/src/artifact.rs'
+          replace(
+              artifact,
+              "pub const ARTIFACT_MAGIC: [u8; 8] = [b'U', b'O', b'R', b'S', b'E', b'M', b'0', b'1'];",
+              'pub const ARTIFACT_MAGIC: &[u8; 8] = b"UORSEM01";',
+              'artifact magic',
+          )
+          replace(
+              artifact,
+              '    let mut output = [\n        0x243f_6a88_85a3_08d3,',
+              '    let mut output: [u64; SIGNATURE_WORDS] = [\n        0x243f_6a88_85a3_08d3,',
+              'context signature type',
+          )
+
+          compiler = root / 'crates/uor-semantic-compiler/src/compiler.rs'
+          replace(
+              compiler,
+              'bytes[..ARTIFACT_MAGIC.len()].copy_from_slice(&ARTIFACT_MAGIC);',
+              'bytes[..ARTIFACT_MAGIC.len()].copy_from_slice(ARTIFACT_MAGIC);',
+              'compiler artifact magic',
+          )
+          replace(
+              compiler,
+              '            for word in 0..SIGNATURE_WORDS {\n'
+              '                for bit in 0..64 {\n'
+              '                    if ((signature[word] >> bit) & 1) != 0 {\n'
+              '                        let flat = word * 64 + bit;\n'
+              '                        bit_counts[cluster][flat] = bit_counts[cluster][flat].saturating_add(1);\n'
+              '                    }\n'
+              '                }\n'
+              '            }',
+              '            for (word, value) in signature.iter().copied().enumerate() {\n'
+              '                for bit in 0..64 {\n'
+              '                    if ((value >> bit) & 1) != 0 {\n'
+              '                        let flat = word * 64 + bit;\n'
+              '                        bit_counts[cluster][flat] = bit_counts[cluster][flat].saturating_add(1);\n'
+              '                    }\n'
+              '                }\n'
+              '            }',
+              'signature bit count',
+          )
+          replace(
+              compiler,
+              '            for word in 0..SIGNATURE_WORDS {\n'
+              '                for bit in 0..64 {\n'
+              '                    let flat = word * 64 + bit;\n'
+              '                    if bit_counts[cluster][flat].saturating_mul(2) >= member_counts[cluster] {\n'
+              '                        prototype[word] |= 1u64 << bit;\n'
+              '                    }\n'
+              '                }\n'
+              '            }',
+              '            for (word, prototype_word) in prototype.iter_mut().enumerate() {\n'
+              '                for bit in 0..64 {\n'
+              '                    let flat = word * 64 + bit;\n'
+              '                    if bit_counts[cluster][flat].saturating_mul(2) >= member_counts[cluster] {\n'
+              '                        *prototype_word |= 1u64 << bit;\n'
+              '                    }\n'
+              '                }\n'
+              '            }',
+              'prototype bit update',
+          )
+
+          sha = root / 'crates/uor-semantic-compiler/src/sha256.rs'
+          replace(
+              sha,
+              '    for index in 0..16 {\n'
+              '        let start = index * 4;\n'
+              '        words[index] = u32::from_be_bytes([\n'
+              '            block[start],\n'
+              '            block[start + 1],\n'
+              '            block[start + 2],\n'
+              '            block[start + 3],\n'
+              '        ]);\n'
+              '    }',
+              '    for (index, word) in words.iter_mut().take(16).enumerate() {\n'
+              '        let start = index * 4;\n'
+              '        *word = u32::from_be_bytes([\n'
+              '            block[start],\n'
+              '            block[start + 1],\n'
+              '            block[start + 2],\n'
+              '            block[start + 3],\n'
+              '        ]);\n'
+              '    }',
+              'SHA input schedule',
+          )
+
+          runtime_contract = root / 'crates/conformance/tests/runtime_contract.rs'
+          replace(
+              runtime_contract,
+              '        route_fixture(&AMBIGUOUS_STOP, &mut cloud, &mut census)\n'
+              '            .expect("the checked fixture is valid");\n'
+              '        assert!(budget.permits(&census));',
+              '        let summary = route_fixture(&AMBIGUOUS_STOP, &mut cloud, &mut census)\n'
+              '            .expect("the checked fixture is valid");\n'
+              '        assert_eq!(summary.candidates_scanned(), 3);\n'
+              '        assert_eq!(summary.retained(), cloud.len());\n'
+              '        assert!(!summary.was_truncated());\n'
+              '        assert!(budget.permits(&census));',
+              'runtime route summary',
+          )
+
+          model_pipeline = root / 'crates/conformance/tests/model_pipeline.rs'
+          replace(
+              model_pipeline,
+              '    assert!(!compiled.bytes.is_empty());\n'
+              '    ArtifactView::parse(&compiled.bytes).expect("runtime accepts compiler output");',
+              '    assert!(!compiled.bytes.is_empty());\n'
+              '    let artifact = ArtifactView::parse(&compiled.bytes)\n'
+              '        .expect("runtime accepts compiler output");\n'
+              '    assert_eq!(artifact.exact_count(), compiled.exact_records);\n'
+              '    assert_eq!(artifact.region_count(), compiled.regions);\n'
+              '    assert_eq!(artifact.emission_count(), compiled.emissions);',
+              'artifact validation result',
+          )
+
+          justfile = root / 'Justfile'
+          replace(
+              justfile,
+              'test:\n    cargo test --workspace --locked',
+              'test:\n    cargo test --workspace --locked -- --test-threads=1',
+              'serialized workspace tests',
+          )
+          replace(
+              justfile,
+              'release-assertions:\n    cargo test --workspace --profile release-assertions --locked',
+              'release-assertions:\n    cargo test --workspace --profile release-assertions --locked -- --test-threads=1',
+              'serialized release tests',
+          )
+          PY
+
+      - name: Show toolchain
+        working-directory: /tmp/uor-semantic
+        run: |
+          rustc --version --verbose
+          cargo --version
+
+      - name: Apply canonical formatting and machine-applicable Clippy fixes
+        working-directory: /tmp/uor-semantic
+        shell: bash
+        run: |
+          cargo fmt --all
+          RUSTFLAGS= cargo clippy --fix --workspace --all-targets --all-features --allow-dirty --allow-no-vcs --locked
+          cargo fmt --all
+
+      - name: Run normative acceptance gate
+        working-directory: /tmp/uor-semantic
+        run: just vv
+
+      - name: Build release CLI
+        working-directory: /tmp/uor-semantic
+        run: cargo build --release --locked -p uor-semantic-cli --bin uor-semantic
+
+      - name: Package verified source and CLI
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/uor-semantic-release
+          mkdir -p /tmp/uor-semantic-release/bin/linux-x86_64
+          cp /tmp/uor-semantic/target/release/uor-semantic /tmp/uor-semantic-release/bin/linux-x86_64/uor-semantic
+          chmod +x /tmp/uor-semantic-release/bin/linux-x86_64/uor-semantic
+          rm -rf /tmp/uor-semantic/target /tmp/uor-semantic/scripts/__pycache__
+          tar --exclude=target --exclude=__pycache__ -cJf /tmp/uor-semantic-release/uor-semantic-source.tar.xz -C /tmp/uor-semantic .
+          (cd /tmp/uor-semantic-release && sha256sum uor-semantic-source.tar.xz bin/linux-x86_64/uor-semantic > SHA256SUMS)
+
+      - name: Upload verified full build
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uor-semantic-full-build
+          path: /tmp/uor-semantic-release
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Package failure snapshot
+        if: failure()
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/uor-semantic/target /tmp/uor-semantic/scripts/__pycache__
+          tar --exclude=target --exclude=__pycache__ -cJf /tmp/uor-semantic-failure.tar.xz -C /tmp/uor-semantic .
+
+      - name: Upload failure snapshot
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uor-semantic-failure
+          path: /tmp/uor-semantic-failure.tar.xz
+          if-no-files-found: error
+          retention-days: 1
