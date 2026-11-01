@@ -36,7 +36,8 @@ jobs:
 
   deploy:
     name: publish the try page
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Repositories made from this template have no Pages site for this page.
+    if: github.repository == 'UOR-Foundation/template' && github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: verify
     runs-on: ubuntu-24.04
     permissions:
