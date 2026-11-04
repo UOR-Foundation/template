@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Load, verify and run this repository's Prism application entirely in the browser."
+    />
+    <title>Prism app</title>
+    <link rel="stylesheet" href="./try.css" />
+  </head>
+  <body>
+    <main>
+      <header class="intro">
+        <p class="eyebrow">Prism app</p>
+        <h1 id="name">Loading…</h1>
+        <p class="lede">
+          This page loads <code>app.holo</code>, the application this repository
+          builds, with the vendored <code>prism-code</code> runtime. It verifies
+          the archive fingerprint and dispatches requests in the page. Nothing is
+          uploaded and nothing is installed.
+        </p>
+      </header>
+
+      <section class="card" aria-labelledby="identity-title">
+        <h2 id="identity-title">Archive identity</h2>
+        <dl class="facts">
+          <div>
+            <dt>Status</dt>
+            <dd id="verified" aria-live="polite">loading…</dd>
+          </div>
+          <div>
+            <dt>Fingerprint</dt>
+            <dd><code id="fingerprint">—</code></dd>
+          </div>
+          <div>
+            <dt>Limits</dt>
+            <dd id="limits">—</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="card" aria-labelledby="request-title">
+        <h2 id="request-title">Send a request</h2>
+        <form id="form" class="request">
+          <label for="request">Request (text, or <code>hex:</code> followed by bytes)</label>
+          <textarea id="request" rows="3" spellcheck="false"></textarea>
+          <button type="submit">Send</button>
+        </form>
+        <p>Response</p>
+        <pre id="response">—</pre>
+      </section>
+
+      <section class="card" aria-labelledby="examples-title">
+        <h2 id="examples-title">Examples the app carries</h2>
+        <p>
+          <button id="replay" type="button">Replay all</button>
+          <span id="replayed" aria-live="polite"></span>
+        </p>
+        <ul id="examples"></ul>
+      </section>
+    </main>
+    <script type="importmap">
+      { "imports": { "node:crypto": "./vendor/node-crypto-shim.mjs" } }
+    </script>
+    <script type="module" src="./app.mjs"></script>
+  </body>
+</html>
