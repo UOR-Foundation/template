@@ -100,7 +100,10 @@ for (const c of classes) {
       };
     }, c);
     if (facts.overflow) fail(where, "horizontal overflow");
-    if (facts.marginLeft !== c.margin) fail(where, `margin ${facts.marginLeft}px, the class needs ${c.margin}px`);
+    // The class margin is the minimum; once the column reaches its widest
+    // measure (80 rem from 840 px) it centres, and the margin grows.
+    const capped = c.width > 1280 + 2 * c.margin;
+    if (facts.marginLeft < c.margin || (!capped && facts.marginLeft !== c.margin)) fail(where, `margin ${facts.marginLeft}px, the class needs ${c.margin}px`);
     if ((facts.panes === "grid") !== c.panes) fail(where, `panes are ${facts.panes}, the class needs ${c.panes ? "two panes" : "one column"}`);
     if (c.touch && !facts.coarse) fail(where, "the emulated device is not a coarse pointer");
     for (const s of facts.small) fail(where, `touch target under 48 px: ${s}`);
