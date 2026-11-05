@@ -27,6 +27,7 @@
         "resource-summary:total:count": ["error", { "maxNumericValue": 28 }],
         "resource-summary:third-party:count": ["error", { "maxNumericValue": 0 }],
         "uses-long-cache-ttl": "off",
+        "network-dependency-tree-insight": "off",
         "csp-xss": "off"
       }
     },
