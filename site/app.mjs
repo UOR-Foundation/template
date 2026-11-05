@@ -70,10 +70,16 @@ function offline() {
   addEventListener("offline", paint);
   if (!("serviceWorker" in navigator)) return;
   const register = () => navigator.serviceWorker.register("./sw.js").then((registration) => {
+    // Reload only when the visitor asked for the update: the first worker
+    // claims the page without one, so a first visit is one navigation.
+    let asked = false;
     const offer = (worker) => {
       if (!navigator.serviceWorker.controller) return;
       $("update").hidden = false;
-      $("reload").addEventListener("click", () => worker.postMessage("skip-waiting"), { once: true });
+      $("reload").addEventListener("click", () => {
+        asked = true;
+        worker.postMessage("skip-waiting");
+      }, { once: true });
     };
     if (registration.waiting) offer(registration.waiting);
     registration.addEventListener("updatefound", () => {
@@ -82,10 +88,9 @@ function offline() {
         if (worker.state === "installed") offer(worker);
       });
     });
-    let reloading = false;
     navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (reloading) return;
-      reloading = true;
+      if (!asked) return;
+      asked = false;
       location.reload();
     });
   }).catch(() => {

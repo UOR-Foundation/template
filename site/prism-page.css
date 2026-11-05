@@ -224,7 +224,8 @@ html:not(.dark) .chip-good, html:not(.dark) .chip-bad { background: var(--card);
 
 /* Space reserved for what the holo fills in after it loads, so nothing shifts. */
 .reserve-1 { display: block; min-height: 1.5rem; }
-.reserve-2 { display: block; min-height: 2.625rem; }
+.reserve-2 { display: block; flex: 1 0 100%; min-height: 2.625rem; }
+@media (max-width: 599px) { .reserve-1 { min-height: 3rem; } }
 
 /* Controls: 36px on a fine pointer, 48px on a coarse one, radius one step
  * under the surface, hairline, no shadow. */
