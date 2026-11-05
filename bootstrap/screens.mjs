@@ -10,7 +10,13 @@
 import { createServer } from "node:http";
 import { readFile, mkdir, stat } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
-import { chromium } from "playwright";
+import { execSync } from "node:child_process";
+import { pathToFileURL } from "node:url";
+
+// Playwright from the project, or from the global install the workflow makes.
+const playwright = await import("playwright").catch(() =>
+  import(pathToFileURL(join(execSync("npm root -g").toString().trim(), "playwright", "index.mjs")).href));
+const { chromium } = playwright;
 
 const site = process.argv[2] ?? "site";
 const out = process.argv[3] ?? "screens";
