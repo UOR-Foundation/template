@@ -72,6 +72,22 @@ the `devcontainer` CLI. Nothing else is installed on the host.
    Make the test assert the scenario, build the capability until it passes,
    plant the defect the test exists to catch, and run `just vv` again.
 
+## Publish the app page
+
+`site/` is a page that loads the holo `just app` builds, verifies it in the
+visitor's browser, and lets them send requests and replay the examples the
+archive carries. `.github/workflows/pages.yml` builds the holo through the
+locked SDK on every push to `main` and publishes the page to GitHub Pages.
+Turn Pages on once, with the workflow as its source:
+
+```sh
+gh api -X POST repos/OWNER/NAME/pages -f build_type=workflow
+```
+
+The page is then at `https://OWNER.github.io/NAME/`. The workflow runs beside
+`bootstrap`, not after it: `just app` is the proof-bearing build, so the page
+goes live as soon as the Lean kernel has accepted the model.
+
 ## The template is a Prism application
 
 `app/` is the **template contract checker**. A repository built from this
