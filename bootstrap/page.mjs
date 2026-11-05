@@ -22,15 +22,11 @@ let html = await read("page.template.html");
 
 // Styles and the theme bootstrap, inlined. The brand variables come from
 // brand/hologram-warm.css and brand/fonts.css, both pinned by brand.lock.
-// The one font the largest text paints in (the body regular) travels inside
-// the HTML as a data URL, so the first paint is already in the brand font and
-// the largest contentful paint is the first; the others are preloaded.
-const inlineFont = "Geist-Regular.woff2";
-const fontData = "data:font/woff2;base64," + (await readFile(join(site, "fonts", inlineFont))).toString("base64");
-const css = [await read("brand/hologram-warm.css"), await read("brand/fonts.css"), await read("prism-page.css")]
+// Comments and indentation out: the stylesheet travels inside every page.
+const minify = (text) => text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]+/gm, "").replace(/\n{2,}/g, "\n").trim();
+const css = minify([await read("brand/hologram-warm.css"), await read("brand/fonts.css"), await read("prism-page.css")]
   .join("\n")
-  .replace(`url("../fonts/${inlineFont}")`, `url("${fontData}")`)
-  .replace(/url\("\.\.\/fonts\//g, 'url("./fonts/');
+  .replace(/url\("\.\.\/fonts\//g, 'url("./fonts/'));
 const theme = (await read("theme.js")).trim();
 const importmap = '{ "imports": { "node:crypto": "./vendor/node-crypto-shim.mjs" } }';
 

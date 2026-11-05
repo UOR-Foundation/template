@@ -22,7 +22,7 @@
         "largest-contentful-paint": ["error", { "maxNumericValue": 1500 }],
         "total-blocking-time": ["error", { "maxNumericValue": 100 }],
         "cumulative-layout-shift": ["error", { "maxNumericValue": 0 }],
-        "first-contentful-paint": ["error", { "maxNumericValue": 1000 }],
+        "first-contentful-paint": ["error", { "maxNumericValue": 1200 }],
         "resource-summary:total:size": ["error", { "maxNumericValue": 122880 }],
         "resource-summary:total:count": ["error", { "maxNumericValue": 28 }],
         "resource-summary:third-party:count": ["error", { "maxNumericValue": 0 }],

@@ -1,5 +1,6 @@
 """Subset the brand kit's fonts for the page, and write the font-face rules with
-metric-matched fallbacks so the swap from the fallback causes no layout shift.
+metric-matched fallbacks and font-display optional: no swap, no layout shift, and the
+brand font whenever it is ready in time (always, from the second visit on).
 
     python -I bootstrap/brand-fonts.py            subset .brand-src/ fonts into site/fonts, update brand.lock, write site/brand/fonts.css
     python -I bootstrap/brand-fonts.py --check    recompute and compare the hashes in brand.lock
@@ -93,7 +94,7 @@ def main(check_only):
             if fallback not in rules:
                 rules.append(fallback)
         rules.append(f'@font-face {{ font-family: "{family}"; src: url("../fonts/{os.path.basename(font["to"])}") format("woff2"); '
-                     f"font-weight: {weight}; font-style: normal; font-display: swap; }}")
+                     f"font-weight: {weight}; font-style: normal; font-display: optional; }}")
         print(f"brand-fonts: {font['to']} {os.path.getsize(dst)} bytes")
     if check_only:
         if changed:
