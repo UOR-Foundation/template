@@ -1,0 +1,36 @@
+{
+  "ci": {
+    "collect": {
+      "staticDistDir": "./site",
+      "url": ["http://localhost/"],
+      "numberOfRuns": 3,
+      "settings": {
+        "preset": "perf",
+        "onlyCategories": ["performance", "accessibility", "best-practices", "seo"],
+        "formFactor": "mobile",
+        "screenEmulation": { "mobile": true, "width": 412, "height": 823, "deviceScaleFactor": 1.75, "disabled": false },
+        "throttlingMethod": "simulate"
+      }
+    },
+    "assert": {
+      "preset": "lighthouse:recommended",
+      "assertions": {
+        "categories:performance": ["error", { "minScore": 1 }],
+        "categories:accessibility": ["error", { "minScore": 1 }],
+        "categories:best-practices": ["error", { "minScore": 1 }],
+        "categories:seo": ["error", { "minScore": 1 }],
+        "largest-contentful-paint": ["error", { "maxNumericValue": 1500 }],
+        "total-blocking-time": ["error", { "maxNumericValue": 100 }],
+        "cumulative-layout-shift": ["error", { "maxNumericValue": 0 }],
+        "first-contentful-paint": ["error", { "maxNumericValue": 1200 }],
+        "resource-summary:total:size": ["error", { "maxNumericValue": 122880 }],
+        "resource-summary:total:count": ["error", { "maxNumericValue": 28 }],
+        "resource-summary:third-party:count": ["error", { "maxNumericValue": 0 }],
+        "uses-long-cache-ttl": "off",
+        "network-dependency-tree-insight": "off",
+        "csp-xss": "off"
+      }
+    },
+    "upload": { "target": "temporary-public-storage" }
+  }
+}

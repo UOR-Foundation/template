@@ -74,11 +74,41 @@ the `devcontainer` CLI. Nothing else is installed on the host.
 
 ## Publish the app page
 
-`site/` is a page that loads the holo `just app` builds, verifies it in the
-visitor's browser, and lets them send requests and replay the examples the
-archive carries. `.github/workflows/pages.yml` builds the holo through the
-locked SDK on every push to `main` and publishes the page to GitHub Pages.
-Turn Pages on once, with the workflow as its source:
+`site/` is the standard Prism app page: a lean, installable PWA that loads the
+holo `just app` builds, verifies it in the visitor's browser, shows what is
+proved and what is trusted, and lets them send requests and replay the examples
+the archive carries. Every instance gets the same page; an app edits one file.
+
+- **`site/app.json`** is the only file an app writes: its name, purpose and
+  labels, the claim, the proposition as it reads in the model, the theorems,
+  the attestations, and the trusted set. `bootstrap/page.mjs` renders
+  `site/index.html` and `site/manifest.webmanifest` from it; `bootstrap/icons.py`
+  draws the icons from its name (the warm ground, the app's initial, the brand
+  dot, no logo).
+- **The brand is wired, not copied.** `brand.lock` pins
+  [Hologram-Technologies/hologram-brand-kit](https://github.com/Hologram-Technologies/hologram-brand-kit)
+  at one commit and records the SHA-256 of every file the page takes from it:
+  the tokens (`site/brand/hologram-warm.css`, byte for byte) and the fonts
+  (subset by `bootstrap/brand-fonts.py`, with metric-matched fallbacks).
+  `node bootstrap/brand-sync.mjs --check` verifies the served files against the
+  lock and runs in `pages.yml` before the build; `--pin <commit>` moves every
+  app to a new kit revision. The page's own stylesheet declares no colour.
+- **Any screen.** Material 3 window size classes: one column under 600 px,
+  two panes from 840; 48 px touch targets on coarse pointers; safe areas;
+  forced colours and reduced motion respected.
+- **Installable and offline.** A manifest with maskable icons and a service
+  worker that caches every response as it passes, so the app loads, verifies
+  the holo and answers requests with the network off after one visit. A new
+  deploy shows one "Update available" chip and reloads only when asked.
+- **The gate.** `lighthouserc.json` asserts 100 in performance, accessibility,
+  best practices and SEO on the mobile profile, LCP under 1.5 s, TBT under
+  100 ms, CLS 0, under 120 KB and no third-party request; `pages.yml` runs
+  Lighthouse CI on the assembled site before anything is deployed.
+
+`.github/workflows/pages.yml` builds the holo through the locked SDK on every
+push to `main`, checks the brand wiring, renders the page, writes the
+precache list, runs Lighthouse, and publishes to GitHub Pages. Turn Pages on
+once, with the workflow as its source:
 
 ```sh
 gh api -X POST repos/OWNER/NAME/pages -f build_type=workflow

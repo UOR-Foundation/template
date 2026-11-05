@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="description" content="{{DESCRIPTION}}" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f3f3ee" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#151312" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' {{CSP_SCRIPT_HASHES}}; style-src {{CSP_STYLE_HASHES}}; font-src 'self'; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'self'; object-src 'none'" />
+    <title>{{TITLE}}</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icons/icon-192.png" type="image/png" sizes="192x192" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+    <link rel="preload" href="./fonts/Archivo-SemiBold.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="./fonts/Geist-Regular.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="./fonts/Geist-Medium.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="./fonts/GeistMono-Regular.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="modulepreload" href="./app.mjs" />
+    <style>{{INLINE_CSS}}</style>
+    <script>{{INLINE_THEME}}</script>
+  </head>
+  <body>
+    <main>
+      <header class="intro">
+        <div class="brandline">
+          <p class="eyebrow">Prism app</p>
+          <span id="update" class="chip chip-warn" hidden>
+            <button id="reload" class="bare" type="button">Update available. Reload</button>
+          </span>
+          <button id="theme" class="ghost" type="button" aria-label="Dark theme">Dark</button>
+        </div>
+        <h1 id="name"><span class="dot" aria-hidden="true"></span><span id="name-text">{{NAME}}</span></h1>
+        <p id="purpose" class="lede">{{PURPOSE}}</p>
+      </header>
+
+      <div class="panes">
+        <div class="pane">
+          <section class="card" aria-labelledby="identity-title">
+            <h2 id="identity-title">Identity</h2>
+            <dl class="facts">
+              <div>
+                <dt>Status</dt>
+                <dd><span id="verified" class="chip chip-wait" aria-live="polite">verifying</span></dd>
+              </div>
+              <div>
+                <dt>Fingerprint</dt>
+                <dd class="row">
+                  <code id="fingerprint" class="hash reserve-2">computing</code>
+                  <button id="copy" class="ghost" type="button" aria-label="Copy the fingerprint">Copy</button>
+                  <a id="holo" class="ghost" href="./app.holo" download>Download the holo</a>
+                </dd>
+              </div>
+              <div>
+                <dt>Limits</dt>
+                <dd id="limits" class="muted reserve-1">reading</dd>
+              </div>
+              <div>
+                <dt>Proof attestation</dt>
+                <dd><a id="att-proof" class="hash" href="{{ATT_PROOF_URL}}">{{ATT_PROOF_ID}}</a></dd>
+              </div>
+              <div>
+                <dt>Build attestation</dt>
+                <dd><a id="att-build" class="hash" href="{{ATT_BUILD_URL}}">{{ATT_BUILD_ID}}</a></dd>
+              </div>
+            </dl>
+          </section>
+
+          <section class="card" aria-labelledby="proved-title">
+            <h2 id="proved-title">What is proved</h2>
+            <p id="claim" class="claim">{{CLAIM}}</p>
+            <div class="proposition">
+              <p class="label">The rule, as the proposition <code id="prop-name">{{PROP_NAME}}</code></p>
+              <pre id="prop-text" class="mono">{{PROP_TEXT}}</pre>
+              <p id="prop-plain" class="muted">{{PROP_PLAIN}}</p>
+            </div>
+            <ul id="theorems" class="list">
+{{THEOREMS}}
+            </ul>
+            <details class="disclosure">
+              <summary>Pinned by the gate, not proved</summary>
+              <ul id="pinned" class="list">
+{{PINNED}}
+              </ul>
+            </details>
+            <details class="disclosure">
+              <summary>Trusted, not checked by the kernel</summary>
+              <ul id="trusted" class="list">
+{{TRUSTED}}
+              </ul>
+            </details>
+          </section>
+        </div>
+
+        <div class="pane">
+          <section class="card" aria-labelledby="try-title">
+            <h2 id="try-title">Try it</h2>
+            <form id="form" class="try">
+              <label for="request" id="request-label">{{INPUT_LABEL}}</label>
+              <div class="row">
+                <input id="request" type="text" autocomplete="off" spellcheck="false" inputmode="numeric" enterkeyhint="send" placeholder="{{PLACEHOLDER}}" />
+                <button id="submit" class="primary" type="submit">{{SUBMIT_LABEL}}</button>
+              </div>
+              <p class="hint muted">Text, or <code>hex:</code> followed by bytes.</p>
+            </form>
+            <div class="answer">
+              <p class="label" id="output-label">{{OUTPUT_LABEL}}</p>
+              <p class="row"><code id="echo" class="mono muted"></code></p>
+              <p><span id="response" class="chip chip-wait" aria-live="polite">none yet</span></p>
+            </div>
+          </section>
+
+          <section class="card" aria-labelledby="examples-title">
+            <h2 id="examples-title">Examples the app carries</h2>
+            <p class="row">
+              <button id="replay" class="secondary" type="button">Replay all</button>
+              <span id="replayed" class="chip chip-wait" aria-live="polite">replaying</span>
+            </p>
+            <table class="examples">
+              <thead><tr><th scope="col">Request</th><th scope="col">Answer</th></tr></thead>
+              <tbody id="examples"></tbody>
+            </table>
+          </section>
+        </div>
+      </div>
+
+      <footer class="foot muted">
+        <a id="repo" href="{{REPO}}">Repository</a>
+        <a id="report" href="{{REPORT}}">Report</a>
+        <a href="https://github.com/UOR-Foundation/template">Built from UOR-Foundation/template</a>
+        <a href="https://github.com/Hologram-Technologies/hologram-brand-kit">Hologram brand kit</a>
+        <span id="offline" class="muted" hidden>Offline. Everything on this page still works.</span>
+        <span>MIT or Apache-2.0</span>
+      </footer>
+    </main>
+    <noscript><p class="noscript">This page needs JavaScript to load and verify the app in your browser.</p></noscript>
+    <script type="application/json" id="app-data">{{APP_DATA}}</script>
+    <script type="importmap">{{IMPORTMAP}}</script>
+    <script type="module" src="./app.mjs"></script>
+  </body>
+</html>
