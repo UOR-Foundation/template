@@ -1,12 +1,17 @@
-// The repository's app page: loads app.holo, verifies it, lets a visitor send
-// requests and replay the examples the archive carries. Generic on purpose:
-// an app whose requests are text shows them as text, any other as hex.
+// The standard Prism app page: loads app.holo with the vendored prism-code
+// runtime, verifies it, lets a visitor send requests, and replays the
+// examples the archive carries. Everything the page says about the app is
+// rendered into index.html by bootstrap/page.mjs from app.json before any
+// script runs; this module adds only what the holo itself tells it. The
+// service worker caches every response as it passes, so the page works
+// offline after one visit.
 import { load } from "./vendor/prism-code/src/browser.mjs";
 
 const $ = (id) => document.getElementById(id);
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true });
 const describe = (error) => error?.code ?? error?.message ?? String(error);
+const data = JSON.parse($("app-data").textContent);
 
 const hex = (bytes) =>
   "hex:" + Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
@@ -30,62 +35,158 @@ function parse(text) {
   return Uint8Array.from(digits.match(/../g) ?? [], (pair) => parseInt(pair, 16));
 }
 
+function chip(element, text, state) {
+  element.textContent = text;
+  element.className = `chip chip-${state}`;
+}
+
+function theme() {
+  const root = document.documentElement;
+  const button = $("theme");
+  const paint = () => {
+    const next = root.classList.contains("dark") ? "Light" : "Dark";
+    button.textContent = next;
+    button.setAttribute("aria-label", `${next} theme`);
+  };
+  paint();
+  button.addEventListener("click", () => {
+    root.classList.toggle("dark");
+    try {
+      localStorage.setItem("prism-theme", root.classList.contains("dark") ? "dark" : "light");
+    } catch {
+      // A private window keeps no preference; the page still switches.
+    }
+    paint();
+  });
+}
+
+// Install the service worker once the page has loaded, so it never competes
+// with the first paint; when a new one is waiting, show one chip and reload
+// only when the visitor asks. Never silently.
+function offline() {
+  const paint = () => ($("offline").hidden = navigator.onLine);
+  paint();
+  addEventListener("online", paint);
+  addEventListener("offline", paint);
+  if (!("serviceWorker" in navigator)) return;
+  const register = () => navigator.serviceWorker.register("./sw.js").then((registration) => {
+    const offer = (worker) => {
+      if (!navigator.serviceWorker.controller) return;
+      $("update").hidden = false;
+      $("reload").addEventListener("click", () => worker.postMessage("skip-waiting"), { once: true });
+    };
+    if (registration.waiting) offer(registration.waiting);
+    registration.addEventListener("updatefound", () => {
+      const worker = registration.installing;
+      worker?.addEventListener("statechange", () => {
+        if (worker.state === "installed") offer(worker);
+      });
+    });
+    let reloading = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (reloading) return;
+      reloading = true;
+      location.reload();
+    });
+  }).catch(() => {
+    // No worker: the page still works online.
+  });
+  if (document.readyState === "complete") register();
+  else addEventListener("load", register, { once: true });
+}
+
+// The answer's state: the app's refusal is a correct answer shown as a
+// warning, never as a failure; a runtime error is a failure.
+const answerState = (text) => (text === data.invalidResponse ? "warn" : "good");
+
 async function main() {
+  theme();
+  offline();
+
   let app;
   try {
     app = await load("./app.holo");
   } catch (error) {
-    $("name").textContent = "No app";
-    $("verified").textContent = `failed to load: ${describe(error)}`;
-    $("verified").classList.add("bad");
+    chip($("verified"), `failed to load: ${describe(error)}`, "bad");
+    chip($("replayed"), "no app", "bad");
     return;
   }
 
   const { identities } = app;
-  document.title = app.name ?? "Prism app";
-  $("name").textContent = app.name ?? "unnamed";
-  $("verified").textContent = identities.verified ? "verified" : "NOT verified";
-  $("verified").classList.add(identities.verified ? "good" : "bad");
+  chip($("verified"), identities.verified ? "verified" : "NOT verified", identities.verified ? "good" : "bad");
   $("fingerprint").textContent = identities.archiveFingerprint;
   $("limits").textContent = app.limits
-    ? `request ${app.limits.request} · response ${app.limits.response} · guest ${app.limits.guestAllocation}`
-    : "—";
+    ? `request ${app.limits.request} bytes, response ${app.limits.response} bytes, guest ${app.limits.guestAllocation} bytes`
+    : "unknown";
+
+  $("copy").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(identities.archiveFingerprint);
+      $("copy").textContent = "Copied";
+      setTimeout(() => ($("copy").textContent = "Copy"), 1500);
+    } catch {
+      $("copy").textContent = "Select it";
+    }
+  });
 
   for (const vector of app.vectors) {
-    const item = document.createElement("li");
+    const row = document.createElement("tr");
+    const request = document.createElement("td");
     const use = document.createElement("button");
     use.type = "button";
-    use.textContent = show(vector.request);
+    use.className = "use";
+    const text = show(vector.request);
+    if (text.length > 48) {
+      const shown = `${text.slice(0, 24)} … ${text.slice(-8)}`;
+      use.textContent = shown;
+      const note = document.createElement("div");
+      note.className = "long";
+      note.textContent = `${vector.request.length} bytes`;
+      use.setAttribute("aria-label", `${shown}, ${vector.request.length} bytes`);
+      request.append(use, note);
+    } else {
+      use.textContent = text === "" ? "(empty)" : text;
+      request.append(use);
+    }
     use.addEventListener("click", () => {
-      $("request").value = show(vector.request);
+      $("request").value = text;
+      $("request").focus();
     });
-    item.append(use, " → ", show(vector.response));
-    $("examples").append(item);
+    const answer = document.createElement("td");
+    const code = document.createElement("code");
+    code.textContent = show(vector.response);
+    answer.append(code);
+    row.append(request, answer);
+    $("examples").append(row);
   }
 
   $("form").addEventListener("submit", async (event) => {
     event.preventDefault();
+    const raw = $("request").value;
+    $("echo").textContent = raw === "" ? "(empty)" : raw;
     try {
-      const response = await app.dispatch(parse($("request").value));
-      $("response").textContent = show(response);
+      const response = show(await app.dispatch(parse(raw)));
+      chip($("response"), response, answerState(response));
     } catch (error) {
-      $("response").textContent = `dispatch failed: ${describe(error)}`;
+      chip($("response"), `dispatch failed: ${describe(error)}`, "bad");
     }
   });
 
-  $("replay").addEventListener("click", async () => {
+  async function replay() {
     const button = $("replay");
     button.disabled = true;
-    $("replayed").textContent = "replaying…";
+    chip($("replayed"), "replaying", "wait");
     try {
       const result = await app.acceptance();
-      $("replayed").textContent = `${result.passed} of ${result.total} passed`;
+      chip($("replayed"), `${result.passed} of ${result.total} passed`, result.passed === result.total ? "good" : "bad");
     } catch (error) {
-      $("replayed").textContent = `failed: ${describe(error)}`;
+      chip($("replayed"), `failed: ${describe(error)}`, "bad");
     } finally {
       button.disabled = false;
     }
-  });
+  }
+  $("replay").addEventListener("click", replay);
+  await replay();
 }
 
 main();

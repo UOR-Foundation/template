@@ -19,3 +19,12 @@
 node_modules/
 test-results/
 playwright-report/
+site/app.holo
+site/vendor/
+.brand-src/
+site/precache.json
+site/index.html
+site/manifest.webmanifest
+
+# Brand kit sources fetched by bootstrap/brand-sync.mjs for brand-fonts.py.
+.brand-src/
