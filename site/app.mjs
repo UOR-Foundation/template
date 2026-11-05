@@ -5,7 +5,6 @@
 // script runs; this module adds only what the holo itself tells it. The
 // service worker caches every response as it passes, so the page works
 // offline after one visit.
-import { load } from "./vendor/prism-code/src/browser.mjs";
 
 const $ = (id) => document.getElementById(id);
 const encoder = new TextEncoder();
@@ -104,12 +103,19 @@ function offline() {
 // warning, never as a failure; a runtime error is a failure.
 const answerState = (text) => (text === data.invalidResponse ? "warn" : "good");
 
+// The runtime and the holo are fetched after the first frame has painted:
+// everything above the fold is in the HTML already, and nothing the holo adds
+// is needed to read the page, so the first paint waits for nothing.
+const afterFirstFrame = () => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
+
 async function main() {
   theme();
   offline();
 
   let app;
   try {
+    await afterFirstFrame();
+    const { load } = await import("./vendor/prism-code/src/browser.mjs");
     app = await load("./app.holo");
   } catch (error) {
     chip($("verified"), `failed to load: ${describe(error)}`, "bad");
