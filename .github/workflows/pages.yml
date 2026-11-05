@@ -86,6 +86,20 @@ jobs:
           set -euo pipefail
           npm install --no-audit --no-fund --global @lhci/cli@0.15.1
           lhci autorun --config=lighthouserc.json
+      - name: Every Material 3 window size class, both themes, before anything is deployed
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-audit --no-fund --global playwright@1.56.1
+          playwright install --with-deps chromium
+          node bootstrap/screens.mjs site screens
+      - name: Keep the screens
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: screens
+          path: screens
+          if-no-files-found: ignore
       - name: Configure Pages
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b
       - name: Upload the page
