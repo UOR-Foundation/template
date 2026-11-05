@@ -105,8 +105,12 @@ const answerState = (text) => (text === data.invalidResponse ? "warn" : "good");
 
 // The runtime and the holo are fetched after the first frame has painted:
 // everything above the fold is in the HTML already, and nothing the holo adds
-// is needed to read the page, so the first paint waits for nothing.
-const afterFirstFrame = () => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
+// is needed to read the page, so the first paint waits for nothing. A tab
+// opened in the background paints no frame, so a short timer stands in.
+const afterFirstFrame = () => new Promise((resolve) => {
+  requestAnimationFrame(() => setTimeout(resolve, 0));
+  setTimeout(resolve, 200);
+});
 
 async function main() {
   theme();
