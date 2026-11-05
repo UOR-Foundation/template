@@ -99,9 +99,15 @@ function offline() {
   else addEventListener("load", register, { once: true });
 }
 
-// The answer's state: the app's refusal is a correct answer shown as a
-// warning, never as a failure; a runtime error is a failure.
-const answerState = (text) => (text === data.invalidResponse ? "warn" : "good");
+// Every answer is coloured by what app.json says it means: a positive answer
+// green, a negative answer or the refusal red, anything else neutral. A
+// runtime error is red too. An entry ending in "*" matches a prefix.
+const matches = (text, list) => (list ?? []).some((e) => (e.endsWith("*") ? text.startsWith(e.slice(0, -1)) : text === e));
+function answerState(text) {
+  if (matches(text, data.answers.positive)) return "good";
+  if (text === data.answers.refusal || matches(text, data.answers.negative)) return "bad";
+  return "wait";
+}
 
 // The runtime and the holo are fetched after the first frame has painted:
 // everything above the fold is in the HTML already, and nothing the holo adds
@@ -168,9 +174,9 @@ async function main() {
       $("request").focus();
     });
     const answer = document.createElement("td");
-    const code = document.createElement("code");
-    code.textContent = show(vector.response);
-    answer.append(code);
+    const state = document.createElement("span");
+    chip(state, show(vector.response), answerState(show(vector.response)));
+    answer.append(state);
     row.append(request, answer);
     $("examples").append(row);
   }

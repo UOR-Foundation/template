@@ -58,7 +58,7 @@ const fill = {
   INLINE_CSS: css,
   INLINE_THEME: theme,
   IMPORTMAP: importmap,
-  APP_DATA: JSON.stringify({ invalidResponse: meta.invalidResponse }).replace(/</g, "\\u003c"),
+  APP_DATA: JSON.stringify({ answers: meta.answers }).replace(/</g, "\\u003c"),
   CSP_SCRIPT_HASHES: `${sha(theme)} ${sha(importmap)}`,
   CSP_STYLE_HASHES: sha(css),
 };

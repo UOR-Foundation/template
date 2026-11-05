@@ -333,6 +333,7 @@ input[type="text"]::placeholder { color: var(--muted-foreground); }
 }
 .examples button.use:hover { background: var(--accent); }
 .examples .long { color: var(--muted-foreground); font-size: var(--text-14); }
+.examples .chip { min-height: 1.5rem; }
 
 @media (max-width: 599px) {
   .examples thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
