@@ -39,6 +39,17 @@ function chip(element, text, state) {
   element.className = `chip chip-${state}`;
 }
 
+// The top bar repeats the identity verdict in short: the state, and the
+// fingerprint's first and last four digits. The full fingerprint is its title.
+function trust(label, state, fingerprint = "") {
+  const digits = fingerprint.slice(fingerprint.lastIndexOf(":") + 1);
+  $("trust").className = `chip chip-${state} trust`;
+  $("trust-state").textContent = label;
+  // A no-break space: a flex item drops a leading plain one.
+  $("trust-fp").textContent = digits.length > 8 ? `\u00a0${digits.slice(0, 4)}…${digits.slice(-4)}` : "";
+  $("trust").title = fingerprint ? `${label}, fingerprint ${fingerprint}` : label;
+}
+
 function theme() {
   const root = document.documentElement;
   const button = $("theme");
@@ -130,11 +141,13 @@ async function main() {
   } catch (error) {
     chip($("verified"), `failed to load: ${describe(error)}`, "bad");
     chip($("replayed"), "no app", "bad");
+    trust("failed", "bad");
     return;
   }
 
   const { identities } = app;
   chip($("verified"), identities.verified ? "verified" : "NOT verified", identities.verified ? "good" : "bad");
+  trust(identities.verified ? "verified" : "NOT verified", identities.verified ? "good" : "bad", identities.archiveFingerprint);
   $("fingerprint").textContent = identities.archiveFingerprint;
   $("limits").textContent = app.limits
     ? `request ${app.limits.request} bytes, response ${app.limits.response} bytes, guest ${app.limits.guestAllocation} bytes`

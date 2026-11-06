@@ -21,16 +21,19 @@
     <script>{{INLINE_THEME}}</script>
   </head>
   <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <p class="mark"><span class="dot" aria-hidden="true"></span><span class="wordmark">Prism</span><span class="sep" aria-hidden="true">/</span><span class="bar-name">{{NAME}}</span></p>
+        <span id="update" class="chip chip-warn" hidden>
+          <button id="reload" class="bare" type="button">Update available. Reload</button>
+        </span>
+        <a id="trust" class="chip chip-wait trust" href="#identity-title" title="Verifying the holo in this browser"><span id="trust-state">verifying</span><span id="trust-fp" class="fp"></span></a>
+        <button id="theme" class="ghost" type="button" aria-label="Dark theme">Dark</button>
+      </div>
+    </header>
     <main>
       <header class="intro">
-        <div class="brandline">
-          <p class="eyebrow">Prism app</p>
-          <span id="update" class="chip chip-warn" hidden>
-            <button id="reload" class="bare" type="button">Update available. Reload</button>
-          </span>
-          <button id="theme" class="ghost" type="button" aria-label="Dark theme">Dark</button>
-        </div>
-        <h1 id="name"><span class="dot" aria-hidden="true"></span><span id="name-text">{{NAME}}</span></h1>
+        <h1 id="name"><span id="name-text">{{NAME}}</span></h1>
         <p id="purpose" class="lede">{{PURPOSE}}</p>
       </header>
 

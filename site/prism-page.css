@@ -28,7 +28,9 @@
   --margin: 1rem;
   --measure: 45rem;
   --measure-wide: 80rem;
+  --column: var(--measure);
   --control: 2.25rem;
+  --bar-control: var(--control);
   --touch: 3rem;
   --radius-control: calc(var(--radius) - 2px);
   --safe-top: env(safe-area-inset-top, 0px);
@@ -56,19 +58,22 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
-main {
-  width: min(100% - 2 * var(--margin) - var(--safe-left) - var(--safe-right), var(--measure));
+/* The column: the top bar's contents and main share one width and one margin. */
+main, .topbar-inner {
+  width: min(100% - 2 * var(--margin) - var(--safe-left) - var(--safe-right), var(--column));
   margin: 0 auto;
-  padding: calc(var(--space-6) + var(--safe-top)) 0 calc(var(--space-12) + var(--safe-bottom));
 }
 
+/* The top bar holds the safe area, so main starts below it. */
+main { padding: var(--space-6) 0 calc(var(--space-12) + var(--safe-bottom)); }
+
 @media (min-width: 600px) {
-  main { padding-top: calc(var(--space-12) + var(--safe-top)); }
+  main { padding-top: var(--space-8); }
 }
 
 /* Expanded width and up: two panes, identity and proof beside try and examples. */
 @media (min-width: 840px) {
-  main { width: min(100% - 2 * var(--margin) - var(--safe-left) - var(--safe-right), var(--measure-wide)); }
+  :root { --column: var(--measure-wide); }
   .panes {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -79,7 +84,7 @@ main {
 
 /* Compact height, a phone in landscape: a shorter header, nothing sticky. */
 @media (max-height: 480px) {
-  main { padding-top: calc(var(--space-4) + var(--safe-top)); }
+  main { padding-top: var(--space-4); }
   .intro { margin-bottom: var(--space-4); }
   .lede { display: none; }
 }
@@ -91,29 +96,80 @@ main {
   outline-offset: var(--ring-offset);
 }
 
+/* Top bar: the same on every Prism app. The mark and the app's name, the
+ * verdict the browser reached on the holo, and the theme. Sticky, so the
+ * verdict stays in view; it links to the identity card that backs it. The
+ * verdict chip reserves the width of "verifying", and from 600 px that of
+ * "verified" and a short fingerprint, so nothing moves when the holo loads. */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding-top: var(--safe-top);
+  background: var(--background);
+  border-bottom: var(--border-width) solid var(--border);
+}
+
+/* A jump to the identity card lands below the bar, not under it. */
+html { scroll-padding-top: calc(var(--safe-top) + var(--bar-control) + 2 * var(--space-2) + var(--space-4)); }
+
+/* One line; at 200 percent text it wraps rather than overflow. */
+.topbar-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+}
+
+.mark {
+  flex: 1 1 8rem;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-14);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.wordmark { font-family: var(--font-display); font-weight: 600; font-size: var(--text-16); letter-spacing: var(--tracking-display); }
+.sep, .bar-name { color: var(--muted-foreground); }
+.bar-name { overflow: hidden; text-overflow: ellipsis; }
+
+.chip.trust {
+  flex: none;
+  min-height: var(--bar-control);
+  min-width: calc(9ch + 2 * var(--space-3) + 2 * var(--border-width));
+  max-width: 50vw;
+  overflow: hidden;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.trust:hover { text-decoration: underline; text-underline-offset: 0.2em; }
+
+@media (min-width: 600px) {
+  .chip.trust { min-width: calc(18ch + 2 * var(--space-3) + 2 * var(--border-width)); }
+}
+
+/* Compact width: the name is the heading right below, and the fingerprint is
+ * in the identity card; the bar keeps the mark, the verdict and the theme. */
+@media (max-width: 599px) {
+  .sep, .bar-name, .trust .fp { display: none; }
+}
+
+/* Compact height, a phone in landscape: the bar scrolls away with the page. */
+@media (max-height: 480px) {
+  .topbar { position: static; }
+  html { scroll-padding-top: 0; }
+}
+
 /* Header */
 
 .intro { margin-bottom: var(--space-6); }
 
-.brandline {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-4);
-}
-
-.eyebrow {
-  margin: 0;
-  flex: 1;
-  font-size: var(--text-14);
-  font-weight: 500;
-  color: var(--muted-foreground);
-}
-
 h1 {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
   margin: 0 0 var(--space-2);
   font-family: var(--font-display);
   font-weight: 600;
@@ -125,7 +181,7 @@ h1 {
 
 @media (max-width: 599px) { h1 { font-size: var(--text-30); } }
 
-/* The brand accent appears once per view: the mark beside the name. */
+/* The brand accent appears once per view: the mark in the top bar. */
 .dot {
   flex: none;
   width: var(--space-3);
@@ -360,7 +416,7 @@ input[type="text"]::placeholder { color: var(--muted-foreground); }
 
 /* Forced colours: keep the hairlines and the chips' edges. */
 @media (forced-colors: active) {
-  .card, .chip, button, input[type="text"] { border-color: CanvasText; }
+  .card, .chip, .topbar, button, input[type="text"] { border-color: CanvasText; }
   .dot { background: Highlight; }
 }
 
@@ -371,6 +427,7 @@ input[type="text"]::placeholder { color: var(--muted-foreground); }
 /* Touch: every control is 48 px, Material's minimum, whatever rule sized it
  * above. Last, so nothing overrides it. */
 @media (pointer: coarse) {
-  button, button.ghost, button.primary, button.secondary, .ghost, a.ghost, input[type="text"], .disclosure summary { min-height: var(--touch); }
+  :root { --bar-control: var(--touch); }
+  button, button.ghost, button.primary, button.secondary, .ghost, a.ghost, .chip.trust, input[type="text"], .disclosure summary { min-height: var(--touch); }
   .row { gap: var(--space-2); }
 }
