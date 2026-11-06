@@ -20,11 +20,20 @@ const sha = (text) => "'sha256-" + createHash("sha256").update(text).digest("bas
 const meta = JSON.parse(await read("app.json"));
 let html = await read("page.template.html");
 
+// The app's own card, the one place an app adds to the page beyond app.json:
+// site/card.html is a <section class="card"> drawn first in the left pane,
+// site/card.css its styles, inlined and hashed with the frame's, and
+// site/card.mjs its script, which app.mjs starts with the verified app. All
+// three are optional and belong to the app, not the frame.
+const optional = (path) => read(path).catch(() => "");
+const card = { html: (await optional("card.html")).trimEnd(), css: await optional("card.css") };
+const cardModule = await access(join(site, "card.mjs")).then(() => true, () => false);
+
 // Styles and the theme bootstrap, inlined. The brand variables come from
 // brand/hologram-warm.css and brand/fonts.css, both pinned by brand.lock.
 // Comments and indentation out: the stylesheet travels inside every page.
 const minify = (text) => text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]+/gm, "").replace(/\n{2,}/g, "\n").trim();
-const css = minify([await read("brand/hologram-warm.css"), await read("brand/fonts.css"), await read("prism-page.css")]
+const css = minify([await read("brand/hologram-warm.css"), await read("brand/fonts.css"), await read("prism-page.css"), card.css]
   .join("\n")
   .replace(/url\("\.\.\/fonts\//g, 'url("./fonts/'));
 const theme = (await read("theme.js")).trim();
@@ -75,6 +84,9 @@ const fill = {
   ATT_BUILD_URL: escape(meta.attestations.build.url),
   INPUT_LABEL: escape(meta.inputLabel),
   PLACEHOLDER: escape(meta.placeholder ?? ""),
+  // The keyboard a phone shows for the request: "numeric" unless app.json says otherwise.
+  INPUT_MODE: escape(meta.inputMode ?? "numeric"),
+  APP_CARD: card.html,
   SUBMIT_LABEL: escape(meta.submitLabel),
   OUTPUT_LABEL: escape(meta.outputLabel),
   REPO: escape(meta.repository),
@@ -82,7 +94,7 @@ const fill = {
   INLINE_CSS: css,
   INLINE_THEME: theme,
   IMPORTMAP: importmap,
-  APP_DATA: JSON.stringify({ answers: meta.answers, frame: frameHost.href }).replace(/</g, "\\u003c"),
+  APP_DATA: JSON.stringify({ answers: meta.answers, frame: frameHost.href, card: cardModule }).replace(/</g, "\\u003c"),
   CSP_SCRIPT_HASHES: `${sha(theme)} ${sha(importmap)}`,
   CSP_STYLE_HASHES: sha(css),
 };

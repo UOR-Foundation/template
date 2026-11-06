@@ -357,6 +357,10 @@ input[type="text"]::placeholder { color: var(--muted-foreground); }
 .examples button.use:hover { background: var(--accent); }
 .examples .long { color: var(--muted-foreground); font-size: var(--text-14); }
 .examples .chip { min-height: 1.5rem; }
+/* An answer can be longer than its column (a chess position is 70
+ * characters): it wraps inside the column instead of widening the page. */
+.examples { table-layout: fixed; }
+.examples .chip, .answer .chip { max-width: 100%; overflow-wrap: anywhere; }
 
 @media (max-width: 599px) {
   .examples thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }

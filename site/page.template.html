@@ -44,6 +44,7 @@
 
       <div class="panes">
         <div class="pane">
+{{APP_CARD}}
           <section class="card" aria-labelledby="identity-title">
             <h2 id="identity-title">Identity</h2>
             <dl class="facts">
@@ -106,7 +107,7 @@
             <form id="form" class="try">
               <label for="request" id="request-label">{{INPUT_LABEL}}</label>
               <div class="row">
-                <input id="request" type="text" autocomplete="off" spellcheck="false" inputmode="numeric" enterkeyhint="send" placeholder="{{PLACEHOLDER}}" />
+                <input id="request" type="text" autocomplete="off" spellcheck="false" inputmode="{{INPUT_MODE}}" enterkeyhint="send" placeholder="{{PLACEHOLDER}}" />
                 <button id="submit" class="primary" type="submit">{{SUBMIT_LABEL}}</button>
               </div>
               <p class="hint muted">Text, or <code>hex:</code> followed by bytes.</p>

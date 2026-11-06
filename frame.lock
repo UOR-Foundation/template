@@ -3,7 +3,7 @@
   "files": [
     {
       "path": "bootstrap/frame-sync.mjs",
-      "sha256": "7f09c0aa46fbdd22e7c9660f791f763e671f16c684a17c6d09b72cafb41ab70b"
+      "sha256": "75720e9996c31cea7e6c6f1e39de4d1c2c55df26a8a9a08e96e539e0341f4ae5"
     },
     {
       "path": "bootstrap/og.py",
@@ -11,11 +11,11 @@
     },
     {
       "path": "bootstrap/page.mjs",
-      "sha256": "c631323c4611dedbde363c8ff9e661229ba3e2d6a8570a763cc0ff3369aa06dc"
+      "sha256": "845ee11f83a933216c2dca3e09c30df20d1ec5ccb98ed7c1885a66f91e0b0d85"
     },
     {
       "path": "bootstrap/precache.mjs",
-      "sha256": "3621f9ac2a86a297c448eb33a602599dfff7bd49e20f2eb78e439d0bb1a544a3"
+      "sha256": "d1af0e811ed68ea3695144e9c0abddd3c9bf24007b9fde8c5b12f91ec225a388"
     },
     {
       "path": "bootstrap/screens.mjs",
@@ -27,15 +27,19 @@
     },
     {
       "path": "site/app.mjs",
-      "sha256": "be59e1f1c80e7e27829c8397d1d5a1ec7b6004f8d9027fc1377d48ff73ae4e83"
+      "sha256": "d99ceb3f23f7f629b432ab9abf471cbf441f385753e782d86d76b016c12a8737"
+    },
+    {
+      "path": "site/guest-worker.mjs",
+      "sha256": "0aae31bd459646dfa3a9b8f5f1e9139a34f2fc86154342c14ad5601ec9876d7e"
     },
     {
       "path": "site/page.template.html",
-      "sha256": "e67691e296e6ac48d5ad575408cbb4d1fb0f974113f759214b6c8ababf7789d4"
+      "sha256": "6db637b2c19fb61801773d140103658f0aa9966742652be20c6108172c4e5281"
     },
     {
       "path": "site/prism-page.css",
-      "sha256": "be92d094f6984fd4f7cd0d9df36473c73f09d4b7b3f6a18d7d7ee33f45215233"
+      "sha256": "4549b3577f5d7fc3d61cf0a83feed5a3f203456f67fec56fc2d897b5dfe8084e"
     },
     {
       "path": "site/sw.js",
