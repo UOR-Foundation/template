@@ -54,7 +54,9 @@ self.addEventListener("message", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
-  if (event.request.method !== "GET" || url.origin !== self.location.origin) return;
+  // Only the app's own files: another app on the same origin (Holo Search's
+  // registry, say) is never cached here, so it is never served stale.
+  if (event.request.method !== "GET" || !url.href.startsWith(self.registration.scope)) return;
   if (url.pathname.endsWith("/precache.json")) return;
   const isPage = event.request.mode === "navigate" || url.pathname.endsWith("/") || url.pathname.endsWith("/index.html");
   event.respondWith((async () => {

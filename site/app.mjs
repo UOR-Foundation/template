@@ -151,6 +151,244 @@ function share() {
   }
 }
 
+// The address bar, as an omnibox. It reads holo://name, this app's address.
+// Focus it and it becomes a search over every Prism app Holo Search knows:
+// type a name or a hash prefix, or paste a full address (a sha256 or blake3
+// digest, an IPFS CID, a shared link), and Enter hands it to Holo Search,
+// which fetches the app, checks the bytes against the address and replays
+// its examples before it opens. This page never trusts the registry: it
+// only suggests; Holo Search verifies. The registry is fetched the first
+// time the bar is focused, never with the page.
+const here = { fingerprint: "" };
+
+function omnibox() {
+  const form = $("address");
+  const input = $("omnibox");
+  const list = $("omnibox-list");
+  const bar = document.querySelector(".topbar-inner");
+  const shown = input.value;
+  const slug = shown.replace(/^holo:\/\//, "");
+  const name = document.title;
+  const search = data.search;
+  let index = null;
+  let loading = null;
+  let rows = [];
+  let active = 0;
+
+  const short = (hex) => (hex.length > 12 ? `${hex.slice(0, 8)}…${hex.slice(-4)}` : hex);
+  const fold = (text) => text.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const load = () =>
+    (loading ??= fetch(new URL("registry/index.json", search), { cache: "no-cache" })
+      .then((response) => (response.ok ? response.json() : []))
+      .then((entries) => (index = Array.isArray(entries) ? entries : []))
+      .catch(() => (index = [])));
+
+  // What was typed, without holo:// or the Holo Search link around it.
+  const clean = (text) => {
+    let query = text.trim();
+    try {
+      const link = new URL(query);
+      if (link.href.startsWith(search) && link.searchParams.get("r")) query = link.searchParams.get("r");
+    } catch {
+      // Not a link.
+    }
+    return query.replace(/^holo:\/\//i, "").trim();
+  };
+  const address = (query) =>
+    /^(sha256:|blake3:)?[0-9a-f]{8,64}$/i.test(query) || /^baf[a-z2-7]{20,}$/i.test(query) || /^https?:\/\//i.test(query);
+
+  // The rows for what was typed: this app, the registry's apps that match by
+  // name or hash prefix, and what was typed itself, as an address to open or
+  // a search to run.
+  function suggest(raw) {
+    const query = raw === shown ? "" : clean(raw);
+    const key = fold(query);
+    const hex = query.replace(/^(sha256|blake3):/i, "").toLowerCase();
+    const hashy = /^[0-9a-f]{4,64}$/.test(hex);
+    const named = (text) => !key || fold(text).includes(key);
+    const hashed = (digest) => hashy && Boolean(digest) && digest.startsWith(hex);
+    const out = [];
+    if (named(name) || named(slug) || hashed(here.fingerprint)) {
+      const print = here.fingerprint ? ` · blake3:${short(here.fingerprint)}` : "";
+      out.push({ kind: "self", title: name, sub: `holo://${slug}${print} · this app`, match: query });
+    }
+    // One row per app when matched by name, as Chrome shows a site once: its
+    // holo first, then its model, then its image. A hash names one entry, so
+    // a hash match shows exactly that one.
+    const rank = { holo: 0, model: 1, image: 2 };
+    const seen = new Map();
+    let known = false;
+    for (const entry of index ?? []) {
+      if (entry.blake3 && entry.blake3 === here.fingerprint) continue;
+      const byName = named(entry.module ?? "");
+      const byHash = hashed(entry.sha256) || hashed(entry.blake3);
+      if (query && !byName && !byHash) continue;
+      const holo = Boolean(entry.blake3);
+      const kind = holo ? "holo" : entry.kind === "image" ? "image" : "model";
+      known ||= byHash;
+      if (!byHash) {
+        const kept = seen.get(fold(entry.module ?? ""));
+        if (kept && rank[kept.kind] <= rank[kind]) continue;
+        if (kept) out.splice(out.indexOf(kept), 1);
+      }
+      const row = {
+        kind,
+        title: entry.module ?? "Untitled",
+        sub: `${holo ? `blake3:${short(entry.blake3)}` : `sha256:${short(entry.sha256)}`} · ${kind}`,
+        target: holo ? `blake3:${entry.blake3}` : entry.sha256,
+        match: byName ? query : "",
+      };
+      out.push(row);
+      if (!byHash) seen.set(fold(entry.module ?? ""), row);
+    }
+    const top = out.slice(0, 6);
+    // A digest keeps its algorithm and loses its middle; a long link its tail.
+    const label = (text) => {
+      const digest = text.match(/^((?:sha256|blake3):)?([0-9a-f]{13,})$/i);
+      if (digest) return `${digest[1] ?? ""}${short(digest[2])}`;
+      return text.length > 48 ? `${text.slice(0, 47)}…` : text;
+    };
+    const exact = hex.length === 64 && hex === here.fingerprint;
+    // An address Holo Search must look up gets its own row; one the registry
+    // already knows is that app's row.
+    if (query && address(query) && !exact && !known) {
+      top.unshift({ kind: "open", title: `Open ${label(query)}`, sub: "Fetched and verified in Holo Search", target: query });
+    } else if (query && !exact && !known) {
+      top.push({ kind: "search", title: query, sub: "Search Prism apps in Holo Search", target: query });
+    }
+    return top;
+  }
+
+  const icons = {
+    self: '<path d="M12 3 4 6v6c0 4.6 3.4 8.4 8 9 4.6-.6 8-4.4 8-9V6z" /><path d="m8.5 12 2.5 2.5 4.5-5" />',
+    holo: '<path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z" /><path d="M4 7.5 12 12l8-4.5M12 12v9" />',
+    model: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M9 13h6M9 17h4" />',
+    image: '<path d="m12 3 9 5-9 5-9-5z" /><path d="m3 13 9 5 9-5" />',
+    open: '<path d="M5 12h14M13 6l6 6-6 6" />',
+    search: '<circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.2-4.2" />',
+  };
+
+  // The title with what was typed in plain weight and the rest in bold, as
+  // Chrome shows a completion. Every string from the registry goes in as text.
+  const title = (text, match) => {
+    const span = document.createElement("span");
+    span.className = "opt-title";
+    const bold = (part) => {
+      const b = document.createElement("b");
+      b.textContent = part;
+      return b;
+    };
+    const at = match ? text.toLowerCase().indexOf(match.toLowerCase()) : -1;
+    if (at < 0) span.append(bold(text));
+    else span.append(bold(text.slice(0, at)), text.slice(at, at + match.length), bold(text.slice(at + match.length)));
+    return span;
+  };
+
+  function render() {
+    rows = suggest(input.value);
+    active = Math.min(active, Math.max(rows.length - 1, 0));
+    const items = rows.map((row, i) => {
+      const li = document.createElement("li");
+      li.id = `omnibox-${i}`;
+      li.className = `opt opt-${row.kind}`;
+      li.setAttribute("role", "option");
+      li.setAttribute("aria-selected", String(i === active));
+      const icon = document.createElement("span");
+      icon.className = "opt-icon";
+      icon.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">${icons[row.kind]}</svg>`;
+      const text = document.createElement("span");
+      text.className = "opt-text";
+      const sub = document.createElement("span");
+      sub.className = "opt-sub";
+      sub.textContent = row.sub;
+      text.append(title(row.title, row.match), sub);
+      li.append(icon, text);
+      li.addEventListener("pointerdown", (event) => event.preventDefault());
+      li.addEventListener("pointermove", () => select(i));
+      li.addEventListener("click", () => choose(row));
+      return li;
+    });
+    if (!index) {
+      const note = document.createElement("li");
+      note.className = "opt-note";
+      note.setAttribute("role", "presentation");
+      note.textContent = "Loading Prism apps";
+      items.push(note);
+    }
+    list.replaceChildren(...items);
+    list.hidden = items.length === 0;
+    input.setAttribute("aria-expanded", String(!list.hidden));
+    if (rows.length) input.setAttribute("aria-activedescendant", `omnibox-${active}`);
+    else input.removeAttribute("aria-activedescendant");
+  }
+
+  function select(i) {
+    if (!rows.length) return;
+    active = (i + rows.length) % rows.length;
+    for (const li of list.querySelectorAll(".opt")) li.setAttribute("aria-selected", String(li.id === `omnibox-${active}`));
+    input.setAttribute("aria-activedescendant", `omnibox-${active}`);
+    $(`omnibox-${active}`)?.scrollIntoView({ block: "nearest" });
+  }
+
+  function close() {
+    bar.classList.remove("editing");
+    list.hidden = true;
+    input.setAttribute("aria-expanded", "false");
+    input.removeAttribute("aria-activedescendant");
+    input.value = shown;
+    active = 0;
+  }
+
+  function choose(row) {
+    if (row.kind === "self") {
+      input.blur();
+      close();
+      const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      scrollTo({ top: 0, behavior: still ? "auto" : "smooth" });
+      return;
+    }
+    list.hidden = true;
+    location.assign(`${search}?r=${encodeURIComponent(row.target)}`);
+  }
+
+  input.addEventListener("focus", () => {
+    bar.classList.add("editing");
+    input.select();
+    active = 0;
+    render();
+    load().then(() => document.activeElement === input && render());
+  });
+  input.addEventListener("input", () => {
+    active = 0;
+    render();
+  });
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      if (list.hidden) render();
+      select(active + (event.key === "ArrowDown" ? 1 : -1));
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      if (input.value !== shown) {
+        input.value = shown;
+        input.select();
+        active = 0;
+        render();
+      } else {
+        input.blur();
+        close();
+      }
+    }
+  });
+  input.addEventListener("blur", close);
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const row = rows[active] ?? rows[0];
+    if (row) choose(row);
+    else if (clean(input.value)) choose({ kind: "search", target: clean(input.value) });
+  });
+}
+
 function theme() {
   const root = document.documentElement;
   const button = $("theme");
@@ -234,6 +472,7 @@ const afterFirstFrame = () => new Promise((resolve) => {
 async function main() {
   theme();
   share();
+  omnibox();
   offline();
 
   let app;
@@ -251,6 +490,7 @@ async function main() {
   const { identities } = app;
   chip($("verified"), identities.verified ? "verified" : "NOT verified", identities.verified ? "good" : "bad");
   trust(identities.verified ? "Verified in this browser" : "NOT verified", identities.verified ? "good" : "bad", identities.archiveFingerprint);
+  here.fingerprint = identities.archiveFingerprint;
   $("fingerprint").textContent = identities.archiveFingerprint;
   $("limits").textContent = app.limits
     ? `request ${app.limits.request} bytes, response ${app.limits.response} bytes, guest ${app.limits.guestAllocation} bytes`

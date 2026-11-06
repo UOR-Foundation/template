@@ -7,7 +7,7 @@
     <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f3f3ee" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#151312" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' {{CSP_SCRIPT_HASHES}}; style-src {{CSP_STYLE_HASHES}}; font-src 'self'; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'self'; object-src 'none'" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' {{CSP_SCRIPT_HASHES}}; style-src {{CSP_STYLE_HASHES}}; font-src 'self'; img-src 'self' data:; connect-src 'self' {{HOLO_SEARCH_ORIGIN}}; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'self' {{HOLO_SEARCH_ORIGIN}}; object-src 'none'" />
     <title>{{TITLE}}</title>
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Prism" />
@@ -34,8 +34,16 @@
   <body>
     <header class="topbar">
       <div class="topbar-inner">
-        <a id="home" class="ghost icon" href="https://humuhumu33.github.io/holo-search/" aria-label="Home" title="Home"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9v12h14V9" /><path d="M10 21v-6h4v6" /></svg></a>
-        <p class="address"><span class="dot" aria-hidden="true"></span><span class="url"><span class="scheme">holo://</span><span class="host">{{HOLO_NAME}}</span></span><a id="trust" class="chip chip-wait trust" href="#identity-title" aria-label="Verifying the app in this browser" title="Verifying the app in this browser"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path class="body" d="M12 3 4 6v6c0 4.6 3.4 8.4 8 9 4.6-.6 8-4.4 8-9V6z" /><path class="wait" d="M8.5 12h.01M12 12h.01M15.5 12h.01" /><path class="ok" d="m8.5 12 2.5 2.5 4.5-5" /><path class="bad" d="M12 8v4.5M12 16h.01" /></svg></a></p>
+        <a id="home" class="ghost icon" href="{{HOLO_SEARCH}}" aria-label="Home" title="Home"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9v12h14V9" /><path d="M10 21v-6h4v6" /></svg></a>
+        <form id="address" class="address" role="search" action="{{HOLO_SEARCH}}" method="get" autocomplete="off">
+          <span class="dot" aria-hidden="true"></span>
+          <span class="field">
+            <span class="url" aria-hidden="true"><span class="scheme">holo://</span><span class="host">{{HOLO_NAME}}</span></span>
+            <input id="omnibox" class="omnibox" name="r" type="text" value="holo://{{HOLO_NAME}}" role="combobox" aria-label="Search Prism apps, or paste a holo address or hash" aria-autocomplete="list" aria-expanded="false" aria-controls="omnibox-list" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go" />
+          </span>
+          <a id="trust" class="chip chip-wait trust" href="#identity-title" aria-label="Verifying the app in this browser" title="Verifying the app in this browser"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path class="body" d="M12 3 4 6v6c0 4.6 3.4 8.4 8 9 4.6-.6 8-4.4 8-9V6z" /><path class="wait" d="M8.5 12h.01M12 12h.01M15.5 12h.01" /><path class="ok" d="m8.5 12 2.5 2.5 4.5-5" /><path class="bad" d="M12 8v4.5M12 16h.01" /></svg></a>
+          <ul id="omnibox-list" class="omnibox-list" role="listbox" aria-label="Prism apps" hidden></ul>
+        </form>
         <span id="update" class="chip chip-warn" hidden>
           <button id="reload" class="bare" type="button">Update available. Reload</button>
         </span>

@@ -146,15 +146,17 @@ html { scroll-padding-top: calc(var(--safe-top) + var(--bar-control) + 2 * var(-
 /* The address: the app's holo:// name in a pill, read the way a browser's
  * address bar reads. The brand dot stands where the site icon goes, the
  * scheme is dimmed and the name is bright, as a browser shows the domain,
- * and the shield closes the pill on the right. A long name truncates; the
- * pill takes whatever width the icons leave. */
+ * and the shield closes the pill on the right. It is also the omnibox: the
+ * input lies over the styled address, invisible until focused, so clicking
+ * anywhere on the pill edits it, and the suggestions open below. */
 .address {
+  position: relative;
   flex: 1 1 6rem;
   min-width: 0;
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: var(--control);
+  min-height: var(--bar-control);
   margin: 0;
   padding: 0 var(--space-1) 0 var(--space-3);
   border: var(--border-width) solid transparent;
@@ -162,11 +164,101 @@ html { scroll-padding-top: calc(var(--safe-top) + var(--bar-control) + 2 * var(-
   background: var(--muted);
   font-size: var(--text-14);
   white-space: nowrap;
+  cursor: text;
+  transition: background var(--duration) var(--ease), border-color var(--duration) var(--ease);
 }
+.address:hover { background: var(--accent); }
+/* Editing: the script's editing class, so the bar stays right when the window
+ * loses focus mid-edit; the focus rules are the same look without a script. */
+.address:focus-within, .editing .address { background: var(--background); border-color: var(--ring); }
 .address .dot { width: 0.625rem; height: 0.625rem; }
+.field { position: relative; flex: 1; min-width: 0; align-self: stretch; display: flex; align-items: center; }
 .url { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .scheme { color: var(--muted-foreground); }
 .host { color: var(--foreground); font-weight: 500; }
+.address:focus-within .url, .editing .address .url { visibility: hidden; }
+
+.address .omnibox {
+  position: absolute;
+  inset: calc(-1 * var(--border-width)) 0;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: var(--text-14);
+  font-weight: 500;
+  outline: none;
+}
+.address .omnibox:focus, .editing .address .omnibox { color: var(--foreground); }
+.address .omnibox::placeholder { color: var(--muted-foreground); font-weight: 400; }
+/* The selected address in the quiet inverse, not the brand: it is selected on every focus. */
+.address .omnibox::selection { background: var(--primary); color: var(--primary-foreground); }
+
+/* The suggestions: one card under the pill, the chosen row tinted. */
+.omnibox-list {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  left: 0;
+  right: 0;
+  z-index: 2;
+  max-height: min(26rem, 70vh);
+  margin: 0;
+  padding: var(--space-1);
+  overflow: auto;
+  list-style: none;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--shadow-overlay);
+  white-space: normal;
+  cursor: default;
+}
+.dark .omnibox-list { box-shadow: none; border-color: var(--border-strong); }
+.omnibox-list[hidden] { display: none; }
+.opt {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--touch);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+.opt[aria-selected="true"] { background: var(--accent); }
+.opt-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+.topbar .opt-icon svg { width: 1rem; height: 1rem; }
+.opt-self .opt-icon { color: var(--success); }
+.opt-text { flex: 1; min-width: 0; display: grid; line-height: 1.35; }
+.opt-title, .opt-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.opt-title { font-size: var(--text-14); color: var(--muted-foreground); }
+.opt-title b { font-weight: 600; color: var(--foreground); }
+.opt-sub { font-family: var(--font-mono); font-size: var(--text-14); color: var(--muted-foreground); }
+.opt-note { padding: var(--space-2) var(--space-3); font-size: var(--text-14); color: var(--muted-foreground); }
+
+/* Compact width: while the address is edited it takes the whole bar, the
+ * way a phone's browser does, and the suggestions span it. */
+@media (max-width: 599px) {
+  .topbar-inner.editing > :not(.address) { display: none; }
+  .topbar-inner.editing .address .dot { display: inline-block; }
+}
 
 /* Brand marks are filled shapes, not line drawings. */
 .topbar svg.gh, .topbar svg.fill { fill: currentColor; stroke: none; }

@@ -102,6 +102,19 @@ the archive carries. Every instance gets the same page; an app edits one file.
   a sun or moon. Under 600 px GitHub steps out (the footer still links the
   repository) so the address keeps its room. It comes from
   `site/page.template.html`; an app does not edit it.
+- **An address bar for Prism apps.** The holo:// pill is also an omnibox,
+  like Chrome's. Focus it and it selects the address and lists this app and
+  every app in [Holo Search](https://humuhumu33.github.io/holo-search/)'s
+  registry, one row per app with its hash. Type a name or a hash prefix to
+  filter; paste a full address (a sha256 or blake3 digest, an IPFS CID, a
+  Holo Search link) to open it. Enter hands it to Holo Search as `?r=`,
+  which fetches the app, checks the bytes against the address and replays
+  its examples before it opens: this page only suggests, Holo Search
+  verifies. Arrows move, Escape backs out, and on a phone the bar takes the
+  whole width while you type. The registry is fetched the first time the
+  bar is focused, never with the page; the Content-Security-Policy admits
+  Holo Search's origin for that request and the search form. Without a
+  script, Enter still submits the form to Holo Search.
 - **Made to be shared.** `bootstrap/og.py` draws `site/og.png`, the 1200 x
   630 card every platform shows for the link (the brand's dark ground, the
   mark, the app's name and purpose, "Proved in Lean. Verified in your

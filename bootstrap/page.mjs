@@ -36,6 +36,9 @@ await access(join(site, "og.png")).catch(() => {
   throw new Error("site/og.png is missing: run python -I bootstrap/og.py");
 });
 const live = new URL(meta.live);
+// Holo Search: the top bar's home, and where its address bar resolves a name,
+// a hash or a link, fetches the app and verifies it before opening it.
+const holoSearch = new URL("https://humuhumu33.github.io/holo-search/");
 const shareUrl = live.href;
 const shareText = `${meta.name}: ${meta.purpose.split(/(?<=\.)\s/)[0]}`;
 const query = (params) => new URLSearchParams(params).toString();
@@ -57,6 +60,8 @@ const fill = {
   TITLE: escape(meta.name),
   DESCRIPTION: escape(meta.purpose),
   LIVE: escape(shareUrl),
+  HOLO_SEARCH: escape(holoSearch.href),
+  HOLO_SEARCH_ORIGIN: holoSearch.origin,
   OG_IMAGE: escape(new URL("og.png", live).href),
   OG_ALT: escape(`${meta.name}: ${meta.purpose}`),
   SHARE_HOST: escape(share.host),
@@ -88,7 +93,7 @@ const fill = {
   INLINE_CSS: css,
   INLINE_THEME: theme,
   IMPORTMAP: importmap,
-  APP_DATA: JSON.stringify({ answers: meta.answers, share: { url: share.url, title: share.title, text: share.text } }).replace(/</g, "\\u003c"),
+  APP_DATA: JSON.stringify({ answers: meta.answers, share: { url: share.url, title: share.title, text: share.text }, search: holoSearch.href }).replace(/</g, "\\u003c"),
   CSP_SCRIPT_HASHES: `${sha(theme)} ${sha(importmap)}`,
   CSP_STYLE_HASHES: sha(css),
 };
