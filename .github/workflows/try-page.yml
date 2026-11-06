@@ -61,6 +61,8 @@ jobs:
           node-version: 22
       # Every Prism app loads the frame from here at run time, so publishing
       # main's frame is how a frame change reaches every app: no app rebuilds.
+      - name: Install the frame's minifier, the exact version package-lock.json pins
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Assemble the try page and the canonical frame
         run: |
           set -euo pipefail
