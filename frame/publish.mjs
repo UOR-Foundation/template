@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // Publishes the canonical frame. Bakes frame/frame.css and the brand's tokens
 // (site/brand/hologram-warm.css, pinned by brand.lock) into frame/frame.mjs,
-// names the result by its SHA-256, and writes the pointer every app follows:
+// minifies it with Terser (the exact version package-lock.json pins, so the
+// same source always gives the same bytes), names the result by its SHA-256,
+// and writes the pointer every app follows:
 //
 //   <out>/<sha256>/prism-frame.mjs   immutable: the frame, by its content
 //   <out>/current.json               the pointer: { spec, sha256, module, source }
@@ -13,6 +15,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { minify as terser } from "terser";
 
 const root = new URL("../", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
 const [out = "frame-out", commit = process.env.GITHUB_SHA ?? null] = process.argv.slice(2);
@@ -25,7 +28,12 @@ for (const [mark, text] of [['"/*CSS*/"', minify(await read("frame/frame.css"))]
   if (!module.includes(mark)) throw new Error(`frame/frame.mjs has no ${mark}`);
   module = module.replace(mark, JSON.stringify(text));
 }
-const bytes = Buffer.from(module, "utf8");
+// Every Prism app runs these bytes, so they ship minified: comments and
+// whitespace are Lighthouse's unminified-javascript failure, and the frame
+// is the largest script an app page loads.
+const minified = await terser(module, { module: true, compress: { passes: 2 }, mangle: true, format: { comments: false } });
+if (!minified.code) throw new Error("terser produced nothing");
+const bytes = Buffer.from(minified.code, "utf8");
 const sha256 = createHash("sha256").update(bytes).digest("hex");
 await mkdir(join(out, sha256), { recursive: true });
 await writeFile(join(out, sha256, "prism-frame.mjs"), bytes);
