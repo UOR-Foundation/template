@@ -23,11 +23,14 @@
   <body>
     <header class="topbar">
       <div class="topbar-inner">
+        <a id="home" class="ghost icon" href="https://humuhumu33.github.io/holo-search/" aria-label="Home" title="Home"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9v12h14V9" /><path d="M10 21v-6h4v6" /></svg></a>
         <p class="mark"><span class="dot" aria-hidden="true"></span><span class="wordmark">Prism</span><span class="sep" aria-hidden="true">/</span><span class="bar-name">{{NAME}}</span></p>
         <span id="update" class="chip chip-warn" hidden>
           <button id="reload" class="bare" type="button">Update available. Reload</button>
         </span>
-        <a id="trust" class="chip chip-wait trust" href="#identity-title" title="Verifying the holo in this browser"><span id="trust-state">verifying</span><span id="trust-fp" class="fp"></span></a>
+        <a id="trust" class="chip chip-wait trust" href="#identity-title" aria-label="Verifying the app in this browser" title="Verifying the app in this browser"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M12 3 4 6v6c0 4.6 3.4 8.4 8 9 4.6-.6 8-4.4 8-9V6z" /><path class="wait" d="M8.5 12h.01M12 12h.01M15.5 12h.01" /><path class="ok" d="m8.5 12 2.5 2.5 4.5-5" /><path class="bad" d="M12 8v4.5M12 16h.01" /></svg><span id="trust-fp" class="fp"></span></a>
+        <button id="share" class="ghost icon" type="button" aria-label="Share this app" title="Share"><svg class="share" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4" /></svg><svg class="done" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg></button>
+        <span id="bar-status" class="sr" aria-live="polite"></span>
         <button id="theme" class="ghost" type="button" aria-label="Dark theme">Dark</button>
       </div>
     </header>

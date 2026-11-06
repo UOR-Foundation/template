@@ -39,15 +39,49 @@ function chip(element, text, state) {
   element.className = `chip chip-${state}`;
 }
 
-// The top bar repeats the identity verdict in short: the state, and the
-// fingerprint's first and last four digits. The full fingerprint is its title.
+// The top bar repeats the identity verdict as a shield in its state's colour,
+// beside the fingerprint's first and last four digits. Its label says it in
+// words, with the full fingerprint.
 function trust(label, state, fingerprint = "") {
   const digits = fingerprint.slice(fingerprint.lastIndexOf(":") + 1);
+  const words = fingerprint ? `${label}, fingerprint ${fingerprint}` : label;
   $("trust").className = `chip chip-${state} trust`;
-  $("trust-state").textContent = label;
-  // A no-break space: a flex item drops a leading plain one.
-  $("trust-fp").textContent = digits.length > 8 ? `\u00a0${digits.slice(0, 4)}…${digits.slice(-4)}` : "";
-  $("trust").title = fingerprint ? `${label}, fingerprint ${fingerprint}` : label;
+  $("trust-fp").textContent = digits.length > 8 ? `${digits.slice(0, 4)}…${digits.slice(-4)}` : "";
+  $("trust").setAttribute("aria-label", words);
+  $("trust").title = words;
+}
+
+// Share the page through the system's share sheet where there is one, and
+// copy its link otherwise. Dismissing the sheet is not an error.
+function share() {
+  const button = $("share");
+  const url = location.origin + location.pathname;
+  const say = (text) => {
+    $("bar-status").textContent = text;
+    button.title = text;
+    setTimeout(() => {
+      button.classList.remove("copied");
+      button.title = "Share";
+      $("bar-status").textContent = "";
+    }, 1500);
+  };
+  button.addEventListener("click", async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: document.title, text: $("purpose").textContent, url });
+        return;
+      } catch (error) {
+        if (error?.name === "AbortError") return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      button.classList.add("copied");
+      say("Link copied");
+    } catch {
+      say(`Copy the link: ${url}`);
+    }
+  });
 }
 
 function theme() {
@@ -131,6 +165,7 @@ const afterFirstFrame = () => new Promise((resolve) => {
 
 async function main() {
   theme();
+  share();
   offline();
 
   let app;
@@ -141,13 +176,13 @@ async function main() {
   } catch (error) {
     chip($("verified"), `failed to load: ${describe(error)}`, "bad");
     chip($("replayed"), "no app", "bad");
-    trust("failed", "bad");
+    trust("The app failed to load", "bad");
     return;
   }
 
   const { identities } = app;
   chip($("verified"), identities.verified ? "verified" : "NOT verified", identities.verified ? "good" : "bad");
-  trust(identities.verified ? "verified" : "NOT verified", identities.verified ? "good" : "bad", identities.archiveFingerprint);
+  trust(identities.verified ? "Verified in this browser" : "NOT verified", identities.verified ? "good" : "bad", identities.archiveFingerprint);
   $("fingerprint").textContent = identities.archiveFingerprint;
   $("limits").textContent = app.limits
     ? `request ${app.limits.request} bytes, response ${app.limits.response} bytes, guest ${app.limits.guestAllocation} bytes`

@@ -96,11 +96,12 @@ main { padding: var(--space-6) 0 calc(var(--space-12) + var(--safe-bottom)); }
   outline-offset: var(--ring-offset);
 }
 
-/* Top bar: the same on every Prism app. The mark and the app's name, the
- * verdict the browser reached on the holo, and the theme. Sticky, so the
- * verdict stays in view; it links to the identity card that backs it. The
- * verdict chip reserves the width of "verifying", and from 600 px that of
- * "verified" and a short fingerprint, so nothing moves when the holo loads. */
+/* Top bar: the same on every Prism app. Home, the mark and the app's name;
+ * then the verdict the browser reached on the holo, as a shield, sharing,
+ * and the theme. Sticky, so the verdict stays in view; the shield links to
+ * the identity card that backs it. The shield keeps its place and size
+ * while the holo loads, and from 600 px the chip reserves the width of the
+ * short fingerprint beside it, so nothing moves: CLS stays 0. */
 
 .topbar {
   position: sticky;
@@ -123,8 +124,28 @@ html { scroll-padding-top: calc(var(--safe-top) + var(--bar-control) + 2 * var(-
   padding: var(--space-2) 0;
 }
 
+/* Icons: 20 px line drawings in the text colour of whatever holds them. */
+.topbar svg {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ghost.icon {
+  flex: none;
+  justify-content: center;
+  width: var(--bar-control);
+  min-height: var(--bar-control);
+  padding: 0;
+}
+
 .mark {
-  flex: 1 1 8rem;
+  flex: 1 1 4.5rem;
   min-width: 0;
   display: flex;
   align-items: center;
@@ -138,23 +159,37 @@ html { scroll-padding-top: calc(var(--safe-top) + var(--bar-control) + 2 * var(-
 .sep, .bar-name { color: var(--muted-foreground); }
 .bar-name { overflow: hidden; text-overflow: ellipsis; }
 
+/* The shield: dots while the browser checks, a tick when the holo verified,
+ * an exclamation mark when it did not or failed to load. */
 .chip.trust {
   flex: none;
+  justify-content: center;
+  gap: var(--space-2);
   min-height: var(--bar-control);
-  min-width: calc(9ch + 2 * var(--space-3) + 2 * var(--border-width));
-  max-width: 50vw;
-  overflow: hidden;
+  min-width: var(--bar-control);
+  padding: 0 var(--space-3);
   white-space: nowrap;
   text-decoration: none;
 }
-.trust:hover { text-decoration: underline; text-underline-offset: 0.2em; }
+.trust:hover { border-color: currentColor; }
+.trust .ok, .trust .bad { display: none; }
+.chip-good .ok, .chip-bad .bad { display: inline; }
+.chip-good .wait, .chip-bad .wait { display: none; }
 
 @media (min-width: 600px) {
-  .chip.trust { min-width: calc(18ch + 2 * var(--space-3) + 2 * var(--border-width)); }
+  .chip.trust { justify-content: flex-start; min-width: calc(1.25rem + var(--space-2) + 9ch + 2 * var(--space-3) + 2 * var(--border-width)); }
 }
 
+/* Share: the icon turns to a tick for a moment once the link is copied. */
+#share .done, #share.copied .share { display: none; }
+#share.copied .done { display: inline; }
+
+/* Read by screen readers, not shown. */
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
 /* Compact width: the name is the heading right below, and the fingerprint is
- * in the identity card; the bar keeps the mark, the verdict and the theme. */
+ * in the identity card; the bar keeps home, the mark, the shield, sharing
+ * and the theme. */
 @media (max-width: 599px) {
   .sep, .bar-name, .trust .fp { display: none; }
 }
