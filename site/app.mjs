@@ -389,6 +389,18 @@ function omnibox() {
   });
 }
 
+// The spectrum under the top bar lights once the page scrolls under it: a
+// one-pixel mark at the very top of the page, watched, not a scroll handler.
+function spectrum() {
+  const bar = document.querySelector(".topbar");
+  if (!("IntersectionObserver" in window)) return;
+  const mark = document.createElement("div");
+  mark.setAttribute("aria-hidden", "true");
+  mark.className = "scroll-mark";
+  document.body.prepend(mark);
+  new IntersectionObserver(([entry]) => bar.classList.toggle("scrolled", !entry.isIntersecting)).observe(mark);
+}
+
 function theme() {
   const root = document.documentElement;
   const button = $("theme");
@@ -473,6 +485,7 @@ async function main() {
   theme();
   share();
   omnibox();
+  spectrum();
   offline();
 
   let app;

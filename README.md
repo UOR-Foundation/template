@@ -99,7 +99,9 @@ the archive carries. Every instance gets the same page; an app edits one file.
   with hyphens (`holo://luhn-check`), closed by a shield badge for the verdict
   the visitor's browser reached on the holo (linking to the identity card
   that backs it); then share, GitHub (the app's repository) and the theme as
-  a sun or moon. Under 600 px GitHub steps out (the footer still links the
+  a sun or moon. Once the page scrolls under it, a 2 px line in the UOR
+  Foundation's colour spectrum lights its lower edge and drifts, as on
+  [uor.foundation](https://uor.foundation/). Under 600 px GitHub steps out (the footer still links the
   repository) so the address keeps its room. It comes from
   `site/page.template.html`; an app does not edit it.
 - **An address bar for Prism apps.** The holo:// pill is also an omnibox,

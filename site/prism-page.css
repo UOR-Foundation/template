@@ -1,6 +1,7 @@
 /* The standard Prism app page, bound to the Hologram brand kit.
  * Every colour, radius, border, ring, duration and easing is a variable from
- * brand/hologram-warm.css; the fonts and their metric-matched fallbacks come
+ * brand/hologram-warm.css (the top bar's spectrum line is the one named
+ * exception); the fonts and their metric-matched fallbacks come
  * from brand/fonts.css, both pinned by brand.lock. The type scale is the
  * brand's: 14, 16, 18, 20, 24, 30, 36 px, nothing under 14. No shadows on the
  * dark ground.
@@ -110,6 +111,48 @@ main { padding: var(--space-6) 0 calc(var(--space-12) + var(--safe-bottom)); }
   background: var(--background);
   border-bottom: var(--border-width) solid var(--border);
 }
+
+/* The spectrum: once the page scrolls under the bar, a 2 px line in the full
+ * colour spectrum lights its lower edge, as on uor.foundation, and drifts
+ * across it every 18 seconds. Its colours are the one exception to "this
+ * stylesheet declares no colour": they are the UOR Foundation's header
+ * spectrum, which the brand kit does not carry, kept here as named values.
+ * It only drifts while it shows, and never under reduced motion. */
+:root {
+  --spectrum-red: #fb5661;
+  --spectrum-orange: #fa792e;
+  --spectrum-amber: #f9cf24;
+  --spectrum-yellow: #f6e41e;
+  --spectrum-green: #25d05e;
+  --spectrum-cyan: #20d0f3;
+  --spectrum-blue: #4f81f8;
+  --spectrum-violet: #ae6ff6;
+  --spectrum-pink: #f368c5;
+  --spectrum-glow: 0 0 18px #ffffff29, 0 2px 14px #ffffff14;
+}
+.topbar::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(-1 * var(--border-width));
+  height: 2px;
+  background-image: linear-gradient(100deg,
+    var(--spectrum-red) 0%, var(--spectrum-orange) 7%, var(--spectrum-amber) 14%, var(--spectrum-yellow) 19%,
+    var(--spectrum-green) 25%, var(--spectrum-cyan) 31%, var(--spectrum-blue) 38%, var(--spectrum-violet) 45%,
+    var(--spectrum-pink) 48%, var(--spectrum-red) 50%, var(--spectrum-orange) 57%, var(--spectrum-amber) 64%,
+    var(--spectrum-yellow) 69%, var(--spectrum-green) 75%, var(--spectrum-cyan) 81%, var(--spectrum-blue) 88%,
+    var(--spectrum-violet) 95%, var(--spectrum-pink) 98%, var(--spectrum-red) 100%);
+  background-size: 200% 100%;
+  box-shadow: var(--spectrum-glow);
+  opacity: 0;
+  transition: opacity 500ms cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+.topbar.scrolled::after { opacity: 1; animation: spectrum-drift 18s linear infinite; }
+@keyframes spectrum-drift { to { background-position: 200% 0; } }
+@media (prefers-reduced-motion: reduce) { .topbar.scrolled::after { animation: none; } }
+@media (forced-colors: active) { .topbar::after { display: none; } }
 
 /* A jump to the identity card lands below the bar, not under it. */
 html { scroll-padding-top: calc(var(--safe-top) + var(--bar-control) + 2 * var(--space-2) + var(--space-4)); }
@@ -402,6 +445,9 @@ html { scroll-padding-top: calc(var(--safe-top) + var(--bar-control) + 2 * var(-
  * bootstrap sets the html class before first paint, so the right icon is
  * there from the first frame. */
 .dark #theme .moon, html:not(.dark) #theme .sun { display: none; }
+
+/* The mark the spectrum watches: one pixel at the top of the page. */
+.scroll-mark { position: absolute; top: 0; left: 0; width: 1px; height: 1px; pointer-events: none; }
 
 /* Read by screen readers, not shown. */
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
