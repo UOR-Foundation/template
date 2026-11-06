@@ -80,11 +80,10 @@ image or a toolchain. The runner is not trusted; whoever takes the holo checks
 it. Three ways in, one job:
 
 - **From a phone or the web.** Commit an edit on github.com or GitHub Mobile.
-  `pages.yml` calls `build.yml`, which runs `prismpm verify` in the SDK image
+  `pages.yml` runs the same SDK step, `prismpm verify` in the image
   `prismpm.lock` pins, signs the holo's provenance with
   `actions/attest-build-provenance`, and publishes the page, which verifies the
-  holo again in the visitor's browser. The run's summary shows the fingerprint,
-  the provenance and the command below.
+  holo again in the visitor's browser and links the signed provenance.
 - **From a machine with Node.** `npx prism-code build --remote github` pushes
   the commit to `refs/heads/prism/build/<sha>`, waits for this workflow, and
   verifies the artifact `prism-build-<sha>` before writing anything under
@@ -94,9 +93,10 @@ it. Three ways in, one job:
   vector. Any of those failing is a typed refusal, not a build.
 - **Run workflow**, from the Actions tab, for a branch.
 
-The SDK step lives in `build.yml` and nowhere else among the project's
-workflows; `pages.yml` calls it rather than carrying a copy. Pages on a
-private repository needs a paid plan; the artifact and the summary need none.
+`pages.yml` carries a copy of `build.yml`'s SDK and signing steps rather than
+calling it: the gate pins every `uses:` to a commit and so forbids calling a
+workflow by path. When one changes, copy it to the other. Pages on a private
+repository needs a paid plan; the artifact and the summary need none.
 
 ## Publish the app page
 
@@ -191,8 +191,8 @@ the archive carries. Every instance gets the same page; an app edits one file.
   Lighthouse CI on the assembled site before anything is deployed.
 
 `.github/workflows/pages.yml` checks the brand wiring on every push to
-`main`, then calls `build.yml` to build and verify the holo through the locked
-SDK and sign its provenance, renders the page from that run's artifact, writes
+`main`, builds and verifies the holo through the locked SDK, signs its
+provenance, renders the page with that holo and the provenance link, writes
 the precache list, runs Lighthouse, and publishes to GitHub Pages. Turn Pages on
 once, with the workflow as its source:
 
