@@ -39,19 +39,12 @@ const live = new URL(meta.live);
 // Holo Search: the top bar's home, and where its address bar resolves a name,
 // a hash or a link, fetches the app and verifies it before opening it.
 const holoSearch = new URL("https://humuhumu33.github.io/holo-search/");
+// The canonical frame: the template's Pages site publishes it on every push
+// to main, and this page loads the current one at run time (site/app.mjs), so
+// a frame change reaches this app without rebuilding it. app.json may name
+// another frame host, for a test or a mirror.
+const frameHost = new URL(meta.frame ?? "https://uor-foundation.github.io/template/frame/");
 const shareUrl = live.href;
-const shareText = `${meta.name}: ${meta.purpose.split(/(?<=\.)\s/)[0]}`;
-const query = (params) => new URLSearchParams(params).toString();
-const share = {
-  url: shareUrl,
-  title: meta.name,
-  text: shareText,
-  host: (live.host + live.pathname).replace(/\/$/, ""),
-  x: `https://x.com/intent/post?${query({ text: shareText, url: shareUrl })}`,
-  linkedin: `https://www.linkedin.com/sharing/share-offsite/?${query({ url: shareUrl })}`,
-  facebook: `https://www.facebook.com/sharer/sharer.php?${query({ u: shareUrl })}`,
-  email: `mailto:?subject=${encodeURIComponent(meta.name)}&body=${encodeURIComponent(`${shareText}\n\n${shareUrl}`)}`,
-};
 
 const item = (mark, markClass, name, what) =>
   `<li><span class="${markClass}">${mark}</span><div><div class="name">${escape(name)}</div><div class="what">${escape(what)}</div></div></li>`;
@@ -62,13 +55,9 @@ const fill = {
   LIVE: escape(shareUrl),
   HOLO_SEARCH: escape(holoSearch.href),
   HOLO_SEARCH_ORIGIN: holoSearch.origin,
+  FRAME_ORIGIN: frameHost.origin,
   OG_IMAGE: escape(new URL("og.png", live).href),
   OG_ALT: escape(`${meta.name}: ${meta.purpose}`),
-  SHARE_HOST: escape(share.host),
-  SHARE_X: escape(share.x),
-  SHARE_LINKEDIN: escape(share.linkedin),
-  SHARE_FACEBOOK: escape(share.facebook),
-  SHARE_EMAIL: escape(share.email),
   NAME: escape(meta.name),
   // The app's name as the top bar's holo:// address: lower case, words joined by hyphens.
   HOLO_NAME: escape(meta.name.toLowerCase().normalize("NFKD").replace(/\p{M}/gu, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "app"),
@@ -93,7 +82,7 @@ const fill = {
   INLINE_CSS: css,
   INLINE_THEME: theme,
   IMPORTMAP: importmap,
-  APP_DATA: JSON.stringify({ answers: meta.answers, share: { url: share.url, title: share.title, text: share.text }, search: holoSearch.href }).replace(/</g, "\\u003c"),
+  APP_DATA: JSON.stringify({ answers: meta.answers, frame: frameHost.href }).replace(/</g, "\\u003c"),
   CSP_SCRIPT_HASHES: `${sha(theme)} ${sha(importmap)}`,
   CSP_STYLE_HASHES: sha(css),
 };

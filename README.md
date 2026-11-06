@@ -85,17 +85,30 @@ the archive carries. Every instance gets the same page; an app edits one file.
   `site/index.html` and `site/manifest.webmanifest` from it; `bootstrap/icons.py`
   draws the icons from its name (the warm ground, the app's initial, the brand
   dot, no logo).
-- **One frame, locked.** The page every Prism app opens in (the top bar,
-  share panel, omnibox, social card, renderer and the page gates) is the
-  same bytes in every app. `frame.lock` lists each frame file and its
-  SHA-256; `node bootstrap/frame-sync.mjs --check` runs in `pages.yml`
-  before the build, so an app whose frame drifted is never deployed. An
-  app takes a new frame with `--pin <template commit>`, which reads the
-  template's `frame.lock` at that commit, fetches every file it lists,
-  refuses any whose bytes differ and records the pin; that is how existing
-  apps move, since the template update workflow copies policy files only.
-  In the template, change the frame and run `--lock`: every app follows
-  when it pins the new commit.
+- **One live frame.** The top bar every Prism app opens in (home, the
+  `holo://` address bar, the verdict's shield, share, GitHub, theme and the
+  spectrum line) is one web component, `<prism-frame>`, in `frame/`. On
+  every push to `main`, `try-page.yml` publishes it to this repository's
+  Pages site, named by its SHA-256, with a pointer:
+  `https://uor-foundation.github.io/template/frame/current.json`. Every app
+  page reads that pointer at run time, fetches the module it names, checks
+  the bytes against the SHA-256 and only then runs it, so **a frame change
+  in the template reaches every Prism app on its next load, with no app
+  rebuilt.** Holo Search mounts the same element. Bytes that don't match
+  the pointer never run: the page keeps its `holo://` address in the bar's
+  reserved height, and the app itself still verifies and works. Offline,
+  the service worker serves the last frame. `?frame=<sha256>` opens a page
+  with one exact frame; `frame` in `app.json` names another frame host, for
+  a test or a mirror. The frame draws in its own shadow root and brings the
+  brand's tokens to a page that has none, so any host can mount it.
+- **The page around it, locked.** Everything else on the page (the cards,
+  renderer, loader, service worker and the page gates) is pinned by
+  `frame.lock`, as `brand.lock` pins the brand: reviewed bytes that change
+  only when an app chooses to. `node bootstrap/frame-sync.mjs --check` runs
+  in `pages.yml` before the build, and an app takes a newer page with
+  `--pin <template commit>`, which reads the template's `frame.lock` at that
+  commit, fetches every file, refuses any whose bytes differ and records the
+  pin. In the template, change these files and run `--lock`.
 - **The brand is wired, not copied.** `brand.lock` pins
   [Hologram-Technologies/hologram-brand-kit](https://github.com/Hologram-Technologies/hologram-brand-kit)
   at one commit and records the SHA-256 of every file the page takes from it:
@@ -113,8 +126,8 @@ the archive carries. Every instance gets the same page; an app edits one file.
   a sun or moon. Once the page scrolls under it, a 2 px line in the UOR
   Foundation's colour spectrum lights its lower edge and drifts, as on
   [uor.foundation](https://uor.foundation/). Under 600 px GitHub steps out (the footer still links the
-  repository) so the address keeps its room. It comes from
-  `site/page.template.html`; an app does not edit it.
+  repository) so the address keeps its room. It is the live frame below:
+  no app carries a copy of it.
 - **An address bar for Prism apps.** The holo:// pill is also an omnibox,
   like Chrome's. Focus it and it selects the address and lists this app and
   every app in [Holo Search](https://humuhumu33.github.io/holo-search/)'s

@@ -11,7 +11,7 @@
     },
     {
       "path": "bootstrap/page.mjs",
-      "sha256": "d4cbc03feb9a2069f6e45c383aaefa105f7a0c0b43c9cede9455733ee1a5aa0f"
+      "sha256": "c631323c4611dedbde363c8ff9e661229ba3e2d6a8570a763cc0ff3369aa06dc"
     },
     {
       "path": "bootstrap/precache.mjs",
@@ -19,27 +19,27 @@
     },
     {
       "path": "bootstrap/screens.mjs",
-      "sha256": "b25056862b55352e2daee8480e0b844836c65ed394f715bfebdf6949227e1005"
+      "sha256": "0aaef44f114dfbec5f26c4de17e580f8b3c84e9ac231546d9a8d1fd757b300e4"
     },
     {
       "path": "lighthouserc.json",
-      "sha256": "8113b276f7d10427bf134e364d9b82745c31989822fd12b404b19160b322be0c"
+      "sha256": "0145d04da93193801b0d8736ceba7e0df94b9b15f183b07a16e6feda16d72082"
     },
     {
       "path": "site/app.mjs",
-      "sha256": "a01395ffdec1f36177dcb4bbc609fba165ce2ad78d9fc0e3c6456682f6efa7f2"
+      "sha256": "be59e1f1c80e7e27829c8397d1d5a1ec7b6004f8d9027fc1377d48ff73ae4e83"
     },
     {
       "path": "site/page.template.html",
-      "sha256": "1243c330690aa5cbc42b470e316486ddfef954eaa793e7839805785e63a1e4ca"
+      "sha256": "e67691e296e6ac48d5ad575408cbb4d1fb0f974113f759214b6c8ababf7789d4"
     },
     {
       "path": "site/prism-page.css",
-      "sha256": "31a859d9fed7c5147a272716b79428b6e44e344f5315a3d0e2afdd61f91ea6b7"
+      "sha256": "be92d094f6984fd4f7cd0d9df36473c73f09d4b7b3f6a18d7d7ee33f45215233"
     },
     {
       "path": "site/sw.js",
-      "sha256": "314a3ca60b23c24fb3be4096f2dabcca9476e9dcec9cc41b272de5ed46c1d4f9"
+      "sha256": "b4d4eb5c8314f5abed013ea9d172e7352dbdfa5aa2b503901df364ebcfbf11f7"
     },
     {
       "path": "site/theme.js",

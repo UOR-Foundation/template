@@ -39,387 +39,50 @@ function chip(element, text, state) {
   element.className = `chip chip-${state}`;
 }
 
-// The top bar repeats the identity verdict as a shield in its state's
-// colour. Its label says it in words, with the full fingerprint.
-function trust(label, state, fingerprint = "") {
-  const words = fingerprint ? `${label}, fingerprint ${fingerprint}` : label;
-  $("trust").className = `chip chip-${state} trust`;
-  $("trust").setAttribute("aria-label", words);
-  $("trust").title = words;
-}
-
-// Sharing. On a phone the share button hands the page to the system's share
-// sheet, which knows every app on the device. Elsewhere it opens the share
-// panel: the card every platform will show, the link to copy, and one tap to
-// X, LinkedIn, Facebook or email (and the system sheet, where there is one).
-// Every link is the app's live URL, never the address it was opened from.
-function share() {
-  const { url, title, text } = data.share;
-  const button = $("share");
-  const panel = $("share-panel");
-  const native = typeof navigator.share === "function";
-  const popover = typeof panel.showPopover === "function";
-  const phone = matchMedia("(pointer: coarse)").matches;
-
-  const say = (words) => {
-    $("bar-status").textContent = words;
-    setTimeout(() => ($("bar-status").textContent = ""), 1600);
-  };
-  // True when the sheet shared or the visitor dismissed it; false when it failed.
-  const sheet = async () => {
+// The frame. The top bar is not part of this page: it is the canonical
+// <prism-frame>, which UOR-Foundation/template publishes on every push to main.
+// This page reads the frame host's pointer, fetches the module it names,
+// checks the bytes against the pointer's SHA-256, and only then runs them, so
+// a change to the frame reaches this app on its next load and nothing else
+// can stand in for it. ?frame=<sha256> opens the page with one exact frame.
+// Until the frame arrives, its height is reserved and the app's holo://
+// address stands in; offline, the service worker serves the last one.
+async function frame() {
+  if (customElements.get("prism-frame")) return;
+  const host = new URL(data.frame);
+  const pinned = new URLSearchParams(location.search).get("frame");
+  try {
+    const pointer = /^[0-9a-f]{64}$/.test(pinned ?? "")
+      ? { sha256: pinned, module: `${pinned}/prism-frame.mjs` }
+      : await fetch(new URL("current.json", host), { cache: "no-cache" }).then((response) => {
+          if (!response.ok) throw new Error(`frame pointer: HTTP ${response.status}`);
+          return response.json();
+        });
+    if (!/^[0-9a-f]{64}$/.test(pointer.sha256 ?? "")) throw new Error("frame pointer names no sha256");
+    const response = await fetch(new URL(pointer.module, host));
+    if (!response.ok) throw new Error(`frame: HTTP ${response.status}`);
+    const bytes = await response.arrayBuffer();
+    const digest = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), (b) => b.toString(16).padStart(2, "0")).join("");
+    if (digest !== pointer.sha256) throw new Error(`frame is ${digest}, its pointer says ${pointer.sha256}`);
+    const url = URL.createObjectURL(new Blob([bytes], { type: "text/javascript" }));
     try {
-      await navigator.share({ title, text, url });
-      return true;
-    } catch (error) {
-      return error?.name === "AbortError";
+      await import(url);
+    } finally {
+      URL.revokeObjectURL(url);
     }
-  };
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(url);
-      return true;
-    } catch {
-      return false;
-    }
-  };
-  // The tick on the share icon, when there is no panel to show it in.
-  const flash = async () => {
-    const copied = await copy();
-    button.classList.toggle("copied", copied);
-    button.title = copied ? "Link copied" : `Copy the link: ${url}`;
-    say(button.title);
-    setTimeout(() => {
-      button.classList.remove("copied");
-      button.title = "Share";
-    }, 1600);
-  };
-
-  if ((phone && native) || !popover) {
-    // The button no longer opens the panel; the sheet, or the clipboard, does it all.
-    button.removeAttribute("popovertarget");
-    button.addEventListener("click", async () => {
-      if (native && (await sheet())) return;
-      await flash();
-    });
-    return;
-  }
-
-  // The panel opens under the share button, its right edge on the button's,
-  // and never closer than 16 px to either side of the window.
-  panel.addEventListener("beforetoggle", (event) => {
-    if (event.newState !== "open") return;
-    const bar = document.querySelector(".topbar").getBoundingClientRect();
-    const edge = button.getBoundingClientRect();
-    const view = document.documentElement.clientWidth;
-    const width = Math.min(23 * parseFloat(getComputedStyle(document.documentElement).fontSize), view - 32);
-    const right = Math.max(16, Math.min(view - edge.right, view - width - 16));
-    panel.style.setProperty("--share-top", `${Math.round(bar.bottom + 8)}px`);
-    panel.style.setProperty("--share-right", `${Math.round(right)}px`);
-    // The card is fetched the first time the panel opens, never with the page.
-    if (!$("share-image").firstChild) {
-      const image = new Image(1200, 630);
-      image.src = "./og.png";
-      image.alt = "";
-      image.decoding = "async";
-      $("share-image").append(image);
-    }
-  });
-
-  $("share-copy").addEventListener("click", async () => {
-    const copied = await copy();
-    const control = $("share-copy");
-    control.classList.toggle("copied", copied);
-    $("share-copy-label").textContent = copied ? "Copied" : "Select the link";
-    say(copied ? "Link copied" : "Copy failed; select the link");
-    setTimeout(() => {
-      control.classList.remove("copied");
-      $("share-copy-label").textContent = "Copy link";
-    }, 1600);
-  });
-
-  // A platform opens in a new tab; the panel closes behind it.
-  for (const target of panel.querySelectorAll("a.share-target")) {
-    target.addEventListener("click", () => panel.hidePopover());
-  }
-
-  if (native) {
-    $("share-more-item").hidden = false;
-    $("share-more").addEventListener("click", async () => {
-      panel.hidePopover();
-      if (!(await sheet())) await flash();
-    });
+    document.documentElement.dataset.frame = digest;
+  } catch (error) {
+    // The address stands in; the app itself works without the frame.
+    console.warn(`frame: ${describe(error)}`);
   }
 }
 
-// The address bar, as an omnibox. It reads holo://name, this app's address.
-// Focus it and it becomes a search over every Prism app Holo Search knows:
-// type a name or a hash prefix, or paste a full address (a sha256 or blake3
-// digest, an IPFS CID, a shared link), and Enter hands it to Holo Search,
-// which fetches the app, checks the bytes against the address and replays
-// its examples before it opens. This page never trusts the registry: it
-// only suggests; Holo Search verifies. The registry is fetched the first
-// time the bar is focused, never with the page.
-const here = { fingerprint: "" };
-
-function omnibox() {
-  const form = $("address");
-  const input = $("omnibox");
-  const list = $("omnibox-list");
-  const bar = document.querySelector(".topbar-inner");
-  const shown = input.value;
-  const slug = shown.replace(/^holo:\/\//, "");
-  const name = document.title;
-  const search = data.search;
-  let index = null;
-  let loading = null;
-  let rows = [];
-  let active = 0;
-
-  const short = (hex) => (hex.length > 12 ? `${hex.slice(0, 8)}…${hex.slice(-4)}` : hex);
-  const fold = (text) => text.toLowerCase().replace(/[^a-z0-9]/g, "");
-  const load = () =>
-    (loading ??= fetch(new URL("registry/index.json", search), { cache: "no-cache" })
-      .then((response) => (response.ok ? response.json() : []))
-      .then((entries) => (index = Array.isArray(entries) ? entries : []))
-      .catch(() => (index = [])));
-
-  // What was typed, without holo:// or the Holo Search link around it.
-  const clean = (text) => {
-    let query = text.trim();
-    try {
-      const link = new URL(query);
-      if (link.href.startsWith(search) && link.searchParams.get("r")) query = link.searchParams.get("r");
-    } catch {
-      // Not a link.
-    }
-    return query.replace(/^holo:\/\//i, "").trim();
-  };
-  const address = (query) =>
-    /^(sha256:|blake3:)?[0-9a-f]{8,64}$/i.test(query) || /^baf[a-z2-7]{20,}$/i.test(query) || /^https?:\/\//i.test(query);
-
-  // The rows for what was typed: this app, the registry's apps that match by
-  // name or hash prefix, and what was typed itself, as an address to open or
-  // a search to run.
-  function suggest(raw) {
-    const query = raw === shown ? "" : clean(raw);
-    const key = fold(query);
-    const hex = query.replace(/^(sha256|blake3):/i, "").toLowerCase();
-    const hashy = /^[0-9a-f]{4,64}$/.test(hex);
-    const named = (text) => !key || fold(text).includes(key);
-    const hashed = (digest) => hashy && Boolean(digest) && digest.startsWith(hex);
-    const out = [];
-    if (named(name) || named(slug) || hashed(here.fingerprint)) {
-      const print = here.fingerprint ? ` · blake3:${short(here.fingerprint)}` : "";
-      out.push({ kind: "self", title: name, sub: `holo://${slug}${print} · this app`, match: query });
-    }
-    // One row per app when matched by name, as Chrome shows a site once: its
-    // holo first, then its model, then its image. A hash names one entry, so
-    // a hash match shows exactly that one.
-    const rank = { holo: 0, model: 1, image: 2 };
-    const seen = new Map();
-    let known = false;
-    for (const entry of index ?? []) {
-      if (entry.blake3 && entry.blake3 === here.fingerprint) continue;
-      const byName = named(entry.module ?? "");
-      const byHash = hashed(entry.sha256) || hashed(entry.blake3);
-      if (query && !byName && !byHash) continue;
-      const holo = Boolean(entry.blake3);
-      const kind = holo ? "holo" : entry.kind === "image" ? "image" : "model";
-      known ||= byHash;
-      if (!byHash) {
-        const kept = seen.get(fold(entry.module ?? ""));
-        if (kept && rank[kept.kind] <= rank[kind]) continue;
-        if (kept) out.splice(out.indexOf(kept), 1);
-      }
-      const row = {
-        kind,
-        title: entry.module ?? "Untitled",
-        sub: `${holo ? `blake3:${short(entry.blake3)}` : `sha256:${short(entry.sha256)}`} · ${kind}`,
-        target: holo ? `blake3:${entry.blake3}` : entry.sha256,
-        match: byName ? query : "",
-      };
-      out.push(row);
-      if (!byHash) seen.set(fold(entry.module ?? ""), row);
-    }
-    const top = out.slice(0, 6);
-    // A digest keeps its algorithm and loses its middle; a long link its tail.
-    const label = (text) => {
-      const digest = text.match(/^((?:sha256|blake3):)?([0-9a-f]{13,})$/i);
-      if (digest) return `${digest[1] ?? ""}${short(digest[2])}`;
-      return text.length > 48 ? `${text.slice(0, 47)}…` : text;
-    };
-    const exact = hex.length === 64 && hex === here.fingerprint;
-    // An address Holo Search must look up gets its own row; one the registry
-    // already knows is that app's row.
-    if (query && address(query) && !exact && !known) {
-      top.unshift({ kind: "open", title: `Open ${label(query)}`, sub: "Fetched and verified in Holo Search", target: query });
-    } else if (query && !exact && !known) {
-      top.push({ kind: "search", title: query, sub: "Search Prism apps in Holo Search", target: query });
-    }
-    return top;
-  }
-
-  const icons = {
-    self: '<path d="M12 3 4 6v6c0 4.6 3.4 8.4 8 9 4.6-.6 8-4.4 8-9V6z" /><path d="m8.5 12 2.5 2.5 4.5-5" />',
-    holo: '<path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z" /><path d="M4 7.5 12 12l8-4.5M12 12v9" />',
-    model: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M9 13h6M9 17h4" />',
-    image: '<path d="m12 3 9 5-9 5-9-5z" /><path d="m3 13 9 5 9-5" />',
-    open: '<path d="M5 12h14M13 6l6 6-6 6" />',
-    search: '<circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.2-4.2" />',
-  };
-
-  // The title with what was typed in plain weight and the rest in bold, as
-  // Chrome shows a completion. Every string from the registry goes in as text.
-  const title = (text, match) => {
-    const span = document.createElement("span");
-    span.className = "opt-title";
-    const bold = (part) => {
-      const b = document.createElement("b");
-      b.textContent = part;
-      return b;
-    };
-    const at = match ? text.toLowerCase().indexOf(match.toLowerCase()) : -1;
-    if (at < 0) span.append(bold(text));
-    else span.append(bold(text.slice(0, at)), text.slice(at, at + match.length), bold(text.slice(at + match.length)));
-    return span;
-  };
-
-  function render() {
-    rows = suggest(input.value);
-    active = Math.min(active, Math.max(rows.length - 1, 0));
-    const items = rows.map((row, i) => {
-      const li = document.createElement("li");
-      li.id = `omnibox-${i}`;
-      li.className = `opt opt-${row.kind}`;
-      li.setAttribute("role", "option");
-      li.setAttribute("aria-selected", String(i === active));
-      const icon = document.createElement("span");
-      icon.className = "opt-icon";
-      icon.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">${icons[row.kind]}</svg>`;
-      const text = document.createElement("span");
-      text.className = "opt-text";
-      const sub = document.createElement("span");
-      sub.className = "opt-sub";
-      sub.textContent = row.sub;
-      text.append(title(row.title, row.match), sub);
-      li.append(icon, text);
-      li.addEventListener("pointerdown", (event) => event.preventDefault());
-      li.addEventListener("pointermove", () => select(i));
-      li.addEventListener("click", () => choose(row));
-      return li;
-    });
-    if (!index) {
-      const note = document.createElement("li");
-      note.className = "opt-note";
-      note.setAttribute("role", "presentation");
-      note.textContent = "Loading Prism apps";
-      items.push(note);
-    }
-    list.replaceChildren(...items);
-    list.hidden = items.length === 0;
-    input.setAttribute("aria-expanded", String(!list.hidden));
-    if (rows.length) input.setAttribute("aria-activedescendant", `omnibox-${active}`);
-    else input.removeAttribute("aria-activedescendant");
-  }
-
-  function select(i) {
-    if (!rows.length) return;
-    active = (i + rows.length) % rows.length;
-    for (const li of list.querySelectorAll(".opt")) li.setAttribute("aria-selected", String(li.id === `omnibox-${active}`));
-    input.setAttribute("aria-activedescendant", `omnibox-${active}`);
-    $(`omnibox-${active}`)?.scrollIntoView({ block: "nearest" });
-  }
-
-  function close() {
-    bar.classList.remove("editing");
-    list.hidden = true;
-    input.setAttribute("aria-expanded", "false");
-    input.removeAttribute("aria-activedescendant");
-    input.value = shown;
-    active = 0;
-  }
-
-  function choose(row) {
-    if (row.kind === "self") {
-      input.blur();
-      close();
-      const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
-      scrollTo({ top: 0, behavior: still ? "auto" : "smooth" });
-      return;
-    }
-    list.hidden = true;
-    location.assign(`${search}?r=${encodeURIComponent(row.target)}`);
-  }
-
-  input.addEventListener("focus", () => {
-    bar.classList.add("editing");
-    input.select();
-    active = 0;
-    render();
-    load().then(() => document.activeElement === input && render());
-  });
-  input.addEventListener("input", () => {
-    active = 0;
-    render();
-  });
-  input.addEventListener("keydown", (event) => {
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      event.preventDefault();
-      if (list.hidden) render();
-      select(active + (event.key === "ArrowDown" ? 1 : -1));
-    } else if (event.key === "Escape") {
-      event.preventDefault();
-      if (input.value !== shown) {
-        input.value = shown;
-        input.select();
-        active = 0;
-        render();
-      } else {
-        input.blur();
-        close();
-      }
-    }
-  });
-  input.addEventListener("blur", close);
-  form.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const row = rows[active] ?? rows[0];
-    if (row) choose(row);
-    else if (clean(input.value)) choose({ kind: "search", target: clean(input.value) });
-  });
-}
-
-// The spectrum under the top bar lights once the page scrolls under it: a
-// one-pixel mark at the very top of the page, watched, not a scroll handler.
-function spectrum() {
-  const bar = document.querySelector(".topbar");
-  if (!("IntersectionObserver" in window)) return;
-  const mark = document.createElement("div");
-  mark.setAttribute("aria-hidden", "true");
-  mark.className = "scroll-mark";
-  document.body.prepend(mark);
-  new IntersectionObserver(([entry]) => bar.classList.toggle("scrolled", !entry.isIntersecting)).observe(mark);
-}
-
-function theme() {
-  const root = document.documentElement;
-  const button = $("theme");
-  const paint = () => {
-    // The icon follows the html class in CSS; only the words change here.
-    const label = `Switch to ${root.classList.contains("dark") ? "light" : "dark"} theme`;
-    button.setAttribute("aria-label", label);
-    button.title = label;
-  };
-  paint();
-  button.addEventListener("click", () => {
-    root.classList.toggle("dark");
-    try {
-      localStorage.setItem("prism-theme", root.classList.contains("dark") ? "dark" : "light");
-    } catch {
-      // A private window keeps no preference; the page still switches.
-    }
-    paint();
-  });
+// The shield in the frame: the verdict this page reached on the holo.
+function verdict(state, label, fingerprint = "") {
+  const element = $("frame");
+  element.setAttribute("verdict", state);
+  element.setAttribute("verdict-label", label);
+  if (fingerprint) element.setAttribute("fingerprint", fingerprint);
 }
 
 // Install the service worker once the page has loaded, so it never competes
@@ -482,10 +145,7 @@ const afterFirstFrame = () => new Promise((resolve) => {
 });
 
 async function main() {
-  theme();
-  share();
-  omnibox();
-  spectrum();
+  frame();
   offline();
 
   let app;
@@ -496,14 +156,13 @@ async function main() {
   } catch (error) {
     chip($("verified"), `failed to load: ${describe(error)}`, "bad");
     chip($("replayed"), "no app", "bad");
-    trust("The app failed to load", "bad");
+    verdict("bad", "The app failed to load");
     return;
   }
 
   const { identities } = app;
   chip($("verified"), identities.verified ? "verified" : "NOT verified", identities.verified ? "good" : "bad");
-  trust(identities.verified ? "Verified in this browser" : "NOT verified", identities.verified ? "good" : "bad", identities.archiveFingerprint);
-  here.fingerprint = identities.archiveFingerprint;
+  verdict(identities.verified ? "good" : "bad", identities.verified ? "Verified in this browser" : "NOT verified", identities.archiveFingerprint);
   $("fingerprint").textContent = identities.archiveFingerprint;
   $("limits").textContent = app.limits
     ? `request ${app.limits.request} bytes, response ${app.limits.response} bytes, guest ${app.limits.guestAllocation} bytes`

@@ -1,7 +1,6 @@
 /* The standard Prism app page, bound to the Hologram brand kit.
  * Every colour, radius, border, ring, duration and easing is a variable from
- * brand/hologram-warm.css (the top bar's spectrum line is the one named
- * exception); the fonts and their metric-matched fallbacks come
+ * brand/hologram-warm.css; the fonts and their metric-matched fallbacks come
  * from brand/fonts.css, both pinned by brand.lock. The type scale is the
  * brand's: 14, 16, 18, 20, 24, 30, 36 px, nothing under 14. No shadows on the
  * dark ground.
@@ -59,8 +58,8 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
-/* The column: the top bar's contents and main share one width and one margin. */
-main, .topbar-inner {
+/* The column: the frame's contents and main share one width and one margin. */
+main {
   width: min(100% - 2 * var(--margin) - var(--safe-left) - var(--safe-right), var(--column));
   margin: 0 auto;
 }
@@ -97,374 +96,41 @@ main { padding: var(--space-6) 0 calc(var(--space-12) + var(--safe-bottom)); }
   outline-offset: var(--ring-offset);
 }
 
-/* Top bar: the same on every Prism app. Home, the mark and the app's name
- * with a shield for the verdict the browser reached on the holo; then
- * sharing, the source on GitHub and the theme. Sticky, so the verdict stays in
- * view; the shield links to the identity card that backs it. Every state of
- * the shield is the same square, so nothing moves when the holo loads. */
-
-.topbar {
+/* The frame: the top bar is the canonical <prism-frame>, loaded live from
+ * the template (site/app.mjs), and drawn in its own shadow root. Until it
+ * arrives its height is reserved and the app's holo:// address stands in,
+ * so nothing moves when it does. */
+prism-frame {
+  display: block;
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 10;
+  min-height: calc(var(--safe-top) + var(--bar-control) + 2 * var(--space-2) + var(--border-width));
+}
+prism-frame:not(:defined) {
   padding-top: var(--safe-top);
   background: var(--background);
   border-bottom: var(--border-width) solid var(--border);
 }
-
-/* The spectrum: once the page scrolls under the bar, a 2 px line in the full
- * colour spectrum lights its lower edge, as on uor.foundation, and drifts
- * across it every 18 seconds. Its colours are the one exception to "this
- * stylesheet declares no colour": they are the UOR Foundation's header
- * spectrum, which the brand kit does not carry, kept here as named values.
- * It only drifts while it shows, and never under reduced motion. */
-:root {
-  --spectrum-red: #fb5661;
-  --spectrum-orange: #fa792e;
-  --spectrum-amber: #f9cf24;
-  --spectrum-yellow: #f6e41e;
-  --spectrum-green: #25d05e;
-  --spectrum-cyan: #20d0f3;
-  --spectrum-blue: #4f81f8;
-  --spectrum-violet: #ae6ff6;
-  --spectrum-pink: #f368c5;
-  --spectrum-glow: 0 0 18px #ffffff29, 0 2px 14px #ffffff14;
-}
-.topbar::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: calc(-1 * var(--border-width));
-  height: 2px;
-  background-image: linear-gradient(100deg,
-    var(--spectrum-red) 0%, var(--spectrum-orange) 7%, var(--spectrum-amber) 14%, var(--spectrum-yellow) 19%,
-    var(--spectrum-green) 25%, var(--spectrum-cyan) 31%, var(--spectrum-blue) 38%, var(--spectrum-violet) 45%,
-    var(--spectrum-pink) 48%, var(--spectrum-red) 50%, var(--spectrum-orange) 57%, var(--spectrum-amber) 64%,
-    var(--spectrum-yellow) 69%, var(--spectrum-green) 75%, var(--spectrum-cyan) 81%, var(--spectrum-blue) 88%,
-    var(--spectrum-violet) 95%, var(--spectrum-pink) 98%, var(--spectrum-red) 100%);
-  background-size: 200% 100%;
-  box-shadow: var(--spectrum-glow);
-  opacity: 0;
-  transition: opacity 500ms cubic-bezier(0.4, 0, 0.2, 1);
-  pointer-events: none;
-}
-.topbar.scrolled::after { opacity: 1; animation: spectrum-drift 18s linear infinite; }
-@keyframes spectrum-drift { to { background-position: 200% 0; } }
-@media (prefers-reduced-motion: reduce) { .topbar.scrolled::after { animation: none; } }
-@media (forced-colors: active) { .topbar::after { display: none; } }
-
-/* A jump to the identity card lands below the bar, not under it. */
-html { scroll-padding-top: calc(var(--safe-top) + var(--bar-control) + 2 * var(--space-2) + var(--space-4)); }
-
-/* One line; at 200 percent text it wraps rather than overflow. */
-.topbar-inner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) 0;
-}
-
-/* Icons: 20 px line drawings in the text colour of whatever holds them. */
-.topbar svg {
-  flex: none;
-  width: 1.25rem;
-  height: 1.25rem;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.ghost.icon {
-  flex: none;
-  justify-content: center;
-  width: var(--bar-control);
-  min-height: var(--bar-control);
-  padding: 0;
-}
-
-/* The address: the app's holo:// name in a pill, read the way a browser's
- * address bar reads. The brand dot stands where the site icon goes, the
- * scheme is dimmed and the name is bright, as a browser shows the domain,
- * and the shield closes the pill on the right. It is also the omnibox: the
- * input lies over the styled address, invisible until focused, so clicking
- * anywhere on the pill edits it, and the suggestions open below. */
-.address {
-  position: relative;
-  flex: 1 1 6rem;
-  min-width: 0;
+.frame-fallback {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: var(--bar-control);
-  margin: 0;
-  padding: 0 var(--space-1) 0 var(--space-3);
-  border: var(--border-width) solid transparent;
-  border-radius: 999px;
-  background: var(--muted);
-  font-size: var(--text-14);
-  white-space: nowrap;
-  cursor: text;
-  transition: background var(--duration) var(--ease), border-color var(--duration) var(--ease);
-}
-.address:hover { background: var(--accent); }
-/* Editing: the script's editing class, so the bar stays right when the window
- * loses focus mid-edit; the focus rules are the same look without a script. */
-.address:focus-within, .editing .address { background: var(--background); border-color: var(--ring); }
-.address .dot { width: 0.625rem; height: 0.625rem; }
-.field { position: relative; flex: 1; min-width: 0; align-self: stretch; display: flex; align-items: center; }
-.url { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.scheme { color: var(--muted-foreground); }
-.host { color: var(--foreground); font-weight: 500; }
-.address:focus-within .url, .editing .address .url { visibility: hidden; }
-
-.address .omnibox {
-  position: absolute;
-  inset: calc(-1 * var(--border-width)) 0;
-  width: 100%;
-  min-width: 0;
-  min-height: 0;
-  height: auto;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: transparent;
-  caret-color: var(--foreground);
-  font-family: var(--font-sans);
-  font-size: var(--text-14);
-  font-weight: 500;
-  outline: none;
-}
-.address .omnibox:focus, .editing .address .omnibox { color: var(--foreground); }
-.address .omnibox::placeholder { color: var(--muted-foreground); font-weight: 400; }
-/* The selected address in the quiet inverse, not the brand: it is selected on every focus. */
-.address .omnibox::selection { background: var(--primary); color: var(--primary-foreground); }
-
-/* The suggestions: one card under the pill, the chosen row tinted. */
-.omnibox-list {
-  position: absolute;
-  top: calc(100% + var(--space-2));
-  left: 0;
-  right: 0;
-  z-index: 2;
-  max-height: min(26rem, 70vh);
-  margin: 0;
-  padding: var(--space-1);
-  overflow: auto;
-  list-style: none;
-  border: var(--border-width) solid var(--border);
-  border-radius: var(--radius);
-  background: var(--popover);
-  color: var(--popover-foreground);
-  box-shadow: var(--shadow-overlay);
-  white-space: normal;
-  cursor: default;
-}
-.dark .omnibox-list { box-shadow: none; border-color: var(--border-strong); }
-.omnibox-list[hidden] { display: none; }
-.opt {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-height: var(--touch);
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-control);
-  cursor: pointer;
-}
-.opt[aria-selected="true"] { background: var(--accent); }
-.opt-icon {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
-  background: var(--muted);
-  color: var(--muted-foreground);
-}
-.topbar .opt-icon svg { width: 1rem; height: 1rem; }
-.opt-self .opt-icon { color: var(--success); }
-.opt-text { flex: 1; min-width: 0; display: grid; line-height: 1.35; }
-.opt-title, .opt-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.opt-title { font-size: var(--text-14); color: var(--muted-foreground); }
-.opt-title b { font-weight: 600; color: var(--foreground); }
-.opt-sub { font-family: var(--font-mono); font-size: var(--text-14); color: var(--muted-foreground); }
-.opt-note { padding: var(--space-2) var(--space-3); font-size: var(--text-14); color: var(--muted-foreground); }
-
-/* Compact width: while the address is edited it takes the whole bar, the
- * way a phone's browser does, and the suggestions span it. */
-@media (max-width: 599px) {
-  .topbar-inner.editing > :not(.address) { display: none; }
-  .topbar-inner.editing .address .dot { display: inline-block; }
-}
-
-/* Brand marks are filled shapes, not line drawings. */
-.topbar svg.gh, .topbar svg.fill { fill: currentColor; stroke: none; }
-
-/* The shield, right of the name: a badge in its state's colour, with no
- * chip around it. Dots while the browser checks, a tick when the holo
- * verified, an exclamation mark when it did not or failed to load. Its label
- * says which in words. Every state is the same size, so nothing moves. */
-.topbar .chip.trust {
-  flex: none;
-  justify-content: center;
-  width: 1.75rem;
-  min-height: 1.75rem;
-  height: 1.75rem;
-  border-radius: 50%;
-  padding: 0;
-  background: transparent;
-  border-color: transparent;
-}
-.trust svg { width: 1.25rem; height: 1.25rem; }
-.trust .body { fill: currentColor; fill-opacity: 0.16; }
-.topbar .chip.trust:hover { background: var(--accent); }
-.trust .ok, .trust .bad { display: none; }
-.chip-good .ok, .chip-bad .bad { display: inline; }
-.chip-good .wait, .chip-bad .wait { display: none; }
-
-/* Share: the icon turns to a tick for a moment once the link is copied. */
-#share .done, #share.copied .share { display: none; }
-#share.copied .done { display: inline; }
-
-/* The share panel: the card the platforms will show, the link to copy, and
- * one tap to each platform. It opens under the share button (the script sets
- * --share-top and --share-right), lifts in over one beat, closes on Escape or
- * a click outside, and gives focus back to the button. Light ground: the
- * overlay shadow; dark ground: no shadow, a stronger hairline. */
-.share-panel {
-  position: fixed;
-  inset: var(--share-top, 4rem) var(--share-right, 1rem) auto auto;
-  width: min(23rem, 100vw - 2rem);
-  max-height: calc(100vh - var(--share-top, 4rem) - 1rem);
-  margin: 0;
-  padding: var(--space-4);
-  overflow: auto;
-  border: var(--border-width) solid var(--border);
-  border-radius: var(--radius);
-  background: var(--popover);
-  color: var(--popover-foreground);
-  box-shadow: var(--shadow-overlay);
-  transform-origin: top right;
-  transition: opacity var(--duration) var(--ease), transform var(--duration) var(--ease), overlay var(--duration) allow-discrete, display var(--duration) allow-discrete;
-}
-.share-panel:not(:popover-open) { opacity: 0; transform: translateY(-0.25rem) scale(0.98); }
-@starting-style {
-  .share-panel:popover-open { opacity: 0; transform: translateY(-0.25rem) scale(0.98); }
-}
-.dark .share-panel { box-shadow: none; border-color: var(--border-strong); }
-
-.share-title {
-  margin: 0 0 var(--space-3);
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: var(--text-16);
-  letter-spacing: var(--tracking-display);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* The card, exactly as the platforms will show it. */
-.share-image {
-  aspect-ratio: 1200 / 630;
-  margin: 0 0 var(--space-3);
-  border: var(--border-width) solid var(--border);
-  border-radius: var(--radius-control);
-  overflow: hidden;
-  background: var(--muted);
-}
-.share-image img { display: block; width: 100%; height: 100%; }
-.share-url { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-/* The link and its copy button, one field. */
-.share-link {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin: 0 0 var(--space-4);
-  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
-  border: var(--border-width) solid var(--input);
-  border-radius: var(--radius-control);
-  background: var(--background);
-}
-.share-url { flex: 1; min-width: 0; color: var(--muted-foreground); }
-#share-copy { flex: none; display: inline-flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-3); }
-.topbar #share-copy svg { width: 1rem; height: 1rem; }
-#share-copy .done, #share-copy.copied .link { display: none; }
-#share-copy.copied .done { display: inline; }
-
-/* The platforms: a round glyph each, its name below. */
-.share-targets {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(3.5rem, 1fr));
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.share-targets [hidden] { display: none; }
-.share-target {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-1);
-  width: 100%;
-  min-height: auto;
-  padding: var(--space-1) 0;
-  border: 0;
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: var(--muted-foreground);
+  width: min(100% - 2 * var(--margin) - var(--safe-left) - var(--safe-right), var(--column));
+  min-height: calc(var(--bar-control) + 2 * var(--space-2));
+  margin: 0 auto;
+  color: var(--foreground);
   font-size: var(--text-14);
   font-weight: 500;
   text-decoration: none;
-  cursor: pointer;
 }
-.share-target:hover { background: transparent; color: var(--foreground); }
-.share-glyph {
-  display: grid;
-  place-items: center;
-  width: var(--touch);
-  height: var(--touch);
-  border: var(--border-width) solid var(--border);
-  border-radius: 50%;
-  background: var(--secondary);
-  color: var(--foreground);
-  transition: background var(--duration) var(--ease), transform var(--duration) var(--ease);
-}
-.share-target:hover .share-glyph { background: var(--accent); }
-.share-target:active .share-glyph { transform: scale(0.94); }
+.frame-fallback .dot { width: 0.625rem; height: 0.625rem; }
+.frame-fallback .scheme { color: var(--muted-foreground); font-weight: 400; }
+@media (max-height: 480px) { prism-frame { position: static; } }
 
-/* Theme: the moon offers the dark ground, the sun the light one. The theme
- * bootstrap sets the html class before first paint, so the right icon is
- * there from the first frame. */
-.dark #theme .moon, html:not(.dark) #theme .sun { display: none; }
-
-/* The mark the spectrum watches: one pixel at the top of the page. */
-.scroll-mark { position: absolute; top: 0; left: 0; width: 1px; height: 1px; pointer-events: none; }
-
-/* Read by screen readers, not shown. */
-.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-
-/* Compact width: the icons pack closer, and GitHub and the address's dot
- * step out (the footer still links the repository), so holo:// and the name
- * keep their room at 360 px. */
-@media (max-width: 599px) {
-  .topbar-inner { column-gap: var(--space-1); }
-  #github, .address .dot { display: none; }
-}
-
-/* Compact height, a phone in landscape: the bar scrolls away with the page. */
-@media (max-height: 480px) {
-  .topbar { position: static; }
-  html { scroll-padding-top: 0; }
-}
+/* A jump to the identity card lands below the bar, not under it. */
+html { scroll-padding-top: calc(var(--safe-top) + var(--bar-control) + 2 * var(--space-2) + var(--space-4)); }
+@media (max-height: 480px) { html { scroll-padding-top: 0; } }
 
 /* Header */
 
@@ -717,7 +383,7 @@ input[type="text"]::placeholder { color: var(--muted-foreground); }
 
 /* Forced colours: keep the hairlines and the chips' edges. */
 @media (forced-colors: active) {
-  .card, .chip, .topbar, .address, .share-panel, .share-glyph, button, input[type="text"] { border-color: CanvasText; }
+  .card, .chip, button, input[type="text"] { border-color: CanvasText; }
   .dot { background: Highlight; }
 }
 
