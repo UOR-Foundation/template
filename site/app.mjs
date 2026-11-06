@@ -144,6 +144,53 @@ const afterFirstFrame = () => new Promise((resolve) => {
   setTimeout(resolve, 200);
 });
 
+// The guest runs in a worker, so a slow request or the replay of the
+// examples never blocks the page. The worker receives the guest bytes of the
+// archive verified on this page and runs them with the runtime's own guest
+// loop. Without workers, the verified instance runs here.
+async function offThread(app) {
+  if (typeof Worker !== "function") return app;
+  const { resolveArchive } = await import("./vendor/prism-code/src/index.mjs");
+  const wasm = resolveArchive(app.archive).guest.content;
+  const worker = new Worker("./guest-worker.mjs", { type: "module" });
+  const waiting = new Map();
+  let next = 0;
+  worker.onmessage = ({ data: reply }) => {
+    const settle = waiting.get(reply.id);
+    waiting.delete(reply.id);
+    if (reply.ok) settle.resolve(reply.value);
+    else settle.reject(new Error(reply.error));
+  };
+  const call = (kind, payload) => new Promise((resolve, reject) => {
+    const id = next++;
+    waiting.set(id, { resolve, reject });
+    worker.postMessage({ id, kind, ...payload });
+  });
+  try {
+    await call("init", { wasm, limits: app.limits ?? {} });
+  } catch {
+    worker.terminate();
+    return app;
+  }
+  return {
+    dispatch: (request) => call("dispatch", { request }),
+    acceptance: () => call("acceptance", { vectors: app.vectors }),
+  };
+}
+
+// The app's own card (site/card.mjs, when the app has one) starts with the
+// same verified instance the identity shows, or with null and the reason
+// when there is none, so it can say why it stays off.
+async function card(runner, reason) {
+  if (!data.card) return;
+  try {
+    const { default: start } = await import("./card.mjs");
+    await start({ app: runner, reason, $, chip, show, parse });
+  } catch (error) {
+    console.error("card:", error);
+  }
+}
+
 async function main() {
   frame();
   offline();
@@ -157,16 +204,19 @@ async function main() {
     chip($("verified"), `failed to load: ${describe(error)}`, "bad");
     chip($("replayed"), "no app", "bad");
     verdict("bad", "The app failed to load");
+    await card(null, "no app");
     return;
   }
 
   const { identities } = app;
+  const runner = await offThread(app);
   chip($("verified"), identities.verified ? "verified" : "NOT verified", identities.verified ? "good" : "bad");
   verdict(identities.verified ? "good" : "bad", identities.verified ? "Verified in this browser" : "NOT verified", identities.archiveFingerprint);
   $("fingerprint").textContent = identities.archiveFingerprint;
   $("limits").textContent = app.limits
     ? `request ${app.limits.request} bytes, response ${app.limits.response} bytes, guest ${app.limits.guestAllocation} bytes`
     : "unknown";
+  card(identities.verified ? runner : null, identities.verified ? "" : "not verified");
 
   $("copy").addEventListener("click", async () => {
     try {
@@ -214,7 +264,7 @@ async function main() {
     const raw = $("request").value;
     $("echo").textContent = raw === "" ? "(empty)" : raw;
     try {
-      const response = show(await app.dispatch(parse(raw)));
+      const response = show(await runner.dispatch(parse(raw)));
       chip($("response"), response, answerState(response));
     } catch (error) {
       chip($("response"), `dispatch failed: ${describe(error)}`, "bad");
@@ -226,7 +276,7 @@ async function main() {
     button.disabled = true;
     chip($("replayed"), "replaying", "wait");
     try {
-      const result = await app.acceptance();
+      const result = await runner.acceptance();
       chip($("replayed"), `${result.passed} of ${result.total} passed`, result.passed === result.total ? "good" : "bad");
     } catch (error) {
       chip($("replayed"), `failed: ${describe(error)}`, "bad");

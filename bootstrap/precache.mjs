@@ -9,7 +9,8 @@ import { readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 
 const site = process.argv[2] ?? "site";
-const skip = new Set(["precache.json", "sw.js", "page.template.html", "app.json"]);
+// card.html and card.css are inlined into index.html, so they are never fetched.
+const skip = new Set(["precache.json", "sw.js", "page.template.html", "app.json", "card.html", "card.css"]);
 
 async function walk(dir) {
   const out = [];

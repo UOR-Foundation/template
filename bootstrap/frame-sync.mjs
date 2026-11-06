@@ -34,6 +34,7 @@ const FRAME = [
   "bootstrap/screens.mjs",
   "lighthouserc.json",
   "site/app.mjs",
+  "site/guest-worker.mjs",
   "site/page.template.html",
   "site/prism-page.css",
   "site/sw.js",
