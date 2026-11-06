@@ -85,6 +85,17 @@ the archive carries. Every instance gets the same page; an app edits one file.
   `site/index.html` and `site/manifest.webmanifest` from it; `bootstrap/icons.py`
   draws the icons from its name (the warm ground, the app's initial, the brand
   dot, no logo).
+- **One frame, locked.** The page every Prism app opens in (the top bar,
+  share panel, omnibox, social card, renderer and the page gates) is the
+  same bytes in every app. `frame.lock` lists each frame file and its
+  SHA-256; `node bootstrap/frame-sync.mjs --check` runs in `pages.yml`
+  before the build, so an app whose frame drifted is never deployed. An
+  app takes a new frame with `--pin <template commit>`, which reads the
+  template's `frame.lock` at that commit, fetches every file it lists,
+  refuses any whose bytes differ and records the pin; that is how existing
+  apps move, since the template update workflow copies policy files only.
+  In the template, change the frame and run `--lock`: every app follows
+  when it pins the new commit.
 - **The brand is wired, not copied.** `brand.lock` pins
   [Hologram-Technologies/hologram-brand-kit](https://github.com/Hologram-Technologies/hologram-brand-kit)
   at one commit and records the SHA-256 of every file the page takes from it:
