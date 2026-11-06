@@ -8,13 +8,15 @@
 //   node bootstrap/frame-sync.mjs --pin <commit>   take the frame from UOR-Foundation/template at <commit>:
 //                                                  read its frame.lock, fetch every file it lists, refuse any
 //                                                  whose bytes differ from that lock, write them, record the pin
-//   node bootstrap/frame-sync.mjs --lock           the template only: rewrite frame.lock from the files on disk
+//   node bootstrap/frame-sync.mjs --lock           UOR-Foundation/template only (by GITHUB_REPOSITORY or the
+//                                                  origin remote): rewrite frame.lock from the files on disk
 //
 // In the template, frame.lock has no source: the template is the source.
 // In an app, it names the template commit the frame came from. A repository
 // just created from the template inherits the template's lock, which
 // passes until the frame changes; --pin moves it to a newer frame.
 // Plain Node, no dependencies.
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -28,6 +30,7 @@ const SPEC = "prism/frame-lock/1";
 // from the lock cannot take it out of the gate.
 const FRAME = [
   "bootstrap/frame-sync.mjs",
+  "bootstrap/icons.py",
   "bootstrap/og.py",
   "bootstrap/page.mjs",
   "bootstrap/precache.mjs",
@@ -113,8 +116,26 @@ async function pin(commit) {
   console.log(`frame-sync: pinned ${TEMPLATE}@${commit}; render the page with node bootstrap/page.mjs site`);
 }
 
+// The repository this checkout is: GitHub Actions says so; otherwise the
+// origin remote does. Null when neither answers.
+function repository() {
+  if (process.env.GITHUB_REPOSITORY) return process.env.GITHUB_REPOSITORY;
+  try {
+    const url = execFileSync("git", ["remote", "get-url", "origin"], { cwd: root, encoding: "utf8" }).trim();
+    return url.match(/github\.com[:/]([^/]+\/[^/]+?)(?:\.git)?$/i)?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function relock() {
-  // An app takes its frame from the template; it never blesses its own copy.
+  // Only the template writes the lock. An app takes its page from the template
+  // with --pin and never blesses its own copy, including an app just created
+  // from the template, whose lock has no source yet.
+  const here = repository();
+  if (here?.toLowerCase() !== TEMPLATE.toLowerCase()) {
+    throw new Error(`--lock runs only in ${TEMPLATE}; this is ${here ?? "a repository that cannot be identified"}: take the page with --pin <template commit>`);
+  }
   const current = await read("frame.lock");
   if (current && JSON.parse(new TextDecoder().decode(current)).source) {
     throw new Error("frame.lock names a template commit: this is an app; take a new frame with --pin");

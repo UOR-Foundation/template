@@ -9,6 +9,7 @@
 import { createHash } from "node:crypto";
 import { access, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const site = process.argv[2] ?? "site";
 const read = (path) => readFile(join(site, path), "utf8");
@@ -39,11 +40,51 @@ const css = minify([await read("brand/hologram-warm.css"), await read("brand/fon
 const theme = (await read("theme.js")).trim();
 const importmap = '{ "imports": { "node:crypto": "./vendor/node-crypto-shim.mjs" } }';
 
-// The social card: bootstrap/og.py draws site/og.png from the same app.json.
-// Every platform needs absolute URLs, so they hang off the live URL.
-await access(join(site, "og.png")).catch(() => {
-  throw new Error("site/og.png is missing: run python -I bootstrap/og.py");
-});
+// The page is this app's, not the template's. A repository created from the
+// template starts with the template's app.json, social card and icons; each
+// is refused until it describes this app.
+// - In CI, app.json must name the repository being built.
+// - og.py and icons.py stamp each PNG with a SHA-256 of what it was drawn
+//   from, their own bytes included; the stamp recomputed from this app.json
+//   must match, so a card or icon drawn for another app, another name,
+//   purpose or live URL, or by an older script, never ships.
+const building = process.env.GITHUB_REPOSITORY;
+if (building && String(meta.repository ?? "").toLowerCase() !== `https://github.com/${building}`.toLowerCase()) {
+  throw new Error(`site/app.json describes ${meta.repository}, but this is ${building}: write this app's name, purpose, live URL and repository into site/app.json`);
+}
+const STAMP_KEY = "prism-drawn-for";
+const hex = (bytes) => createHash("sha256").update(bytes).digest("hex");
+const drawer = async (script) => hex(await readFile(fileURLToPath(new URL(script, import.meta.url))));
+const stampOf = (...parts) => hex(parts.join("\n"));
+// The value of a PNG tEXt chunk, or null: 8 signature bytes, then chunks of
+// length, type, data and CRC.
+function pngText(bytes, key) {
+  for (let at = 8; at + 12 <= bytes.length; ) {
+    const length = bytes.readUInt32BE(at);
+    const type = bytes.toString("latin1", at + 4, at + 8);
+    if (type === "tEXt") {
+      const data = bytes.subarray(at + 8, at + 8 + length);
+      const nul = data.indexOf(0);
+      if (nul > 0 && data.toString("latin1", 0, nul) === key) return data.toString("latin1", nul + 1);
+    }
+    if (type === "IEND") break;
+    at += 12 + length;
+  }
+  return null;
+}
+async function drawnFor(file, expected, fix) {
+  const bytes = await readFile(join(site, file)).catch(() => null);
+  if (!bytes) throw new Error(`site/${file} is missing: run ${fix}`);
+  if (pngText(bytes, STAMP_KEY) !== expected) {
+    throw new Error(`site/${file} was not drawn for this app.json (another app's, an older one, or by an older script): run ${fix}`);
+  }
+}
+await drawnFor("og.png", stampOf("og", meta.name, meta.purpose, meta.live, await drawer("og.py")), "python -I bootstrap/og.py");
+const iconStamp = stampOf("icons", meta.name, await drawer("icons.py"));
+for (const icon of ["icon-192.png", "icon-512.png", "maskable-512.png", "apple-touch-icon.png"]) {
+  await drawnFor(`icons/${icon}`, iconStamp, "python -I bootstrap/icons.py");
+}
+
 const live = new URL(meta.live);
 // Holo Search: the top bar's home, and where its address bar resolves a name,
 // a hash or a link, fetches the app and verifies it before opening it.

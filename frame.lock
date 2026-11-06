@@ -3,15 +3,19 @@
   "files": [
     {
       "path": "bootstrap/frame-sync.mjs",
-      "sha256": "75720e9996c31cea7e6c6f1e39de4d1c2c55df26a8a9a08e96e539e0341f4ae5"
+      "sha256": "c25eee1a9e1a0e9573ddc4d0a32b2ab4958cb6a3f71fd35ee79a6b9816335f21"
+    },
+    {
+      "path": "bootstrap/icons.py",
+      "sha256": "25c66c70f1392bf1e40b9b73fd99b547984611cfa39ad1ae301b91377883d931"
     },
     {
       "path": "bootstrap/og.py",
-      "sha256": "988c0452445c113f5ed96f91ec77520ab1b744633550aee09dbfb10b0d631a6d"
+      "sha256": "3794633d2e60896ae86c599f82b17400f04ad6cc32197c35276cde99850e0c7a"
     },
     {
       "path": "bootstrap/page.mjs",
-      "sha256": "845ee11f83a933216c2dca3e09c30df20d1ec5ccb98ed7c1885a66f91e0b0d85"
+      "sha256": "edd42e028e5e014264b20868e371be3ee087475df3c8f0b6b3275a868d4c7c8c"
     },
     {
       "path": "bootstrap/precache.mjs",

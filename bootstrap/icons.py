@@ -6,9 +6,15 @@ Archivo SemiBold, and the brand dot. No logo.
 Writes site/icons/icon-192.png, icon-512.png, maskable-512.png (the initial
 inside the 80 percent safe zone) and apple-touch-icon.png (180). Needs Pillow
 and the Archivo source from `node bootstrap/brand-sync.mjs --sync`."""
-import os, sys
+import hashlib, os, sys
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, PngImagePlugin
+
+# The stamp: a SHA-256 of what this image was drawn from, this script's own
+# bytes included, written into the PNG. bootstrap/page.mjs recomputes it from
+# app.json and refuses an image drawn for another app, another name, purpose
+# or live URL, or by an older script: a new app cannot ship the template's.
+STAMP_KEY = "prism-drawn-for"
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FONT = os.path.join(ROOT, ".brand-src/brand/fonts/otf/Archivo-Variable.ttf")
@@ -42,13 +48,21 @@ def icon(size, initial, maskable=False):
     return im.resize((size, size), Image.LANCZOS)
 
 
+def stamp(*parts):
+    """The fingerprint page.mjs recomputes: the parts joined by newlines, hashed."""
+    drawer = hashlib.sha256(open(os.path.abspath(__file__), "rb").read()).hexdigest()
+    info = PngImagePlugin.PngInfo()
+    info.add_text(STAMP_KEY, hashlib.sha256("\n".join([*parts, drawer]).encode("utf-8")).hexdigest())
+    return info
+
+
 def main(name):
     initial = next((c for c in name if c.isalnum()), "P").upper()
     os.makedirs(OUT, exist_ok=True)
-    icon(192, initial).save(os.path.join(OUT, "icon-192.png"), optimize=True)
-    icon(512, initial).save(os.path.join(OUT, "icon-512.png"), optimize=True)
-    icon(512, initial, maskable=True).save(os.path.join(OUT, "maskable-512.png"), optimize=True)
-    icon(180, initial).save(os.path.join(OUT, "apple-touch-icon.png"), optimize=True)
+    icon(192, initial).save(os.path.join(OUT, "icon-192.png"), optimize=True, pnginfo=stamp("icons", name))
+    icon(512, initial).save(os.path.join(OUT, "icon-512.png"), optimize=True, pnginfo=stamp("icons", name))
+    icon(512, initial, maskable=True).save(os.path.join(OUT, "maskable-512.png"), optimize=True, pnginfo=stamp("icons", name))
+    icon(180, initial).save(os.path.join(OUT, "apple-touch-icon.png"), optimize=True, pnginfo=stamp("icons", name))
     for f in sorted(os.listdir(OUT)):
         print(f"icons: {f} {os.path.getsize(os.path.join(OUT, f))} bytes")
 
