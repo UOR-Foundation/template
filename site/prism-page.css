@@ -184,6 +184,11 @@ html { scroll-padding-top: calc(var(--safe-top) + var(--bar-control) + 2 * var(-
 #share .done, #share.copied .share { display: none; }
 #share.copied .done { display: inline; }
 
+/* Theme: the moon offers the dark ground, the sun the light one. The theme
+ * bootstrap sets the html class before first paint, so the right icon is
+ * there from the first frame. */
+.dark #theme .moon, html:not(.dark) #theme .sun { display: none; }
+
 /* Read by screen readers, not shown. */
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 

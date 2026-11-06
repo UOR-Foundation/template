@@ -88,9 +88,10 @@ function theme() {
   const root = document.documentElement;
   const button = $("theme");
   const paint = () => {
-    const next = root.classList.contains("dark") ? "Light" : "Dark";
-    button.textContent = next;
-    button.setAttribute("aria-label", `${next} theme`);
+    // The icon follows the html class in CSS; only the words change here.
+    const label = `Switch to ${root.classList.contains("dark") ? "light" : "dark"} theme`;
+    button.setAttribute("aria-label", label);
+    button.title = label;
   };
   paint();
   button.addEventListener("click", () => {

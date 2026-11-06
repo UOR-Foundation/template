@@ -97,7 +97,8 @@ the archive carries. Every instance gets the same page; an app edits one file.
   [holo-search](https://humuhumu33.github.io/holo-search/), the Prism mark and
   the app's name, a shield for the verdict the visitor's browser reached on the
   holo with a short fingerprint (linking to the identity card that backs it),
-  share (the system share sheet, or the link copied), and the theme. It comes
+  share (the system share sheet, or the link copied), and the theme as a
+  sun or moon. It comes
   from `site/page.template.html`; an app does not edit it.
 - **Any screen.** Material 3 window size classes: one column under 600 px,
   two panes from 840; 48 px touch targets on coarse pointers; safe areas;
