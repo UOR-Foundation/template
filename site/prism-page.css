@@ -96,9 +96,9 @@ main { padding: var(--space-6) 0 calc(var(--space-12) + var(--safe-bottom)); }
   outline-offset: var(--ring-offset);
 }
 
-/* Top bar: the same on every Prism app. The source on GitHub, home, the
- * mark and the app's name with a shield for the verdict the browser reached
- * on the holo; then sharing and the theme. Sticky, so the verdict stays in
+/* Top bar: the same on every Prism app. Home, the mark and the app's name
+ * with a shield for the verdict the browser reached on the holo; then
+ * sharing, the source on GitHub and the theme. Sticky, so the verdict stays in
  * view; the shield links to the identity card that backs it. Every state of
  * the shield is the same square, so nothing moves when the holo loads. */
 
@@ -161,18 +161,23 @@ html { scroll-padding-top: calc(var(--safe-top) + var(--bar-control) + 2 * var(-
 /* The GitHub mark is a filled shape, not a line drawing. */
 .topbar svg.gh { fill: currentColor; stroke: none; }
 
-/* The shield, right of the name: a 32 px square in its state's colour, dots
- * while the browser checks, a tick when the holo verified, an exclamation
- * mark when it did not or failed to load. Its label says which in words. */
-.chip.trust {
+/* The shield, right of the name: a badge in its state's colour, with no
+ * chip around it. Dots while the browser checks, a tick when the holo
+ * verified, an exclamation mark when it did not or failed to load. Its label
+ * says which in words. Every state is the same size, so nothing moves. */
+.topbar .chip.trust {
   flex: none;
   justify-content: center;
   width: 2rem;
   min-height: 2rem;
   height: 2rem;
   padding: 0;
+  background: transparent;
+  border-color: transparent;
 }
-.trust:hover { border-color: currentColor; }
+.trust svg { width: 1.5rem; height: 1.5rem; }
+.trust .body { fill: currentColor; fill-opacity: 0.16; }
+.topbar .chip.trust:hover { background: var(--accent); }
 .trust .ok, .trust .bad { display: none; }
 .chip-good .ok, .chip-bad .bad { display: inline; }
 .chip-good .wait, .chip-bad .wait { display: none; }
