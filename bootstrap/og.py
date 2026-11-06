@@ -9,10 +9,16 @@ Writes site/og.png. Needs Pillow; the fonts are the page's own subsets in
 site/fonts, so nothing else is fetched. Run it again whenever app.json's
 name, purpose or live URL changes; bootstrap/page.mjs refuses to render a
 page without it."""
-import json, os, sys
+import hashlib, json, os, sys
 from urllib.parse import urlparse
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, PngImagePlugin
+
+# The stamp: a SHA-256 of what this image was drawn from, this script's own
+# bytes included, written into the PNG. bootstrap/page.mjs recomputes it from
+# app.json and refuses an image drawn for another app, another name, purpose
+# or live URL, or by an older script: a new app cannot ship the template's.
+STAMP_KEY = "prism-drawn-for"
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FONTS = os.path.join(ROOT, "site/fonts")
@@ -109,9 +115,17 @@ def card(name, purpose, live):
     return im.resize((W, H), Image.LANCZOS)
 
 
+def stamp(*parts):
+    """The fingerprint page.mjs recomputes: the parts joined by newlines, hashed."""
+    drawer = hashlib.sha256(open(os.path.abspath(__file__), "rb").read()).hexdigest()
+    info = PngImagePlugin.PngInfo()
+    info.add_text(STAMP_KEY, hashlib.sha256("\n".join([*parts, drawer]).encode("utf-8")).hexdigest())
+    return info
+
+
 def main():
     meta = json.load(open(os.path.join(ROOT, "site/app.json"), encoding="utf-8"))
-    card(meta["name"], meta["purpose"], meta["live"]).save(OUT, optimize=True)
+    card(meta["name"], meta["purpose"], meta["live"]).save(OUT, optimize=True, pnginfo=stamp("og", meta["name"], meta["purpose"], meta["live"]))
     print(f"og: site/og.png {W}x{H}, {os.path.getsize(OUT)} bytes, for {meta['name']}")
 
 

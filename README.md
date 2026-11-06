@@ -152,6 +152,19 @@ the archive carries. Every instance gets the same page; an app edits one file.
   will show it, the link to copy, and X, LinkedIn, Facebook and email (and
   the system sheet, where the browser has one). The card is fetched only
   when the panel first opens, never with the page.
+- **The page is this app's, not the template's.** A repository created
+  from the template starts with the template's `app.json`, social card and
+  icons, and `bootstrap/page.mjs` refuses each until it describes this app.
+  In CI, `app.json`'s `repository` must be the repository being built.
+  `og.py` and `icons.py` stamp every PNG with a SHA-256 of what it was drawn
+  from (the name, purpose and live URL, and the script's own bytes); the
+  renderer recomputes the stamp from `app.json`, so a card or icon drawn for
+  another app, left stale by an edit, or drawn by an older script never
+  ships: run `python -I bootstrap/og.py` and `python -I bootstrap/icons.py`
+  (after `node bootstrap/brand-sync.mjs --sync`, for the icons' font). An app
+  pinning this page for the first time redraws both once. And
+  `frame-sync.mjs --lock` runs only in this repository, so no app can bless
+  its own copy of the page.
 - **Any screen.** Material 3 window size classes: one column under 600 px,
   two panes from 840; 48 px touch targets on coarse pointers; safe areas;
   forced colours and reduced motion respected.
