@@ -158,8 +158,8 @@ html { scroll-padding-top: calc(var(--safe-top) + var(--bar-control) + 2 * var(-
 .sep, .bar-name { color: var(--muted-foreground); }
 .wordmark, .bar-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
-/* The GitHub mark is a filled shape, not a line drawing. */
-.topbar svg.gh { fill: currentColor; stroke: none; }
+/* Brand marks are filled shapes, not line drawings. */
+.topbar svg.gh, .topbar svg.fill { fill: currentColor; stroke: none; }
 
 /* The shield, right of the name: a badge in its state's colour, with no
  * chip around it. Dots while the browser checks, a tick when the holo
@@ -185,6 +185,115 @@ html { scroll-padding-top: calc(var(--safe-top) + var(--bar-control) + 2 * var(-
 /* Share: the icon turns to a tick for a moment once the link is copied. */
 #share .done, #share.copied .share { display: none; }
 #share.copied .done { display: inline; }
+
+/* The share panel: the card the platforms will show, the link to copy, and
+ * one tap to each platform. It opens under the share button (the script sets
+ * --share-top and --share-right), lifts in over one beat, closes on Escape or
+ * a click outside, and gives focus back to the button. Light ground: the
+ * overlay shadow; dark ground: no shadow, a stronger hairline. */
+.share-panel {
+  position: fixed;
+  inset: var(--share-top, 4rem) var(--share-right, 1rem) auto auto;
+  width: min(23rem, 100vw - 2rem);
+  max-height: calc(100vh - var(--share-top, 4rem) - 1rem);
+  margin: 0;
+  padding: var(--space-4);
+  overflow: auto;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--shadow-overlay);
+  transform-origin: top right;
+  transition: opacity var(--duration) var(--ease), transform var(--duration) var(--ease), overlay var(--duration) allow-discrete, display var(--duration) allow-discrete;
+}
+.share-panel:not(:popover-open) { opacity: 0; transform: translateY(-0.25rem) scale(0.98); }
+@starting-style {
+  .share-panel:popover-open { opacity: 0; transform: translateY(-0.25rem) scale(0.98); }
+}
+.dark .share-panel { box-shadow: none; border-color: var(--border-strong); }
+
+.share-title {
+  margin: 0 0 var(--space-3);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--text-16);
+  letter-spacing: var(--tracking-display);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The card, exactly as the platforms will show it. */
+.share-image {
+  aspect-ratio: 1200 / 630;
+  margin: 0 0 var(--space-3);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+  background: var(--muted);
+}
+.share-image img { display: block; width: 100%; height: 100%; }
+.share-url { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The link and its copy button, one field. */
+.share-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-4);
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+  border: var(--border-width) solid var(--input);
+  border-radius: var(--radius-control);
+  background: var(--background);
+}
+.share-url { flex: 1; min-width: 0; color: var(--muted-foreground); }
+#share-copy { flex: none; display: inline-flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-3); }
+.topbar #share-copy svg { width: 1rem; height: 1rem; }
+#share-copy .done, #share-copy.copied .link { display: none; }
+#share-copy.copied .done { display: inline; }
+
+/* The platforms: a round glyph each, its name below. */
+.share-targets {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(3.5rem, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.share-targets [hidden] { display: none; }
+.share-target {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+  min-height: auto;
+  padding: var(--space-1) 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: var(--text-14);
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+}
+.share-target:hover { background: transparent; color: var(--foreground); }
+.share-glyph {
+  display: grid;
+  place-items: center;
+  width: var(--touch);
+  height: var(--touch);
+  border: var(--border-width) solid var(--border);
+  border-radius: 50%;
+  background: var(--secondary);
+  color: var(--foreground);
+  transition: background var(--duration) var(--ease), transform var(--duration) var(--ease);
+}
+.share-target:hover .share-glyph { background: var(--accent); }
+.share-target:active .share-glyph { transform: scale(0.94); }
 
 /* Theme: the moon offers the dark ground, the sun the light one. The theme
  * bootstrap sets the html class before first paint, so the right icon is
@@ -458,7 +567,7 @@ input[type="text"]::placeholder { color: var(--muted-foreground); }
 
 /* Forced colours: keep the hairlines and the chips' edges. */
 @media (forced-colors: active) {
-  .card, .chip, .topbar, button, input[type="text"] { border-color: CanvasText; }
+  .card, .chip, .topbar, .share-panel, .share-glyph, button, input[type="text"] { border-color: CanvasText; }
   .dot { background: Highlight; }
 }
 

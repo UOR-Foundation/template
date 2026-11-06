@@ -7,7 +7,7 @@
 // into the Content-Security-Policy. An app edits app.json and nothing else.
 //   node bootstrap/page.mjs site
 import { createHash } from "node:crypto";
-import { readFile, writeFile } from "node:fs/promises";
+import { access, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 const site = process.argv[2] ?? "site";
@@ -30,12 +30,40 @@ const css = minify([await read("brand/hologram-warm.css"), await read("brand/fon
 const theme = (await read("theme.js")).trim();
 const importmap = '{ "imports": { "node:crypto": "./vendor/node-crypto-shim.mjs" } }';
 
+// The social card: bootstrap/og.py draws site/og.png from the same app.json.
+// Every platform needs absolute URLs, so they hang off the live URL.
+await access(join(site, "og.png")).catch(() => {
+  throw new Error("site/og.png is missing: run python -I bootstrap/og.py");
+});
+const live = new URL(meta.live);
+const shareUrl = live.href;
+const shareText = `${meta.name}: ${meta.purpose.split(/(?<=\.)\s/)[0]}`;
+const query = (params) => new URLSearchParams(params).toString();
+const share = {
+  url: shareUrl,
+  title: meta.name,
+  text: shareText,
+  host: (live.host + live.pathname).replace(/\/$/, ""),
+  x: `https://x.com/intent/post?${query({ text: shareText, url: shareUrl })}`,
+  linkedin: `https://www.linkedin.com/sharing/share-offsite/?${query({ url: shareUrl })}`,
+  facebook: `https://www.facebook.com/sharer/sharer.php?${query({ u: shareUrl })}`,
+  email: `mailto:?subject=${encodeURIComponent(meta.name)}&body=${encodeURIComponent(`${shareText}\n\n${shareUrl}`)}`,
+};
+
 const item = (mark, markClass, name, what) =>
   `<li><span class="${markClass}">${mark}</span><div><div class="name">${escape(name)}</div><div class="what">${escape(what)}</div></div></li>`;
 
 const fill = {
   TITLE: escape(meta.name),
   DESCRIPTION: escape(meta.purpose),
+  LIVE: escape(shareUrl),
+  OG_IMAGE: escape(new URL("og.png", live).href),
+  OG_ALT: escape(`${meta.name}: ${meta.purpose}`),
+  SHARE_HOST: escape(share.host),
+  SHARE_X: escape(share.x),
+  SHARE_LINKEDIN: escape(share.linkedin),
+  SHARE_FACEBOOK: escape(share.facebook),
+  SHARE_EMAIL: escape(share.email),
   NAME: escape(meta.name),
   PURPOSE: escape(meta.purpose),
   CLAIM: escape(meta.claim),
@@ -58,7 +86,7 @@ const fill = {
   INLINE_CSS: css,
   INLINE_THEME: theme,
   IMPORTMAP: importmap,
-  APP_DATA: JSON.stringify({ answers: meta.answers }).replace(/</g, "\\u003c"),
+  APP_DATA: JSON.stringify({ answers: meta.answers, share: { url: share.url, title: share.title, text: share.text } }).replace(/</g, "\\u003c"),
   CSP_SCRIPT_HASHES: `${sha(theme)} ${sha(importmap)}`,
   CSP_STYLE_HASHES: sha(css),
 };

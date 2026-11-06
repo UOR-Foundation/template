@@ -48,37 +48,107 @@ function trust(label, state, fingerprint = "") {
   $("trust").title = words;
 }
 
-// Share the page through the system's share sheet where there is one, and
-// copy its link otherwise. Dismissing the sheet is not an error.
+// Sharing. On a phone the share button hands the page to the system's share
+// sheet, which knows every app on the device. Elsewhere it opens the share
+// panel: the card every platform will show, the link to copy, and one tap to
+// X, LinkedIn, Facebook or email (and the system sheet, where there is one).
+// Every link is the app's live URL, never the address it was opened from.
 function share() {
+  const { url, title, text } = data.share;
   const button = $("share");
-  const url = location.origin + location.pathname;
-  const say = (text) => {
-    $("bar-status").textContent = text;
-    button.title = text;
+  const panel = $("share-panel");
+  const native = typeof navigator.share === "function";
+  const popover = typeof panel.showPopover === "function";
+  const phone = matchMedia("(pointer: coarse)").matches;
+
+  const say = (words) => {
+    $("bar-status").textContent = words;
+    setTimeout(() => ($("bar-status").textContent = ""), 1600);
+  };
+  // True when the sheet shared or the visitor dismissed it; false when it failed.
+  const sheet = async () => {
+    try {
+      await navigator.share({ title, text, url });
+      return true;
+    } catch (error) {
+      return error?.name === "AbortError";
+    }
+  };
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  // The tick on the share icon, when there is no panel to show it in.
+  const flash = async () => {
+    const copied = await copy();
+    button.classList.toggle("copied", copied);
+    button.title = copied ? "Link copied" : `Copy the link: ${url}`;
+    say(button.title);
     setTimeout(() => {
       button.classList.remove("copied");
       button.title = "Share";
-      $("bar-status").textContent = "";
-    }, 1500);
+    }, 1600);
   };
-  button.addEventListener("click", async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: document.title, text: $("purpose").textContent, url });
-        return;
-      } catch (error) {
-        if (error?.name === "AbortError") return;
-      }
-    }
-    try {
-      await navigator.clipboard.writeText(url);
-      button.classList.add("copied");
-      say("Link copied");
-    } catch {
-      say(`Copy the link: ${url}`);
+
+  if ((phone && native) || !popover) {
+    // The button no longer opens the panel; the sheet, or the clipboard, does it all.
+    button.removeAttribute("popovertarget");
+    button.addEventListener("click", async () => {
+      if (native && (await sheet())) return;
+      await flash();
+    });
+    return;
+  }
+
+  // The panel opens under the share button, its right edge on the button's,
+  // and never closer than 16 px to either side of the window.
+  panel.addEventListener("beforetoggle", (event) => {
+    if (event.newState !== "open") return;
+    const bar = document.querySelector(".topbar").getBoundingClientRect();
+    const edge = button.getBoundingClientRect();
+    const view = document.documentElement.clientWidth;
+    const width = Math.min(23 * parseFloat(getComputedStyle(document.documentElement).fontSize), view - 32);
+    const right = Math.max(16, Math.min(view - edge.right, view - width - 16));
+    panel.style.setProperty("--share-top", `${Math.round(bar.bottom + 8)}px`);
+    panel.style.setProperty("--share-right", `${Math.round(right)}px`);
+    // The card is fetched the first time the panel opens, never with the page.
+    if (!$("share-image").firstChild) {
+      const image = new Image(1200, 630);
+      image.src = "./og.png";
+      image.alt = "";
+      image.decoding = "async";
+      $("share-image").append(image);
     }
   });
+
+  $("share-copy").addEventListener("click", async () => {
+    const copied = await copy();
+    const control = $("share-copy");
+    control.classList.toggle("copied", copied);
+    $("share-copy-label").textContent = copied ? "Copied" : "Select the link";
+    say(copied ? "Link copied" : "Copy failed; select the link");
+    setTimeout(() => {
+      control.classList.remove("copied");
+      $("share-copy-label").textContent = "Copy link";
+    }, 1600);
+  });
+
+  // A platform opens in a new tab; the panel closes behind it.
+  for (const target of panel.querySelectorAll("a.share-target")) {
+    target.addEventListener("click", () => panel.hidePopover());
+  }
+
+  if (native) {
+    $("share-more-item").hidden = false;
+    $("share-more").addEventListener("click", async () => {
+      panel.hidePopover();
+      if (!(await sheet())) await flash();
+    });
+  }
 }
 
 function theme() {

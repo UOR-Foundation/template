@@ -96,10 +96,20 @@ the archive carries. Every instance gets the same page; an app edits one file.
 - **One top bar.** Every app opens with the same sticky bar: home
   ([holo-search](https://humuhumu33.github.io/holo-search/)), the Prism mark
   and the app's name with a shield badge for the verdict the visitor's browser
-  reached on the holo (linking to the identity card that backs it), then share
-  (the system share sheet, or the link copied), GitHub (the app's repository)
-  and the theme as a sun or moon. It comes from `site/page.template.html`; an
+  reached on the holo (linking to the identity card that backs it), then share,
+  GitHub (the app's repository) and the theme as a sun or moon. It comes from `site/page.template.html`; an
   app does not edit it.
+- **Made to be shared.** `bootstrap/og.py` draws `site/og.png`, the 1200 x
+  630 card every platform shows for the link (the brand's dark ground, the
+  mark, the app's name and purpose, "Proved in Lean. Verified in your
+  browser."), from `app.json` and the page's own fonts. Run it whenever the
+  name, purpose or live URL changes and commit the image; `page.mjs` refuses
+  to render without it and writes the Open Graph and Twitter Card tags, all
+  absolute on the live URL. On a phone the share button opens the system
+  share sheet. Elsewhere it opens a panel with the card as the platforms
+  will show it, the link to copy, and X, LinkedIn, Facebook and email (and
+  the system sheet, where the browser has one). The card is fetched only
+  when the panel first opens, never with the page.
 - **Any screen.** Material 3 window size classes: one column under 600 px,
   two panes from 840; 48 px touch targets on coarse pointers; safe areas;
   forced colours and reduced motion respected.
