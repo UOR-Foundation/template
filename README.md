@@ -93,12 +93,15 @@ the archive carries. Every instance gets the same page; an app edits one file.
   `node bootstrap/brand-sync.mjs --check` verifies the served files against the
   lock and runs in `pages.yml` before the build; `--pin <commit>` moves every
   app to a new kit revision. The page's own stylesheet declares no colour.
-- **One top bar.** Every app opens with the same sticky bar: home
-  ([holo-search](https://humuhumu33.github.io/holo-search/)), the Prism mark
-  and the app's name with a shield badge for the verdict the visitor's browser
-  reached on the holo (linking to the identity card that backs it), then share,
-  GitHub (the app's repository) and the theme as a sun or moon. It comes from `site/page.template.html`; an
-  app does not edit it.
+- **One top bar.** Every app opens with the same sticky bar, read like a
+  browser's: home ([holo-search](https://humuhumu33.github.io/holo-search/)),
+  then the app's address in a pill, `holo://` and its name in lower case
+  with hyphens (`holo://luhn-check`), closed by a shield badge for the verdict
+  the visitor's browser reached on the holo (linking to the identity card
+  that backs it); then share, GitHub (the app's repository) and the theme as
+  a sun or moon. Under 600 px GitHub steps out (the footer still links the
+  repository) so the address keeps its room. It comes from
+  `site/page.template.html`; an app does not edit it.
 - **Made to be shared.** `bootstrap/og.py` draws `site/og.png`, the 1200 x
   630 card every platform shows for the link (the brand's dark ground, the
   mark, the app's name and purpose, "Proved in Lean. Verified in your

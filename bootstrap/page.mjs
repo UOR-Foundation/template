@@ -65,6 +65,8 @@ const fill = {
   SHARE_FACEBOOK: escape(share.facebook),
   SHARE_EMAIL: escape(share.email),
   NAME: escape(meta.name),
+  // The app's name as the top bar's holo:// address: lower case, words joined by hyphens.
+  HOLO_NAME: escape(meta.name.toLowerCase().normalize("NFKD").replace(/\p{M}/gu, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "app"),
   PURPOSE: escape(meta.purpose),
   CLAIM: escape(meta.claim),
   PROP_NAME: escape(meta.proposition.name),
