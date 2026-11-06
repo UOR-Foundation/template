@@ -93,13 +93,13 @@ the archive carries. Every instance gets the same page; an app edits one file.
   `node bootstrap/brand-sync.mjs --check` verifies the served files against the
   lock and runs in `pages.yml` before the build; `--pin <commit>` moves every
   app to a new kit revision. The page's own stylesheet declares no colour.
-- **One top bar.** Every app opens with the same sticky bar: a home link to
-  [holo-search](https://humuhumu33.github.io/holo-search/), the Prism mark and
-  the app's name, a shield for the verdict the visitor's browser reached on the
-  holo with a short fingerprint (linking to the identity card that backs it),
-  share (the system share sheet, or the link copied), and the theme as a
-  sun or moon. It comes
-  from `site/page.template.html`; an app does not edit it.
+- **One top bar.** Every app opens with the same sticky bar: GitHub (the
+  app's repository) and home
+  ([holo-search](https://humuhumu33.github.io/holo-search/)), the Prism mark
+  and the app's name with a shield for the verdict the visitor's browser
+  reached on the holo (linking to the identity card that backs it), then share
+  (the system share sheet, or the link copied) and the theme as a sun or moon.
+  It comes from `site/page.template.html`; an app does not edit it.
 - **Any screen.** Material 3 window size classes: one column under 600 px,
   two panes from 840; 48 px touch targets on coarse pointers; safe areas;
   forced colours and reduced motion respected.

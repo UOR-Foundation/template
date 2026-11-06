@@ -39,14 +39,11 @@ function chip(element, text, state) {
   element.className = `chip chip-${state}`;
 }
 
-// The top bar repeats the identity verdict as a shield in its state's colour,
-// beside the fingerprint's first and last four digits. Its label says it in
-// words, with the full fingerprint.
+// The top bar repeats the identity verdict as a shield in its state's
+// colour. Its label says it in words, with the full fingerprint.
 function trust(label, state, fingerprint = "") {
-  const digits = fingerprint.slice(fingerprint.lastIndexOf(":") + 1);
   const words = fingerprint ? `${label}, fingerprint ${fingerprint}` : label;
   $("trust").className = `chip chip-${state} trust`;
-  $("trust-fp").textContent = digits.length > 8 ? `${digits.slice(0, 4)}…${digits.slice(-4)}` : "";
   $("trust").setAttribute("aria-label", words);
   $("trust").title = words;
 }
