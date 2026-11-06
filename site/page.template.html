@@ -7,8 +7,19 @@
     <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f3f3ee" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#151312" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' {{CSP_SCRIPT_HASHES}}; style-src {{CSP_STYLE_HASHES}}; font-src 'self'; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'self'; object-src 'none'" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob: {{CSP_SCRIPT_HASHES}}; style-src {{CSP_STYLE_HASHES}}; font-src 'self'; img-src 'self' data:; connect-src 'self' {{HOLO_SEARCH_ORIGIN}} {{FRAME_ORIGIN}}; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'self' {{HOLO_SEARCH_ORIGIN}}; object-src 'none'" />
     <title>{{TITLE}}</title>
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Prism" />
+    <meta property="og:title" content="{{TITLE}}" />
+    <meta property="og:description" content="{{DESCRIPTION}}" />
+    <meta property="og:url" content="{{LIVE}}" />
+    <meta property="og:image" content="{{OG_IMAGE}}" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="{{OG_ALT}}" />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icons/icon-192.png" type="image/png" sizes="192x192" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
@@ -21,16 +32,13 @@
     <script>{{INLINE_THEME}}</script>
   </head>
   <body>
+    <prism-frame id="frame" name="{{NAME}}" address="{{HOLO_NAME}}" live="{{LIVE}}" repo="{{REPO}}" home="{{HOLO_SEARCH}}" purpose="{{PURPOSE}}" card="{{OG_IMAGE}}" identity="#identity-title">
+      <a class="frame-fallback" href="{{HOLO_SEARCH}}"><span class="dot" aria-hidden="true"></span><span class="scheme">holo://</span>{{HOLO_NAME}}</a>
+      <span slot="status" id="update" class="chip chip-warn" hidden><button id="reload" class="bare" type="button">Update available. Reload</button></span>
+    </prism-frame>
     <main>
       <header class="intro">
-        <div class="brandline">
-          <p class="eyebrow">Prism app</p>
-          <span id="update" class="chip chip-warn" hidden>
-            <button id="reload" class="bare" type="button">Update available. Reload</button>
-          </span>
-          <button id="theme" class="ghost" type="button" aria-label="Dark theme">Dark</button>
-        </div>
-        <h1 id="name"><span class="dot" aria-hidden="true"></span><span id="name-text">{{NAME}}</span></h1>
+        <h1 id="name"><span id="name-text">{{NAME}}</span></h1>
         <p id="purpose" class="lede">{{PURPOSE}}</p>
       </header>
 

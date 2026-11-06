@@ -71,6 +71,12 @@ for (const c of classes) {
     page.on("pageerror", (error) => errors.push(String(error)));
     page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
     await page.goto(origin, { waitUntil: "load" });
+    // The frame is the canonical one, fetched live; the gate checks the page inside it.
+    try {
+      await page.waitForFunction(() => customElements.get("prism-frame"), null, { timeout: 15000 });
+    } catch {
+      fail(where, "the canonical frame never loaded");
+    }
     try {
       await page.waitForFunction(() => /passed$/.test(document.getElementById("replayed")?.textContent ?? ""), null, { timeout: 20000 });
     } catch {
@@ -83,7 +89,9 @@ for (const c of classes) {
       const panes = getComputedStyle(document.querySelector(".panes")).display;
       const coarse = matchMedia("(pointer: coarse)").matches;
       const small = [];
-      for (const el of document.querySelectorAll("button, input, a.ghost, summary")) {
+      // The frame draws in its own shadow root; its controls count too.
+      const roots = [document, ...[...document.querySelectorAll("*")].map((el) => el.shadowRoot).filter(Boolean)];
+      for (const el of roots.flatMap((root) => [...root.querySelectorAll("button, input, a.ghost, summary")])) {
         if (el.hidden || el.closest("[hidden]") || el.classList.contains("use") || el.classList.contains("bare")) continue;
         const r = el.getBoundingClientRect();
         if (r.width === 0 && r.height === 0) continue;

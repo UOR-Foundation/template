@@ -39,24 +39,50 @@ function chip(element, text, state) {
   element.className = `chip chip-${state}`;
 }
 
-function theme() {
-  const root = document.documentElement;
-  const button = $("theme");
-  const paint = () => {
-    const next = root.classList.contains("dark") ? "Light" : "Dark";
-    button.textContent = next;
-    button.setAttribute("aria-label", `${next} theme`);
-  };
-  paint();
-  button.addEventListener("click", () => {
-    root.classList.toggle("dark");
+// The frame. The top bar is not part of this page: it is the canonical
+// <prism-frame>, which UOR-Foundation/template publishes on every push to main.
+// This page reads the frame host's pointer, fetches the module it names,
+// checks the bytes against the pointer's SHA-256, and only then runs them, so
+// a change to the frame reaches this app on its next load and nothing else
+// can stand in for it. ?frame=<sha256> opens the page with one exact frame.
+// Until the frame arrives, its height is reserved and the app's holo://
+// address stands in; offline, the service worker serves the last one.
+async function frame() {
+  if (customElements.get("prism-frame")) return;
+  const host = new URL(data.frame);
+  const pinned = new URLSearchParams(location.search).get("frame");
+  try {
+    const pointer = /^[0-9a-f]{64}$/.test(pinned ?? "")
+      ? { sha256: pinned, module: `${pinned}/prism-frame.mjs` }
+      : await fetch(new URL("current.json", host), { cache: "no-cache" }).then((response) => {
+          if (!response.ok) throw new Error(`frame pointer: HTTP ${response.status}`);
+          return response.json();
+        });
+    if (!/^[0-9a-f]{64}$/.test(pointer.sha256 ?? "")) throw new Error("frame pointer names no sha256");
+    const response = await fetch(new URL(pointer.module, host));
+    if (!response.ok) throw new Error(`frame: HTTP ${response.status}`);
+    const bytes = await response.arrayBuffer();
+    const digest = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), (b) => b.toString(16).padStart(2, "0")).join("");
+    if (digest !== pointer.sha256) throw new Error(`frame is ${digest}, its pointer says ${pointer.sha256}`);
+    const url = URL.createObjectURL(new Blob([bytes], { type: "text/javascript" }));
     try {
-      localStorage.setItem("prism-theme", root.classList.contains("dark") ? "dark" : "light");
-    } catch {
-      // A private window keeps no preference; the page still switches.
+      await import(url);
+    } finally {
+      URL.revokeObjectURL(url);
     }
-    paint();
-  });
+    document.documentElement.dataset.frame = digest;
+  } catch (error) {
+    // The address stands in; the app itself works without the frame.
+    console.warn(`frame: ${describe(error)}`);
+  }
+}
+
+// The shield in the frame: the verdict this page reached on the holo.
+function verdict(state, label, fingerprint = "") {
+  const element = $("frame");
+  element.setAttribute("verdict", state);
+  element.setAttribute("verdict-label", label);
+  if (fingerprint) element.setAttribute("fingerprint", fingerprint);
 }
 
 // Install the service worker once the page has loaded, so it never competes
@@ -119,7 +145,7 @@ const afterFirstFrame = () => new Promise((resolve) => {
 });
 
 async function main() {
-  theme();
+  frame();
   offline();
 
   let app;
@@ -130,11 +156,13 @@ async function main() {
   } catch (error) {
     chip($("verified"), `failed to load: ${describe(error)}`, "bad");
     chip($("replayed"), "no app", "bad");
+    verdict("bad", "The app failed to load");
     return;
   }
 
   const { identities } = app;
   chip($("verified"), identities.verified ? "verified" : "NOT verified", identities.verified ? "good" : "bad");
+  verdict(identities.verified ? "good" : "bad", identities.verified ? "Verified in this browser" : "NOT verified", identities.archiveFingerprint);
   $("fingerprint").textContent = identities.archiveFingerprint;
   $("limits").textContent = app.limits
     ? `request ${app.limits.request} bytes, response ${app.limits.response} bytes, guest ${app.limits.guestAllocation} bytes`

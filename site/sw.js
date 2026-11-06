@@ -52,9 +52,36 @@ self.addEventListener("message", (event) => {
   if (event.data === "skip-waiting") self.skipWaiting();
 });
 
+// The canonical frame comes from the template's Pages site: its pointer from
+// the network first (so a new frame shows on the next load), and its modules,
+// immutable by their SHA-256, from the cache first; both are kept for offline.
+const framePointer = /\/frame\/current\.json$/;
+const frameModule = /\/frame\/[0-9a-f]{64}\/prism-frame\.mjs$/;
+async function frame(request, url) {
+  const name = await currentCacheName();
+  const cache = name ? await caches.open(name) : null;
+  if (frameModule.test(url.pathname)) {
+    const hit = cache && (await cache.match(request));
+    if (hit) return hit;
+  }
+  try {
+    const fresh = await fetch(request);
+    if (fresh.ok && cache) await cache.put(request, fresh.clone());
+    return fresh;
+  } catch {
+    return (cache && (await cache.match(request))) ?? Response.error();
+  }
+}
+
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
-  if (event.request.method !== "GET" || url.origin !== self.location.origin) return;
+  if (event.request.method === "GET" && (framePointer.test(url.pathname) || frameModule.test(url.pathname))) {
+    event.respondWith(frame(event.request, url));
+    return;
+  }
+  // Only the app's own files: another app on the same origin (Holo Search's
+  // registry, say) is never cached here, so it is never served stale.
+  if (event.request.method !== "GET" || !url.href.startsWith(self.registration.scope)) return;
   if (url.pathname.endsWith("/precache.json")) return;
   const isPage = event.request.mode === "navigate" || url.pathname.endsWith("/") || url.pathname.endsWith("/index.html");
   event.respondWith((async () => {

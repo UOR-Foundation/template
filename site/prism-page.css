@@ -28,7 +28,9 @@
   --margin: 1rem;
   --measure: 45rem;
   --measure-wide: 80rem;
+  --column: var(--measure);
   --control: 2.25rem;
+  --bar-control: var(--control);
   --touch: 3rem;
   --radius-control: calc(var(--radius) - 2px);
   --safe-top: env(safe-area-inset-top, 0px);
@@ -56,19 +58,22 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
+/* The column: the frame's contents and main share one width and one margin. */
 main {
-  width: min(100% - 2 * var(--margin) - var(--safe-left) - var(--safe-right), var(--measure));
+  width: min(100% - 2 * var(--margin) - var(--safe-left) - var(--safe-right), var(--column));
   margin: 0 auto;
-  padding: calc(var(--space-6) + var(--safe-top)) 0 calc(var(--space-12) + var(--safe-bottom));
 }
 
+/* The top bar holds the safe area, so main starts below it. */
+main { padding: var(--space-6) 0 calc(var(--space-12) + var(--safe-bottom)); }
+
 @media (min-width: 600px) {
-  main { padding-top: calc(var(--space-12) + var(--safe-top)); }
+  main { padding-top: var(--space-8); }
 }
 
 /* Expanded width and up: two panes, identity and proof beside try and examples. */
 @media (min-width: 840px) {
-  main { width: min(100% - 2 * var(--margin) - var(--safe-left) - var(--safe-right), var(--measure-wide)); }
+  :root { --column: var(--measure-wide); }
   .panes {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -79,7 +84,7 @@ main {
 
 /* Compact height, a phone in landscape: a shorter header, nothing sticky. */
 @media (max-height: 480px) {
-  main { padding-top: calc(var(--space-4) + var(--safe-top)); }
+  main { padding-top: var(--space-4); }
   .intro { margin-bottom: var(--space-4); }
   .lede { display: none; }
 }
@@ -91,29 +96,47 @@ main {
   outline-offset: var(--ring-offset);
 }
 
+/* The frame: the top bar is the canonical <prism-frame>, loaded live from
+ * the template (site/app.mjs), and drawn in its own shadow root. Until it
+ * arrives its height is reserved and the app's holo:// address stands in,
+ * so nothing moves when it does. */
+prism-frame {
+  display: block;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  min-height: calc(var(--safe-top) + var(--bar-control) + 2 * var(--space-2) + var(--border-width));
+}
+prism-frame:not(:defined) {
+  padding-top: var(--safe-top);
+  background: var(--background);
+  border-bottom: var(--border-width) solid var(--border);
+}
+.frame-fallback {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: min(100% - 2 * var(--margin) - var(--safe-left) - var(--safe-right), var(--column));
+  min-height: calc(var(--bar-control) + 2 * var(--space-2));
+  margin: 0 auto;
+  color: var(--foreground);
+  font-size: var(--text-14);
+  font-weight: 500;
+  text-decoration: none;
+}
+.frame-fallback .dot { width: 0.625rem; height: 0.625rem; }
+.frame-fallback .scheme { color: var(--muted-foreground); font-weight: 400; }
+@media (max-height: 480px) { prism-frame { position: static; } }
+
+/* A jump to the identity card lands below the bar, not under it. */
+html { scroll-padding-top: calc(var(--safe-top) + var(--bar-control) + 2 * var(--space-2) + var(--space-4)); }
+@media (max-height: 480px) { html { scroll-padding-top: 0; } }
+
 /* Header */
 
 .intro { margin-bottom: var(--space-6); }
 
-.brandline {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-4);
-}
-
-.eyebrow {
-  margin: 0;
-  flex: 1;
-  font-size: var(--text-14);
-  font-weight: 500;
-  color: var(--muted-foreground);
-}
-
 h1 {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
   margin: 0 0 var(--space-2);
   font-family: var(--font-display);
   font-weight: 600;
@@ -125,7 +148,7 @@ h1 {
 
 @media (max-width: 599px) { h1 { font-size: var(--text-30); } }
 
-/* The brand accent appears once per view: the mark beside the name. */
+/* The brand accent appears once per view: the mark in the top bar. */
 .dot {
   flex: none;
   width: var(--space-3);
@@ -371,6 +394,7 @@ input[type="text"]::placeholder { color: var(--muted-foreground); }
 /* Touch: every control is 48 px, Material's minimum, whatever rule sized it
  * above. Last, so nothing overrides it. */
 @media (pointer: coarse) {
+  :root { --bar-control: var(--touch); }
   button, button.ghost, button.primary, button.secondary, .ghost, a.ghost, input[type="text"], .disclosure summary { min-height: var(--touch); }
   .row { gap: var(--space-2); }
 }

@@ -25,7 +25,7 @@
         "first-contentful-paint": ["error", { "maxNumericValue": 1200 }],
         "resource-summary:total:size": ["error", { "maxNumericValue": 122880 }],
         "resource-summary:total:count": ["error", { "maxNumericValue": 28 }],
-        "resource-summary:third-party:count": ["error", { "maxNumericValue": 0 }],
+        "resource-summary:third-party:count": ["error", { "maxNumericValue": 2 }],
         "uses-long-cache-ttl": "off",
         "network-dependency-tree-insight": "off",
         "csp-xss": "off"

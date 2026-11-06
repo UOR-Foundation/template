@@ -7,7 +7,7 @@
 // into the Content-Security-Policy. An app edits app.json and nothing else.
 //   node bootstrap/page.mjs site
 import { createHash } from "node:crypto";
-import { readFile, writeFile } from "node:fs/promises";
+import { access, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 const site = process.argv[2] ?? "site";
@@ -30,13 +30,37 @@ const css = minify([await read("brand/hologram-warm.css"), await read("brand/fon
 const theme = (await read("theme.js")).trim();
 const importmap = '{ "imports": { "node:crypto": "./vendor/node-crypto-shim.mjs" } }';
 
+// The social card: bootstrap/og.py draws site/og.png from the same app.json.
+// Every platform needs absolute URLs, so they hang off the live URL.
+await access(join(site, "og.png")).catch(() => {
+  throw new Error("site/og.png is missing: run python -I bootstrap/og.py");
+});
+const live = new URL(meta.live);
+// Holo Search: the top bar's home, and where its address bar resolves a name,
+// a hash or a link, fetches the app and verifies it before opening it.
+const holoSearch = new URL("https://humuhumu33.github.io/holo-search/");
+// The canonical frame: the template's Pages site publishes it on every push
+// to main, and this page loads the current one at run time (site/app.mjs), so
+// a frame change reaches this app without rebuilding it. app.json may name
+// another frame host, for a test or a mirror.
+const frameHost = new URL(meta.frame ?? "https://uor-foundation.github.io/template/frame/");
+const shareUrl = live.href;
+
 const item = (mark, markClass, name, what) =>
   `<li><span class="${markClass}">${mark}</span><div><div class="name">${escape(name)}</div><div class="what">${escape(what)}</div></div></li>`;
 
 const fill = {
   TITLE: escape(meta.name),
   DESCRIPTION: escape(meta.purpose),
+  LIVE: escape(shareUrl),
+  HOLO_SEARCH: escape(holoSearch.href),
+  HOLO_SEARCH_ORIGIN: holoSearch.origin,
+  FRAME_ORIGIN: frameHost.origin,
+  OG_IMAGE: escape(new URL("og.png", live).href),
+  OG_ALT: escape(`${meta.name}: ${meta.purpose}`),
   NAME: escape(meta.name),
+  // The app's name as the top bar's holo:// address: lower case, words joined by hyphens.
+  HOLO_NAME: escape(meta.name.toLowerCase().normalize("NFKD").replace(/\p{M}/gu, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "app"),
   PURPOSE: escape(meta.purpose),
   CLAIM: escape(meta.claim),
   PROP_NAME: escape(meta.proposition.name),
@@ -58,7 +82,7 @@ const fill = {
   INLINE_CSS: css,
   INLINE_THEME: theme,
   IMPORTMAP: importmap,
-  APP_DATA: JSON.stringify({ answers: meta.answers }).replace(/</g, "\\u003c"),
+  APP_DATA: JSON.stringify({ answers: meta.answers, frame: frameHost.href }).replace(/</g, "\\u003c"),
   CSP_SCRIPT_HASHES: `${sha(theme)} ${sha(importmap)}`,
   CSP_STYLE_HASHES: sha(css),
 };

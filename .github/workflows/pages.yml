@@ -34,12 +34,13 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Check the brand wiring against brand.lock
+      - name: Check the brand and the frame against brand.lock and frame.lock
         shell: bash
         run: |
           set -euo pipefail
           node bootstrap/brand-sync.mjs --check
           python3 -I bootstrap/brand-fonts.py --check
+          node bootstrap/frame-sync.mjs --check
       - name: Build and verify the holo through the locked SDK
         shell: bash
         run: |

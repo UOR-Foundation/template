@@ -85,6 +85,30 @@ the archive carries. Every instance gets the same page; an app edits one file.
   `site/index.html` and `site/manifest.webmanifest` from it; `bootstrap/icons.py`
   draws the icons from its name (the warm ground, the app's initial, the brand
   dot, no logo).
+- **One live frame.** The top bar every Prism app opens in (home, the
+  `holo://` address bar, the verdict's shield, share, GitHub, theme and the
+  spectrum line) is one web component, `<prism-frame>`, in `frame/`. On
+  every push to `main`, `try-page.yml` publishes it to this repository's
+  Pages site, named by its SHA-256, with a pointer:
+  `https://uor-foundation.github.io/template/frame/current.json`. Every app
+  page reads that pointer at run time, fetches the module it names, checks
+  the bytes against the SHA-256 and only then runs it, so **a frame change
+  in the template reaches every Prism app on its next load, with no app
+  rebuilt.** Holo Search mounts the same element. Bytes that don't match
+  the pointer never run: the page keeps its `holo://` address in the bar's
+  reserved height, and the app itself still verifies and works. Offline,
+  the service worker serves the last frame. `?frame=<sha256>` opens a page
+  with one exact frame; `frame` in `app.json` names another frame host, for
+  a test or a mirror. The frame draws in its own shadow root and brings the
+  brand's tokens to a page that has none, so any host can mount it.
+- **The page around it, locked.** Everything else on the page (the cards,
+  renderer, loader, service worker and the page gates) is pinned by
+  `frame.lock`, as `brand.lock` pins the brand: reviewed bytes that change
+  only when an app chooses to. `node bootstrap/frame-sync.mjs --check` runs
+  in `pages.yml` before the build, and an app takes a newer page with
+  `--pin <template commit>`, which reads the template's `frame.lock` at that
+  commit, fetches every file, refuses any whose bytes differ and records the
+  pin. In the template, change these files and run `--lock`.
 - **The brand is wired, not copied.** `brand.lock` pins
   [Hologram-Technologies/hologram-brand-kit](https://github.com/Hologram-Technologies/hologram-brand-kit)
   at one commit and records the SHA-256 of every file the page takes from it:
@@ -93,6 +117,41 @@ the archive carries. Every instance gets the same page; an app edits one file.
   `node bootstrap/brand-sync.mjs --check` verifies the served files against the
   lock and runs in `pages.yml` before the build; `--pin <commit>` moves every
   app to a new kit revision. The page's own stylesheet declares no colour.
+- **One top bar.** Every app opens with the same sticky bar, read like a
+  browser's: home ([holo-search](https://humuhumu33.github.io/holo-search/)),
+  then the app's address in a pill, `holo://` and its name in lower case
+  with hyphens (`holo://luhn-check`), closed by a shield badge for the verdict
+  the visitor's browser reached on the holo (linking to the identity card
+  that backs it); then share, GitHub (the app's repository) and the theme as
+  a sun or moon. Once the page scrolls under it, a 2 px line in the UOR
+  Foundation's colour spectrum lights its lower edge and drifts, as on
+  [uor.foundation](https://uor.foundation/). Under 600 px GitHub steps out (the footer still links the
+  repository) so the address keeps its room. It is the live frame below:
+  no app carries a copy of it.
+- **An address bar for Prism apps.** The holo:// pill is also an omnibox,
+  like Chrome's. Focus it and it selects the address and lists this app and
+  every app in [Holo Search](https://humuhumu33.github.io/holo-search/)'s
+  registry, one row per app with its hash. Type a name or a hash prefix to
+  filter; paste a full address (a sha256 or blake3 digest, an IPFS CID, a
+  Holo Search link) to open it. Enter hands it to Holo Search as `?r=`,
+  which fetches the app, checks the bytes against the address and replays
+  its examples before it opens: this page only suggests, Holo Search
+  verifies. Arrows move, Escape backs out, and on a phone the bar takes the
+  whole width while you type. The registry is fetched the first time the
+  bar is focused, never with the page; the Content-Security-Policy admits
+  Holo Search's origin for that request and the search form. Without a
+  script, Enter still submits the form to Holo Search.
+- **Made to be shared.** `bootstrap/og.py` draws `site/og.png`, the 1200 x
+  630 card every platform shows for the link (the brand's dark ground, the
+  mark, the app's name and purpose, "Proved in Lean. Verified in your
+  browser."), from `app.json` and the page's own fonts. Run it whenever the
+  name, purpose or live URL changes and commit the image; `page.mjs` refuses
+  to render without it and writes the Open Graph and Twitter Card tags, all
+  absolute on the live URL. On a phone the share button opens the system
+  share sheet. Elsewhere it opens a panel with the card as the platforms
+  will show it, the link to copy, and X, LinkedIn, Facebook and email (and
+  the system sheet, where the browser has one). The card is fetched only
+  when the panel first opens, never with the page.
 - **Any screen.** Material 3 window size classes: one column under 600 px,
   two panes from 840; 48 px touch targets on coarse pointers; safe areas;
   forced colours and reduced motion respected.
