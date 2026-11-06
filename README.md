@@ -72,6 +72,32 @@ the `devcontainer` CLI. Nothing else is installed on the host.
    Make the test assert the scenario, build the capability until it passes,
    plant the defect the test exists to catch, and run `just vv` again.
 
+## Build from any device
+
+`.github/workflows/build.yml` builds and verifies the app on a GitHub runner
+and hands the holo back signed, so no machine of yours needs Docker, the SDK
+image or a toolchain. The runner is not trusted; whoever takes the holo checks
+it. Three ways in, one job:
+
+- **From a phone or the web.** Commit an edit on github.com or GitHub Mobile.
+  `pages.yml` calls `build.yml`, which runs `prismpm verify` in the SDK image
+  `prismpm.lock` pins, signs the holo's provenance with
+  `actions/attest-build-provenance`, and publishes the page, which verifies the
+  holo again in the visitor's browser. The run's summary shows the fingerprint,
+  the provenance and the command below.
+- **From a machine with Node.** `npx prism-code build --remote github` pushes
+  the commit to `refs/heads/prism/build/<sha>`, waits for this workflow, and
+  verifies the artifact `prism-build-<sha>` before writing anything under
+  `app/.prism/build/`: the commit and repository it names, the holo's SHA-256,
+  the provenance's subject and signer (a workflow of this repository through
+  GitHub's OIDC issuer), the verdict, the fingerprint and every acceptance
+  vector. Any of those failing is a typed refusal, not a build.
+- **Run workflow**, from the Actions tab, for a branch.
+
+The SDK step lives in `build.yml` and nowhere else among the project's
+workflows; `pages.yml` calls it rather than carrying a copy. Pages on a
+private repository needs a paid plan; the artifact and the summary need none.
+
 ## Publish the app page
 
 `site/` is the standard Prism app page: a lean, installable PWA that loads the
@@ -164,9 +190,10 @@ the archive carries. Every instance gets the same page; an app edits one file.
   100 ms, CLS 0, under 120 KB and no third-party request; `pages.yml` runs
   Lighthouse CI on the assembled site before anything is deployed.
 
-`.github/workflows/pages.yml` builds the holo through the locked SDK on every
-push to `main`, checks the brand wiring, renders the page, writes the
-precache list, runs Lighthouse, and publishes to GitHub Pages. Turn Pages on
+`.github/workflows/pages.yml` checks the brand wiring on every push to
+`main`, then calls `build.yml` to build and verify the holo through the locked
+SDK and sign its provenance, renders the page from that run's artifact, writes
+the precache list, runs Lighthouse, and publishes to GitHub Pages. Turn Pages on
 once, with the workflow as its source:
 
 ```sh

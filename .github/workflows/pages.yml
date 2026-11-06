@@ -1,12 +1,14 @@
-# Publishes the repository's app page: `site/` with the holo that `just app`
+# Publishes the repository's app page: `site/` with the holo that `build.yml`
 # builds and verifies through the locked SDK. Project content, not universal
 # policy: a repository may extend or replace it.
 #
 # It runs on every push to main, beside `bootstrap`, not after it: `just app`
 # is the proof-bearing build (the Lean kernel checks every theorem before the
 # holo exists), so the page goes live as soon as that passes, while the rest of
-# the gate runs on both architectures. The SDK step is the one `bootstrap.yml`
-# runs; when that file's `docker run` changes, copy it again.
+# the gate runs on both architectures. The SDK step is `build.yml`'s, called
+# here, so the page and `prism-code build --remote github` publish the same
+# holo from the same step; the page takes it from that run's artifact, with
+# the signed provenance beside it.
 name: pages
 
 on:
@@ -22,63 +24,73 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
-    name: build and verify the holo, assemble the page
+  checks:
+    name: the brand and the frame against brand.lock and frame.lock
     # The template repository publishes its try page instead (try-page.yml).
     if: github.repository != 'UOR-Foundation/template'
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 10
     steps:
       - name: Check out the exact event revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Check the brand and the frame against brand.lock and frame.lock
+      - name: Check the brand and the frame, before any build is spent
         shell: bash
         run: |
           set -euo pipefail
           node bootstrap/brand-sync.mjs --check
           python3 -I bootstrap/brand-fonts.py --check
           node bootstrap/frame-sync.mjs --check
-      - name: Build and verify the holo through the locked SDK
-        shell: bash
-        run: |
-          set -euo pipefail
-          image=$(sed -n 's/.*"sdk_image":"\([^"]*\)".*/\1/p' prismpm.lock)
-          if [[ ! $image =~ ^[a-z0-9.-]+(:[0-9]{1,5})?/[a-z0-9./_-]+@sha256:[0-9a-f]{64}$ ]]; then
-            printf '%s\n' 'prismpm.lock does not select an immutable SDK image' >&2
-            exit 64
-          fi
-          docker_config=$(mktemp -d)
-          trap 'rm -rf "$docker_config"' EXIT
-          printf '{}\n' >"$docker_config/config.json"
-          docker run --rm \
-            --user "$(id -u):$(id -g)" \
-            --group-add "$(stat -c '%g' /var/run/docker.sock)" \
-            --tmpfs /tmp:rw,exec,nosuid,size=2g \
-            --volume "$PWD:$PWD" \
-            --volume /var/run/docker.sock:/var/run/docker.sock \
-            --volume "$docker_config:/tmp/prismpm-home/.docker:ro" \
-            --workdir "$PWD" \
-            --env DOCKER_CONFIG=/tmp/prismpm-home/.docker \
-            --env BUILDX_CONFIG=/tmp/prismpm-buildx \
-            --env HOME=/tmp/prismpm-home \
-            --env PRISMPM_EPHEMERAL_HOME=1 \
-            "$image" just app
+
+  build:
+    name: build and verify the holo
+    needs: checks
+    uses: ./.github/workflows/build.yml
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+
+  page:
+    name: assemble the page from the verified holo
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out the exact event revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Take the holo and its provenance from the build
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ needs.build.outputs.artifact }}
+          path: ${{ runner.temp }}/prism-build
       - name: Assemble the page
         shell: bash
+        env:
+          HOLO: ${{ runner.temp }}/prism-build/build/${{ needs.build.outputs.holo }}
+          BUILD: ${{ runner.temp }}/prism-build/build.json
+          ATTESTATION_URL: ${{ needs.build.outputs.attestation-url }}
         run: |
           set -euo pipefail
-          shopt -s nullglob
-          holos=(app/.prism/build/*/*.holo)
-          if [[ ${#holos[@]} -ne 1 ]]; then
-            printf 'expected one holo, found %d\n' "${#holos[@]}" >&2
-            exit 64
-          fi
-          cp "${holos[0]}" site/app.holo
+          cp "$HOLO" site/app.holo
           cp -r try/vendor site/vendor
           rm -rf site/vendor/prism-code/fixtures
+          # The page says where this holo's provenance is: the record of the
+          # build that made it and the signed statement GitHub keeps for it.
+          node -e '
+            const { readFileSync, writeFileSync } = require("node:fs");
+            const [build, url] = process.argv.slice(1);
+            const record = JSON.parse(readFileSync(build, "utf8"));
+            const app = JSON.parse(readFileSync("site/app.json", "utf8"));
+            app.attestations ??= {};
+            app.attestations.build = { id: record.fingerprint, url: url || record.run_url };
+            writeFileSync("site/app.json", `${JSON.stringify(app, null, 2)}\n`);
+          ' "$BUILD" "$ATTESTATION_URL"
           node bootstrap/page.mjs site
           node bootstrap/precache.mjs site
       - name: Lighthouse at 100 on mobile, before anything is deployed
@@ -110,7 +122,7 @@ jobs:
 
   deploy:
     name: publish the page
-    needs: build
+    needs: page
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
