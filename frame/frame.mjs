@@ -323,7 +323,6 @@ class PrismFrame extends Element {
     this.data = m;
     this.shadowRoot.innerHTML = markup(e);
     if (!m.repo) this.$("github").hidden = true;
-    this.liveStars();
     this.paintTrust();
     this.paintTheme();
     this.trust();
@@ -441,10 +440,12 @@ class PrismFrame extends Element {
     frame.$("trust-details").addEventListener("click", () => panel.hidePopover());
   }
 
-  // The star count the page was built with, kept current (githubStars). A
-  // changed count is set as the stars attribute, which repaints only the
-  // GitHub pill, so a visitor typing in the address bar is never
-  // interrupted; an unchanged one leaves it alone.
+  // The star count the page was built with, refreshed (githubStars) when a
+  // visitor opens the address bar, never on load: a page that only loads
+  // (a visit, a Lighthouse run, a gate) never calls GitHub, so its API's
+  // hourly limit can never put an error in the console. A changed count is
+  // set as the stars attribute, which repaints only the GitHub pill, so a
+  // visitor typing in the address bar is never interrupted.
   liveStars() {
     if (this.starsAsked) return;
     this.starsAsked = true;
@@ -923,6 +924,7 @@ class PrismFrame extends Element {
     }
 
     input.addEventListener("focus", () => {
+      frame.liveStars();
       bar.classList.add("editing");
       input.select();
       active = 0;
