@@ -236,9 +236,12 @@ h2 {
   color: var(--muted-foreground);
 }
 
+/* Monospace text is one weight, so a page loads one mono face: Geist Mono
+ * Medium (7.6 KB) would be the first load's largest optional cost. */
 code, pre, .mono, .hash {
   font-family: var(--font-mono);
   font-size: var(--text-14);
+  font-weight: 400;
 }
 
 code { overflow-wrap: anywhere; }
@@ -278,7 +281,7 @@ a.hash:hover { color: var(--link-hover); }
   border: var(--border-width) solid var(--border);
   font-family: var(--font-mono);
   font-size: var(--text-14);
-  font-weight: 500;
+  font-weight: 400;
   transition: background var(--duration) var(--ease), color var(--duration) var(--ease);
 }
 .chip-wait { background: var(--muted); color: var(--muted-foreground); }
