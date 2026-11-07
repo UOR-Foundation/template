@@ -555,14 +555,21 @@ export function accounts(frame, core) {
       },
       { signal: frame.accountWatch.signal },
     );
-    // An accounts origin that never answers leaves no browser error page in
-    // the panel (the iframe shows only once it answers): one plain
-    // sentence, and the next reach tries again.
+    // The iframe shows only once the page answers, so a page that fails
+    // leaves no browser error page in the panel. A slow network is not a
+    // failure: past 8 s the panel says it is still trying and keeps the
+    // page, which shows the moment it answers. Only past 30 s does it give
+    // up, with one plain sentence, and the next reach tries again.
+    setTimeout(() => {
+      if (ceremony !== waiting || waiting.answered) return;
+      waiting.slow = true;
+      frame.$("account-sub").textContent = "Accounts are slow to answer. Still trying.";
+    }, 8000);
     setTimeout(() => {
       if (ceremony !== waiting || waiting.answered) return;
       close();
       frame.$("account-sub").textContent = "Accounts are unreachable right now. Try again soon.";
-    }, 8000);
+    }, 30000);
   };
 
   windowButton.addEventListener("click", () => {
@@ -600,6 +607,10 @@ export function accounts(frame, core) {
       const data = event.data ?? {};
       ceremony.answered = true;
       if (data.type === `${SPEC}/ready`) ceremony.iframe?.classList.add("ready");
+      if (data.type === `${SPEC}/ready` && ceremony.slow) {
+        ceremony.slow = false;
+        paint();
+      }
       if (data.type === `${SPEC}/ready`) event.source.postMessage((await ceremony.ready).request, origin);
       else if (data.type === `${SPEC}/size` && ceremony.iframe) ceremony.iframe.style.height = `${Math.min(Math.max(Number(data.height) || 0, 48), 480)}px`;
       else if (data.type === `${SPEC}/busy`) button.classList.toggle("busy", Boolean(data.on));
