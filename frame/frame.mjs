@@ -33,13 +33,120 @@
 // The shield sums the three: green only when the bytes are authentic and
 // every example gives its proved answer; its panel shows each check, as a
 // browser shows a page's security.
-// The frame owns the theme: it toggles the dark class on <html> and
-// remembers the choice as "prism-theme", as the page's theme bootstrap reads.
+// The frame owns the theme: light, dark or immersive. It sets the dark and
+// immersive classes on <html> and remembers the choice as "prism-theme" (and
+// the photo as "prism-backdrop"), as the page's theme bootstrap reads.
 
 const CSS = "/*CSS*/";
 const BRAND = "/*BRAND*/";
 const HOME = "https://humuhumu33.github.io/holo-search/";
+// The Prism registry: the canonical kappa registry. Its index lists every
+// Prism app by its self-verifying address; every address bar reads it.
+const REGISTRY = "https://registry.uor.foundation/";
 
+// Immersive: the dark ground over one of nine Unsplash photos, chosen once
+// (image is each one's Unsplash original) and published beside the frame
+// (frame/publish.mjs), so no key ships; each is credited to its
+// photographer in the theme panel.
+const UNSPLASH = "utm_source=prism&utm_medium=referral";
+// The built-in photos by id, with the colour each shows until it arrives.
+// Who took them and where they are is in frame/theme.mjs, loaded only
+// when wanted.
+const BUILT_IN = { "E0AHdsENmDg": "#0c2659", "qtRF_RxCAo0": "#262626", "RF4p4rTM-2s": "#262626", "Q1p7bh3SHj8": "#0c2626", "t7EL2iG3jMc": "#59598c", "9wH624ALFQA": "#0c2640", "oMcTmNHclZI": "#0c2626", "cZgVpseeazg": "#26260c", "0wFwSZn6I-I": "#262626" };
+const FIRST_PHOTO = "E0AHdsENmDg";
+const MODES = ["immersive", "dark", "light"];
+// Drawn on the page, outside the frame's shadow root: the photo fixed
+// behind the app under a scrim, so the page's text stays legible on any of
+// the three. It fills the window, exactly its edges and corners, and never
+// the chrome around it. Only the ground goes; the page's surfaces keep
+// their colour.
+const BACKDROP_CSS = `
+html.immersive { background: var(--prism-backdrop-color, #151312); }
+html.immersive body { background: transparent; }
+html.immersive body::before {
+  content: "";
+  position: fixed;
+  top: var(--prism-window-top, 0px);
+  right: var(--prism-window-right, 0px);
+  bottom: var(--prism-window-bottom, 0px);
+  left: var(--prism-window-left, 0px);
+  border-radius: var(--prism-window-radius, 0px);
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(rgb(12 10 9 / 0.5), rgb(12 10 9 / 0.62)), var(--prism-backdrop, none) center / cover no-repeat, var(--prism-backdrop-color, #151312);
+}`;
+let backdropSheet = null;
+
+// Any other Unsplash photo, found from the theme panel, comes through the
+// frame's Unsplash worker (frame/unsplash/worker.mjs), which holds the key.
+const UNSPLASH_PROXY = "https://prism-unsplash.trinity-03d.workers.dev/";
+// The page build (bootstrap/page.mjs) reads this into the page's connect-src.
+export const UNSPLASH_ORIGIN = new URL(UNSPLASH_PROXY).origin;
+// A photo read back from storage is trusted only in the shape the worker gives.
+const photoOf = (value) => {
+  const p = value && typeof value === "object" ? value : {};
+  const ok =
+    /^[\w-]{6,20}$/.test(p.id ?? "") &&
+    typeof p.image === "string" && p.image.startsWith("https://images.unsplash.com/") &&
+    /^#[0-9a-f]{6}$/i.test(p.color ?? "") &&
+    /^[\w.-]{1,64}$/.test(p.user ?? "") &&
+    typeof p.name === "string";
+  return ok ? { id: p.id, image: p.image, color: p.color, alt: String(p.alt ?? "").slice(0, 200), name: p.name.slice(0, 80), user: p.user, page: String(p.page ?? "") } : null;
+};
+// The theme, the photo in use, and the last photos found and chosen (up to
+// three), which the panel shows before the built-in ones.
+const storedTheme = () => {
+  try {
+    const recent = JSON.parse(localStorage.getItem("prism-backdrop-recent") ?? "[]");
+    return {
+      mode: localStorage.getItem("prism-theme"),
+      photo: localStorage.getItem("prism-backdrop"),
+      recent: (Array.isArray(recent) ? recent : []).map(photoOf).filter(Boolean).slice(0, 3),
+    };
+  } catch {
+    return { mode: null, photo: null, recent: [] };
+  }
+};
+
+// Where the frame is published, and its theme module beside it.
+const FRAME_HOST = "https://uor-foundation.github.io/template/frame/";
+// The visitor's first move (a pointer, a touch, a key, a scroll): what the
+// panels module and the photo wait for, so neither is part of the page's
+// first load.
+let moved = null;
+const firstMove = () =>
+  (moved ??= new Promise((resolve) => {
+    const kinds = ["pointermove", "pointerdown", "touchstart", "keydown", "wheel", "scroll"];
+    const go = () => {
+      for (const kind of kinds) removeEventListener(kind, go, true);
+      resolve();
+    };
+    for (const kind of kinds) addEventListener(kind, go, { capture: true, passive: true });
+  }));
+// Every panel's styles, the theme panel and the immersive photos:
+// frame/panels.mjs, published beside the frame and named by its SHA-256,
+// which publish.mjs writes here.
+// It is fetched after the first move, checked against that hash as the page
+// checks the frame, and imported; a failure is tried again the next time.
+const PANELS = "/*PANELS*/";
+let panelsModule = null;
+let panelsSheet = null;
+const loadPanels = () =>
+  (panelsModule ??= (async () => {
+    if (!/^[0-9a-f]{64}$/.test(PANELS)) throw new Error("this frame was published without its panels");
+    const bytes = await (await fetch(new URL(`${PANELS}/prism-panels.mjs`, FRAME_HOST))).arrayBuffer();
+    const hex = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), (b) => b.toString(16).padStart(2, "0")).join("");
+    if (hex !== PANELS) throw new Error("the panels module is not the one this frame names");
+    const url = URL.createObjectURL(new Blob([bytes], { type: "text/javascript" }));
+    try {
+      return await import(url);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  })().catch((error) => {
+    panelsModule = null;
+    throw error;
+  }));
 const escape = (text) =>
   String(text ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const slugOf = (name) =>
@@ -50,6 +157,9 @@ const sheetOf = (text) => {
   return sheet;
 };
 let frameSheet = null;
+
+// What the theme module borrows from the frame.
+const THEME_CORE = { storedTheme, photoOf };
 
 // The frame's markup. Every value in it is escaped by render().
 const markup = (e) => `
@@ -72,7 +182,7 @@ const markup = (e) => `
     <div class="end">
     <slot name="status"></slot>
     <span id="bar-status" class="sr" aria-live="polite"></span>
-    <button id="theme" class="ghost icon" type="button" aria-label="Switch theme" title="Switch theme"><svg class="moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" /></svg><svg class="sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg></button>
+    <button id="theme" class="ghost icon" type="button" popovertarget="theme-panel" aria-label="Theme" title="Theme"><svg class="moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" /></svg><svg class="sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg><svg class="photo" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><rect x="3" y="4.5" width="18" height="15" rx="2.5" /><circle cx="9" cy="10" r="1.75" /><path d="m3.5 17 5-4.5 3.5 3 3-2.5 5.5 4.5" /></svg></button>
     <button id="fullscreen" class="ghost icon" type="button" aria-label="Enter full screen" title="Full screen"><svg class="expand" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15" /></svg><svg class="shrink" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 4v3.5A1.5 1.5 0 0 1 7.5 9H4M20 9h-3.5A1.5 1.5 0 0 1 15 7.5V4M15 20v-3.5a1.5 1.5 0 0 1 1.5-1.5H20M4 15h3.5A1.5 1.5 0 0 1 9 16.5V20" /></svg></button>
     <button id="account" class="ghost icon" type="button" popovertarget="account-panel" aria-label="Sign in" title="Sign in"><svg class="person" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="3.5" /><path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6" /></svg></button>
     </div>
@@ -127,17 +237,8 @@ const markup = (e) => `
       <li id="share-more-item" hidden><button id="share-more" class="share-target" type="button"><span class="share-glyph"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></svg></span>More</button></li>
     </ul>
   </div>
-  <div id="account-panel" class="account-panel" popover aria-labelledby="account-title">
-    <p id="account-title" class="account-title">Prism account</p>
-    <p id="account-sub" class="account-sub">One account for every app. No password.</p>
-    <div id="account-in" class="account-in" hidden>
-      <p class="account-id"><code id="account-id"></code><button id="account-copy" class="text" type="button">Copy</button></p>
-      <button id="account-add" class="row" type="button">Add device</button>
-      <button id="account-out" class="row" type="button">Sign out</button>
-    </div>
-    <div id="account-ceremony" class="account-ceremony"></div>
-    <button id="account-window" class="primary" type="button" hidden>Sign in</button>
-  </div>
+  <div id="account-panel" class="account-panel" popover aria-labelledby="account-title"></div>
+  <div id="theme-panel" class="theme-panel" popover aria-labelledby="theme-title"></div>
 `;
 
 // Speculation: the app a visitor shows they are about to open (home under
@@ -208,26 +309,22 @@ const starsOf = (n) => {
   };
 };
 
-// The Prism index: every Prism app that verifies, with its GitHub stars,
-// from Holo Search's registry/index/ (its index workflow re-verifies every app
-// every ten minutes and on each registration, and publishes a content-
-// addressed snapshot). The frame reads it once per page: the pointer fresh
+// The Prism index: every Prism app that verifies, with its GitHub stars, from
+// the Prism registry's /index/ (its indexer, beside the canonical kappa
+// registry, re-verifies every app every ten minutes and on each registration,
+// and publishes a content-addressed snapshot). The frame reads it once per
+// page: the pointer fresh
 // (no-cache, so a new app or star shows on the next load), then the snapshot
 // it names, whose SHA-256 is checked before anything in it is shown. It is
-// read only where the page's Content-Security-Policy admits Holo Search; any
+// read only where the page's Content-Security-Policy admits the registry; any
 // failure leaves an empty index and the counts the page was built with. No
 // visitor's browser ever calls GitHub.
 const repoOf = (link) => (String(link ?? "").match(/^https:\/\/github\.com\/([\w.-]+\/[\w.-]+?)(?:\.git)?\/?$/) ?? [])[1] ?? "";
 const NO_INDEX = Object.freeze({ apps: [], stars: {} });
 let indexAsked = null;
-function holoIndex(home) {
+function holoIndex() {
   if (indexAsked) return indexAsked;
-  let pointer;
-  try {
-    pointer = new URL("registry/index/current.json", home);
-  } catch {
-    return (indexAsked = Promise.resolve(NO_INDEX));
-  }
+  const pointer = new URL("index/current.json", REGISTRY);
   const policy = [...document.querySelectorAll('meta[http-equiv="Content-Security-Policy" i]')].map((meta) => meta.content).join(";");
   const connect = /(?:^|;)\s*connect-src([^;]*)/.exec(policy)?.[1] ?? /(?:^|;)\s*default-src([^;]*)/.exec(policy)?.[1];
   const admitted = connect === undefined || (pointer.origin === location.origin && connect.includes("'self'")) || connect.includes(pointer.origin);
@@ -248,111 +345,12 @@ const starMark = '<svg class="star" viewBox="0 0 16 16" width="12" height="12" a
 
 // Prism accounts (prism/identity/1, identity/PROTOCOL.md). An account is a
 // passkey: its private key stays in the device's secure hardware, and the
-// account's name is the hash of its public key. The sign-in page on the
-// accounts origin runs the ceremony; the frame trusts nothing it says and
-// checks every signature here, in the visitor's browser, as it checks the
-// holo's bytes. A failed check is an IdentityError naming which one.
+// account's name is the hash of its public key. The frame keeps the session
+// and signs with it; the panels module runs the sign-in and checks every
+// signature the sign-in page hands back, in the visitor's browser.
 const ACCOUNTS = "https://id.uor.foundation";
 const SESSION_DAYS = 7;
-const MAX_CHAIN = 5;
-const enc = new TextEncoder();
 const b64u = (bytes) => btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-const unb64u = (text) => {
-  if (typeof text !== "string" || !/^[\w-]*$/.test(text)) throw new IdentityError("encoding", "A value is not base64url");
-  return Uint8Array.from(atob(text.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
-};
-const digest = async (bytes) => new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
-
-export class IdentityError extends Error {
-  constructor(code, message) {
-    super(message);
-    this.name = "IdentityError";
-    this.code = code;
-  }
-}
-const deny = (code, message) => {
-  throw new IdentityError(code, message);
-};
-
-// The origins whose signatures count, each with its WebAuthn rpId.
-export const originsOf = (accounts) => ({ [new URL(accounts).origin]: new URL(accounts).hostname });
-
-const ALGORITHMS = {
-  [-7]: { key: { name: "ECDSA", namedCurve: "P-256" }, verify: { name: "ECDSA", hash: "SHA-256" } },
-  [-257]: { key: { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, verify: { name: "RSASSA-PKCS1-v1_5" } },
-};
-
-// WebAuthn's ECDSA signatures are DER; WebCrypto's are the two 32-byte halves.
-function rawSignature(der) {
-  let at = 2;
-  const integer = () => {
-    if (der[at++] !== 0x02) deny("signature", "The signature is not DER");
-    const length = der[at++];
-    let value = der.slice(at, (at += length));
-    while (value.length > 32 && value[0] === 0) value = value.slice(1);
-    if (value.length > 32 || at > der.length) deny("signature", "The signature is not DER");
-    const out = new Uint8Array(32);
-    out.set(value, 32 - value.length);
-    return out;
-  };
-  if (der[0] !== 0x30 || der[1] !== der.length - 2) deny("signature", "The signature is not DER");
-  const r = integer();
-  const s = integer();
-  return new Uint8Array([...r, ...s]);
-}
-
-// One WebAuthn assertion: the passkey of record signed message. The six
-// checks of PROTOCOL.md, in its order, failing closed.
-export async function verifySigned(record, signed, message, origins) {
-  if (signed?.credential !== record.credential) deny("credential", "The signature is from another passkey");
-  let client;
-  try {
-    client = JSON.parse(new TextDecoder().decode(unb64u(signed.clientDataJSON)));
-  } catch {
-    deny("client", "The signed client data is not JSON");
-  }
-  if (client.type !== "webauthn.get") deny("type", "The signature is not a sign-in");
-  if (client.challenge !== b64u(await digest(enc.encode(message)))) deny("challenge", "The signature is for another request");
-  const rp = Object.hasOwn(origins, client.origin) ? origins[client.origin] : null;
-  if (!rp) deny("origin", "The signature was made on another site");
-  const data = unb64u(signed.authenticatorData);
-  if (data.length < 37 || b64u(data.slice(0, 32)) !== b64u(await digest(enc.encode(rp)))) deny("rp", "The passkey belongs to another site");
-  if ((data[32] & 0x05) !== 0x05) deny("flags", "The device did not verify its user");
-  const algorithm = ALGORITHMS[record.alg] ?? deny("algorithm", "The passkey's algorithm is not ES256 or RS256");
-  const key = await crypto.subtle.importKey("spki", unb64u(record.spki), algorithm.key, false, ["verify"]).catch(() => deny("key", "The public key does not parse"));
-  let signature = unb64u(signed.signature);
-  if (record.alg === -7) signature = rawSignature(signature);
-  const body = new Uint8Array([...data, ...(await digest(unb64u(signed.clientDataJSON)))]);
-  if (!(await crypto.subtle.verify(algorithm.verify, key, signature, body))) deny("signature", "The signature does not verify");
-}
-
-// A key record, accepted only when its name is its key's hash and it is the
-// account's first key or bound to it by a key already accepted.
-export async function acceptRecord(credential, records, origins, depth = 0) {
-  const record = records.find((r) => r?.credential === credential);
-  if (!record || record.spec !== "prism/identity/key/1") deny("record", "The passkey has no record");
-  if (b64u(await digest(unb64u(record.spki))) !== record.key) deny("key", "The record's name is not its key's hash");
-  if (record.key === record.account) {
-    if (record.binding) deny("binding", "An account's first key has no binding");
-    return record;
-  }
-  if (depth >= MAX_CHAIN || !record.binding) deny("binding", "The key is not bound to its account");
-  const parent = await acceptRecord(record.binding.credential, records, origins, depth + 1);
-  if (parent.account !== record.account) deny("binding", "The key is bound by another account");
-  await verifySigned(parent, record.binding, `prism/identity/bind/1\n${record.account}\n${record.key}`, origins);
-  return record;
-}
-
-// A session: the account's passkey let one browser key act for it, on one
-// app's origin, until it expires. Anyone holding the session can check it.
-export async function verifySession(session, origins, now = Date.now()) {
-  const { app, nonce, sessionKey, expires, assertion, records } = session ?? {};
-  if (!Number.isSafeInteger(expires) || expires <= now) deny("expired", "The session has expired");
-  const record = await acceptRecord(assertion?.credential, records ?? [], origins);
-  await verifySigned(record, assertion, `prism/identity/session/1\n${app}\n${nonce}\n${sessionKey}\n${expires}`, origins);
-  return { account: record.account, key: record.key, credential: record.credential, expires };
-}
-
 // The session, in this app's IndexedDB: the browser key cannot be read out
 // of it by any script, only used. Nothing goes to localStorage.
 function store(mode, work) {
@@ -375,6 +373,8 @@ function loadSession() {
     .then((saved) => (accountChannel.session = saved && saved.delegation.expires > Date.now() ? saved : null))
     .catch(() => null));
 }
+// What the account panel, in the panels module, borrows from the frame.
+const ACCOUNT_CORE = { SESSION_DAYS, b64u, store, accountChannel, loadSession };
 
 // Everything the markup needs, from the attributes (get), the page's title
 // and its address: one function, for the element and for the shell.
@@ -414,12 +414,31 @@ function modelOf(get, title, base) {
 // nothing flickers between apps. The verdict starts as the page starts
 // (checking), and the theme's icon and colours follow the page's colour
 // scheme, which the page sets before its first paint.
+//
+// The shell is the bar alone: the trust, share and theme panels open only on a
+// click, after this module has loaded and drawn the whole root, so neither
+// they nor their styles are written into the page, which keeps every app's
+// first load inside its Lighthouse budget.
+const PANEL_RULE = /trust-panel|share-|theme-|check-|omnibox|opt-|\.trust-/;
+function barCss(css) {
+  const rules = [];
+  for (let depth = 0, start = 0, at = 0; at < css.length; at++) {
+    if (css[at] === "{") depth++;
+    else if (css[at] === "}" && --depth === 0) {
+      rules.push(css.slice(start, at + 1));
+      start = at + 1;
+    }
+  }
+  return rules.filter((rule) => rule.trimStart().startsWith("@") || !PANEL_RULE.test(rule.slice(0, rule.indexOf("{")))).join("");
+}
 export function shell(attributes, base) {
   const m = modelOf((name) => attributes[name] ?? null, attributes.name ?? "", base);
   const e = Object.fromEntries(Object.entries(m).map(([key, value]) => [key, escape(value)]));
   let html = markup(e);
+  html = html.slice(0, html.indexOf('  <div id="trust-panel"'));
   if (!m.repo) html = html.replace('<a id="github" ', '<a id="github" hidden ');
-  return { css: CSS, html: `<template shadowrootmode="open"><style>${CSS}</style>${html}</template>` };
+  const css = barCss(CSS);
+  return { css, html: `<template shadowrootmode="open"><style>${css}</style>${html}</template>` };
 }
 
 // The element runs in a browser; the module also loads at build time, where
@@ -441,6 +460,15 @@ class PrismFrame extends Element {
     if (!getComputedStyle(document.documentElement).getPropertyValue("--background").trim()) {
       document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheetOf(BRAND)];
     }
+    backdropSheet ??= sheetOf(BACKDROP_CSS);
+    if (!document.adoptedStyleSheets.includes(backdropSheet)) {
+      document.adoptedStyleSheets = [...document.adoptedStyleSheets, backdropSheet];
+    }
+    // Immersive is the default: a visitor who has chosen nothing gets it. A
+    // page built before immersive existed reads both as its own default; the
+    // frame corrects it, once, as it arrives.
+    const chosen = storedTheme().mode;
+    if (chosen !== "light" && chosen !== "dark") document.documentElement.classList.add("dark", "immersive");
     this.render();
     this.watchTheme();
     this.watchHeight();
@@ -448,6 +476,7 @@ class PrismFrame extends Element {
 
   disconnectedCallback() {
     this.heightWatch?.disconnect();
+    this.windowWatch?.disconnect();
     this.fullscreenWatch?.abort();
     this.themeWatch?.disconnect();
     this.accountWatch?.abort();
@@ -474,12 +503,16 @@ class PrismFrame extends Element {
     this.liveStars();
     this.paintTrust();
     this.paintTheme();
+    this.styled(this.$("trust-panel"));
+    this.styled(this.$("share-panel"));
+    this.$("omnibox").addEventListener("focus", () => loadPanels().then((panels) => this.adoptPanels(panels), () => {}), { once: true });
     this.trust();
     this.share();
     this.omnibox();
-    this.$("theme").addEventListener("click", () => this.toggleTheme());
+    this.themePanel();
     this.fullScreen();
     this.accountPanel();
+    this.watchWindow();
     const home = this.$("home");
     for (const type of ["pointerenter", "focus", "touchstart"]) home.addEventListener(type, () => speculate(this.data.home), { passive: true });
   }
@@ -602,7 +635,7 @@ class PrismFrame extends Element {
   liveStars() {
     const github = this.$("github");
     if (!repoOf(this.data.repo) || !github) return;
-    const refresh = () => holoIndex(this.data.home).then((known) => this.applyStars(known));
+    const refresh = () => holoIndex().then((known) => this.applyStars(known));
     for (const type of ["pointerenter", "focus", "touchstart"]) github.addEventListener(type, refresh, { once: true, passive: true });
   }
 
@@ -622,19 +655,141 @@ class PrismFrame extends Element {
   }
 
   // The theme lives on <html>, where the page's own bootstrap set it before
-  // first paint; the frame mirrors it and toggles it.
+  // first paint; the frame mirrors it and sets it. Immersive is the dark
+  // ground with the chosen photo behind the page.
   watchTheme() {
     this.themeWatch = new MutationObserver(() => this.paintTheme());
     this.themeWatch.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
   }
+  mode() {
+    const root = document.documentElement.classList;
+    return root.contains("immersive") ? "immersive" : root.contains("dark") ? "dark" : "light";
+  }
+  // The photo in use, as far as the ground needs it (its id and colour): a
+  // built-in one, one found and chosen before, or, where the browser keeps
+  // nothing (a private window), the one chosen this visit.
+  photoRef() {
+    const { photo: id, recent } = storedTheme();
+    const wanted = id ?? this.chosen?.id;
+    if (wanted && BUILT_IN[wanted]) return { id: wanted, color: BUILT_IN[wanted] };
+    const found = [...recent, this.chosen].find((photo) => photo && photo.id === wanted);
+    return found ? { id: found.id, color: found.color } : { id: FIRST_PHOTO, color: BUILT_IN[FIRST_PHOTO] };
+  }
+  // The panels module, after the visitor's first move.
+  panels() {
+    return firstMove().then(loadPanels);
+  }
+  // Its styles, in this frame's root.
+  adoptPanels(panels) {
+    panelsSheet = panels.sheet;
+    if (!this.shadowRoot.adoptedStyleSheets.includes(panelsSheet)) this.shadowRoot.adoptedStyleSheets = [...this.shadowRoot.adoptedStyleSheets, panelsSheet];
+  }
+  // A panel opened before its styles came (a click that moved nothing, as
+  // some assistive technology sends) waits for them, then opens.
+  styled(panel) {
+    panel.addEventListener("beforetoggle", (event) => {
+      if (event.newState !== "open" || (panelsSheet && this.shadowRoot.adoptedStyleSheets.includes(panelsSheet))) return;
+      event.preventDefault();
+      loadPanels().then((panels) => {
+        this.adoptPanels(panels);
+        panel.showPopover();
+      }, () => {});
+    });
+  }
   paintTheme() {
-    const dark = document.documentElement.classList.contains("dark");
-    this.toggleAttribute("dark", dark);
+    const mode = this.mode();
+    const root = document.documentElement;
+    this.toggleAttribute("dark", mode !== "light");
+    this.toggleAttribute("immersive", mode === "immersive");
+    if (mode === "immersive") {
+      // The photo's own colour is the ground until the photo arrives.
+      root.style.setProperty("--prism-backdrop-color", this.photoRef().color);
+    } else {
+      this.backdrop = null;
+      root.style.removeProperty("--prism-backdrop");
+      root.style.removeProperty("--prism-backdrop-color");
+    }
+    // The photo, and the panel's photos and credit, come with the panels
+    // module: at once once it is here; before, after the visitor's first move.
+    if (mode === "immersive" || this.themed) (panelsModule ?? this.panels()).then((theme) => theme.paint(this, THEME_CORE), () => {});
     const button = this.$("theme");
     if (!button) return;
-    const label = `Switch to ${dark ? "light" : "dark"} theme`;
+    const label = `Theme: ${mode[0].toUpperCase()}${mode.slice(1)}`;
     button.setAttribute("aria-label", label);
     button.title = label;
+    for (const choice of this.shadowRoot.querySelectorAll(".mode")) choice.setAttribute("aria-pressed", String(choice.dataset.mode === mode));
+  }
+  setTheme(mode, photo) {
+    const root = document.documentElement;
+    if (photo) this.chosen = photo;
+    try {
+      localStorage.setItem("prism-theme", mode);
+      if (photo) {
+        localStorage.setItem("prism-backdrop", photo.id);
+        if (!BUILT_IN[photo.id]) {
+          const recent = [photo, ...storedTheme().recent.filter((p) => p.id !== photo.id)].slice(0, 3);
+          localStorage.setItem("prism-backdrop-recent", JSON.stringify(recent));
+        }
+      }
+    } catch {
+      // A private window keeps no preference; the page still switches.
+    }
+    root.classList.toggle("dark", mode !== "light");
+    root.classList.toggle("immersive", mode === "immersive");
+    // A new photo in the same mode changes no class, so nothing else repaints.
+    this.paintTheme();
+  }
+
+  // The theme panel: the three modes, a search of Unsplash, and the photos:
+  // with nothing typed, the last ones found and chosen, then the nine built
+  // in, space first; with words, what Unsplash finds, nine at a time. Choosing a
+  // photo is also the way into immersive. It opens under the theme button,
+  // its right edge on the button's. Photos are fetched the first time the
+  // panel opens, never with the page. Without popovers the button steps
+  // through the modes.
+  themePanel() {
+    const frame = this;
+    const button = frame.$("theme");
+    const panel = frame.$("theme-panel");
+    if (typeof panel.showPopover !== "function") {
+      button.removeAttribute("popovertarget");
+      button.addEventListener("click", () => frame.setTheme(MODES[(MODES.indexOf(frame.mode()) + 1) % MODES.length]));
+      return;
+    }
+    // Its modes, photos, search and styles arrive with the panels module;
+    // the panel waits for them rather than open empty.
+    let ui = null;
+    const ready = (theme) => {
+      if (ui) return;
+      frame.adoptPanels(theme);
+      panel.innerHTML = theme.THEME_PANEL;
+      frame.themed = true;
+      ui = theme.panel(frame, THEME_CORE);
+      theme.paint(frame, THEME_CORE);
+    };
+    this.panels().then(ready, () => {});
+    for (const type of ["pointerenter", "focus"]) button.addEventListener(type, () => this.panels().catch(() => {}), { passive: true });
+    panel.addEventListener("beforetoggle", (event) => {
+      if (event.newState !== "open") return;
+      // Opened before the module came (a click that moved nothing, as some
+      // assistive technology sends): fetch it now, then open.
+      if (!ui) {
+        event.preventDefault();
+        loadPanels().then((theme) => {
+          ready(theme);
+          panel.showPopover();
+        }, () => {});
+        return;
+      }
+      const bar = frame.shadowRoot.querySelector(".bar").getBoundingClientRect();
+      const edge = button.getBoundingClientRect();
+      const view = document.documentElement.clientWidth;
+      const width = Math.min(20 * parseFloat(getComputedStyle(document.documentElement).fontSize), view - 32);
+      const right = Math.max(16, Math.min(view - edge.right, view - width - 16));
+      panel.style.setProperty("--theme-top", `${Math.round(bar.bottom + 6)}px`);
+      panel.style.setProperty("--theme-right", `${Math.round(right)}px`);
+      ui.open();
+    });
   }
   // Full screen: the whole page, where the browser allows it; the button
   // hides where it does not (an iPhone's Safari). Escape, or the button,
@@ -678,226 +833,59 @@ class PrismFrame extends Element {
   // account's passkey let that key act for it here; verifySession checks it.
   async sign(data) {
     const saved = accountChannel.session;
-    if (!saved || saved.delegation.expires <= Date.now()) throw new IdentityError("signed-out", "No one is signed in");
+    if (!saved || saved.delegation.expires <= Date.now()) throw Object.assign(new Error("No one is signed in"), { name: "IdentityError", code: "signed-out" });
     const signature = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, saved.privateKey, data);
     return { signature: b64u(signature), delegation: saved.delegation };
   }
 
   // The account icon, after full screen: a line drawing signed out, a soft
-  // pulse while a passkey is asked, filled once signed in. Its panel holds
-  // the sign-in page from the accounts origin, loaded when the visitor
-  // reaches for the icon (never on load), so the panel opens ready and the
-  // page keeps its request budget. A page whose policy will not frame that
-  // origin gets the same page in a small window instead. Where passkeys
-  // cannot work (no secure context, no WebAuthn, no IndexedDB, no popover)
-  // the icon is not shown, so it never offers what would fail.
+  // pulse while a passkey is asked, filled once signed in. Its panel and the
+  // sign-in itself come with the panels module (accounts() there), fetched
+  // when the visitor reaches for the icon, so an app's first load carries
+  // none of it. Where passkeys cannot work (no secure context, no WebAuthn,
+  // no IndexedDB, no popover) the icon is not shown, so it never offers
+  // what would fail.
   accountPanel() {
-    const frame = this;
-    const button = frame.$("account");
-    const panel = frame.$("account-panel");
+    const button = this.$("account");
+    const panel = this.$("account-panel");
+    this.accountWatch?.abort();
+    this.accountReady = null;
+    let wired = false;
     if (typeof panel.showPopover !== "function" || !window.isSecureContext || !window.PublicKeyCredential || !globalThis.indexedDB) {
       button.hidden = true;
       return;
     }
-    const target = new URL(frame.data.accounts);
-    const origin = target.origin;
-    const origins = originsOf(target.href);
-    const SPEC = "prism/identity/1";
-    const box = frame.$("account-ceremony");
-    const windowButton = frame.$("account-window");
-    let ceremony = null;
-
-    const policy = [...document.querySelectorAll('meta[http-equiv="Content-Security-Policy" i]')].map((meta) => meta.content).join(";");
-    const directive = (name) => new RegExp(`(?:^|;)\\s*${name}([^;]*)`).exec(policy)?.[1];
-    const frames = directive("frame-src") ?? directive("child-src") ?? directive("default-src");
-    const framed = frames === undefined || frames.split(/\s+/).some((source) => source === "*" || source === origin || (source === "'self'" && origin === location.origin));
-
-    const say = (words) => {
-      frame.$("bar-status").textContent = words;
-      setTimeout(() => (frame.$("bar-status").textContent = ""), 1600);
-    };
     const paint = () => {
       const saved = accountChannel.session;
       const label = saved ? "Prism account" : "Sign in";
       button.classList.toggle("signed-in", Boolean(saved));
       button.setAttribute("aria-label", label);
       button.title = label;
-      frame.$("account-in").hidden = !saved;
-      frame.$("account-sub").textContent = saved ? "Signed in on this device." : "One account for every app. No password.";
-      if (saved) {
-        frame.$("account-id").textContent = `${saved.account.slice(0, 8)}…${saved.account.slice(-4)}`;
-        frame.$("account-id").title = saved.account;
-      }
     };
-    const changed = () => {
-      paint();
-      frame.dispatchEvent(new CustomEvent("accountchange", { detail: frame.account, bubbles: true, composed: true }));
-    };
-    const close = () => {
-      box.replaceChildren();
-      ceremony?.popup?.close();
-      ceremony = null;
-      windowButton.hidden = true;
-      button.classList.remove("busy");
-    };
-
-    // One ceremony at a time, each with its own session key and nonce, used once.
-    const begin = (mode) => {
-      if (ceremony?.mode === mode) return;
-      close();
-      paint();
-      if (mode === "add") frame.$("account-sub").textContent = "Add your phone or another computer.";
-      const saved = accountChannel.session;
-      ceremony = {
-        mode,
-        ready: crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, false, ["sign", "verify"]).then(async (keys) => ({
-          keys,
-          request: {
-            type: `${SPEC}/request`,
-            mode,
-            nonce: b64u(crypto.getRandomValues(new Uint8Array(32))),
-            sessionKey: b64u(await crypto.subtle.exportKey("raw", keys.publicKey)),
-            expires: Date.now() + SESSION_DAYS * 864e5,
-            ...(mode === "add" ? { account: saved.account, credential: saved.credential } : {}),
-          },
-        })),
-      };
-      if (!framed) {
-        windowButton.hidden = false;
-        return;
-      }
-      const iframe = document.createElement("iframe");
-      const page = new URL(target);
-      page.hash = `theme=${document.documentElement.classList.contains("dark") ? "dark" : "light"}`;
-      iframe.src = page.href;
-      iframe.title = mode === "add" ? "Add device" : "Sign in";
-      iframe.allow = "publickey-credentials-get; publickey-credentials-create";
-      iframe.referrerPolicy = "no-referrer";
-      box.replaceChildren(iframe);
-      ceremony.iframe = iframe;
-      const waiting = ceremony;
-      // A policy the frame cannot read (a header, not a meta tag) that will
-      // not frame the accounts origin says so here: the window takes over.
-      document.addEventListener(
-        "securitypolicyviolation",
-        (event) => {
-          if (ceremony !== waiting || !/^(frame|child|default)-src/.test(event.effectiveDirective) || !String(event.blockedURI).startsWith(origin)) return;
-          waiting.answered = true;
-          box.replaceChildren();
-          windowButton.hidden = false;
+    // Reaching for the icon is intent enough: no wait for a first move.
+    const ready = () =>
+      (this.accountReady ??= loadPanels().then(
+        (panels) => {
+          this.adoptPanels(panels);
+          const accounts = panels.accounts(this, { ...ACCOUNT_CORE, paint });
+          wired = true;
+          return accounts;
         },
-        { signal: frame.accountWatch.signal },
-      );
-      // An accounts origin that never answers leaves no browser error page in
-      // the panel (the iframe shows only once it answers): one plain
-      // sentence, and the next reach tries again.
-      setTimeout(() => {
-        if (ceremony !== waiting || waiting.answered) return;
-        close();
-        frame.$("account-sub").textContent = "Accounts are unreachable right now. Try again soon.";
-      }, 8000);
-    };
-
-    windowButton.addEventListener("click", () => {
-      const page = new URL(target);
-      page.hash = `popup&theme=${document.documentElement.classList.contains("dark") ? "dark" : "light"}`;
-      ceremony.popup = open(page.href, "prism-identity", "popup,width=420,height=420");
-      if (!ceremony.popup) say("Allow pop-ups for this page to sign in");
-    });
-
-    const finish = async (data) => {
-      const { keys, request } = await ceremony.ready;
-      const delegation = { app: location.origin, nonce: request.nonce, sessionKey: request.sessionKey, expires: request.expires, assertion: data.assertion, records: data.records };
-      try {
-        const who = await verifySession(delegation, origins);
-        const saved = { ...who, delegation, privateKey: keys.privateKey };
-        await store("readwrite", (s) => s.put(saved, "current"));
-        accountChannel.session = saved;
-        close();
-        panel.hidePopover();
-        changed();
-        say("Signed in");
-      } catch (error) {
-        close();
-        begin("signin");
-        frame.$("account-sub").textContent = error instanceof IdentityError ? `Sign-in was refused: ${error.message.toLowerCase()}.` : "Sign-in did not finish. Try again.";
-      }
-    };
-
-    frame.accountWatch?.abort();
-    frame.accountWatch = new AbortController();
-    addEventListener(
-      "message",
-      async (event) => {
-        if (!ceremony || event.origin !== origin || event.source !== (ceremony.iframe?.contentWindow ?? ceremony.popup)) return;
-        const data = event.data ?? {};
-        ceremony.answered = true;
-        if (data.type === `${SPEC}/ready`) ceremony.iframe?.classList.add("ready");
-        if (data.type === `${SPEC}/ready`) event.source.postMessage((await ceremony.ready).request, origin);
-        else if (data.type === `${SPEC}/size` && ceremony.iframe) ceremony.iframe.style.height = `${Math.min(Math.max(Number(data.height) || 0, 48), 480)}px`;
-        else if (data.type === `${SPEC}/busy`) button.classList.toggle("busy", Boolean(data.on));
-        else if (data.type === `${SPEC}/session` && ceremony.mode === "signin") await finish(data);
-        else if (data.type === `${SPEC}/added` && ceremony.mode === "add") {
-          close();
-          panel.hidePopover();
-          say("Device added");
-        }
-      },
-      { signal: frame.accountWatch.signal },
-    );
-
-    // Only once the saved session is known, so a quick hover never starts a
-    // sign-in for someone already signed in.
-    const reach = () => loadSession().then(() => !accountChannel.session && begin("signin"));
+        (error) => {
+          this.accountReady = null;
+          throw error;
+        },
+      ));
+    const reach = () => ready().then((accounts) => accounts.reach(), () => {});
     for (const type of ["pointerenter", "focus", "touchstart"]) button.addEventListener(type, reach, { passive: true });
-
-    // The panel opens under the icon, its right edge on the icon's.
+    // A panel opened before its part of the panels module came waits for it.
     panel.addEventListener("beforetoggle", (event) => {
-      if (event.newState !== "open") {
-        if (ceremony?.mode === "add") close();
-        return;
-      }
-      reach();
-      const bar = frame.shadowRoot.querySelector(".bar").getBoundingClientRect();
-      const edge = button.getBoundingClientRect();
-      const view = document.documentElement.clientWidth;
-      const width = Math.min(20 * parseFloat(getComputedStyle(document.documentElement).fontSize), view - 32);
-      panel.style.setProperty("--account-top", `${Math.round(bar.bottom + 8)}px`);
-      panel.style.setProperty("--account-right", `${Math.round(Math.max(16, Math.min(view - edge.right, view - width - 16)))}px`);
+      if (event.newState !== "open" || wired) return;
+      event.preventDefault();
+      ready().then(() => panel.showPopover(), () => {});
     });
-
-    frame.$("account-add").addEventListener("click", () => begin("add"));
-    frame.$("account-out").addEventListener("click", async () => {
-      await store("readwrite", (s) => s.delete("current")).catch(() => {});
-      accountChannel.session = null;
-      close();
-      panel.hidePopover();
-      changed();
-      say("Signed out");
-    });
-    frame.$("account-copy").addEventListener("click", async () => {
-      const copy = frame.$("account-copy");
-      try {
-        await navigator.clipboard.writeText(accountChannel.session?.account ?? "");
-        copy.textContent = "Copied";
-      } catch {
-        copy.textContent = "Select it";
-      }
-      setTimeout(() => (copy.textContent = "Copy"), 1600);
-    });
-
     paint();
     loadSession().then(paint);
-  }
-
-  toggleTheme() {
-    const root = document.documentElement;
-    root.classList.toggle("dark");
-    try {
-      localStorage.setItem("prism-theme", root.classList.contains("dark") ? "dark" : "light");
-    } catch {
-      // A private window keeps no preference; the page still switches.
-    }
   }
 
   // The window's top edge is the bar's bottom edge: the height the page
@@ -909,6 +897,31 @@ class PrismFrame extends Element {
       this.style.setProperty("--frame-height", `${height}px`);
     });
     this.heightWatch.observe(this);
+  }
+
+  // Immersive's photo is the app's, so it fills the window and stops at its
+  // edges. The window is the frame's to size (the bar's height, the gutters,
+  // the safe areas, the corners, none at all on a phone in landscape), so
+  // the frame measures it as drawn and publishes its edges on <html> for
+  // BACKDROP_CSS. It follows every resize of the window, which is fixed to
+  // the viewport. render() redraws the window, so it watches the new one.
+  watchWindow() {
+    this.windowWatch?.disconnect();
+    const canvas = this.shadowRoot.querySelector(".canvas");
+    const place = () => {
+      const view = document.documentElement;
+      const shown = getComputedStyle(canvas).display !== "none";
+      const box = canvas.getBoundingClientRect();
+      const edges = shown
+        ? { top: box.top, right: view.clientWidth - box.right, bottom: view.clientHeight - box.bottom, left: box.left, radius: parseFloat(getComputedStyle(canvas).borderTopLeftRadius) || 0 }
+        : { top: 0, right: 0, bottom: 0, left: 0, radius: 0 };
+      for (const [edge, px] of Object.entries(edges)) view.style.setProperty(`--prism-window-${edge}`, `${Math.max(0, Math.round(px * 100) / 100)}px`);
+    };
+    if ("ResizeObserver" in window) {
+      this.windowWatch = new ResizeObserver(place);
+      this.windowWatch.observe(canvas);
+    }
+    place();
   }
 
   share() {
@@ -1060,7 +1073,7 @@ class PrismFrame extends Element {
         .then((entries) => (Array.isArray(entries) ? entries : []))
         .catch(() => []);
     const load = () =>
-      (loading ??= Promise.all([list_("registry/index.json"), holoIndex(search)]).then(([entries, known]) => {
+      (loading ??= Promise.all([list_("registry/index.json"), holoIndex()]).then(([entries, known]) => {
         apps = known.apps;
         index = entries;
         frame.applyStars(known);

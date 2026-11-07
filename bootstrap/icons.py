@@ -86,12 +86,19 @@ def stamp(*parts):
     return info
 
 
+def palette(image):
+    # The mark is two colours and their antialiased edge: 8 colours keep it
+    # identical to the eye and make each PNG about a sixth of its RGB size, so
+    # the icon a page links stays inside its Lighthouse budget.
+    return image.convert("RGBA").quantize(8, method=Image.Quantize.FASTOCTREE)
+
+
 def main(name):
     os.makedirs(OUT, exist_ok=True)
-    icon(192).save(os.path.join(OUT, "icon-192.png"), optimize=True, pnginfo=stamp("icons", name))
-    icon(512).save(os.path.join(OUT, "icon-512.png"), optimize=True, pnginfo=stamp("icons", name))
-    icon(512, maskable=True).save(os.path.join(OUT, "maskable-512.png"), optimize=True, pnginfo=stamp("icons", name))
-    icon(180).save(os.path.join(OUT, "apple-touch-icon.png"), optimize=True, pnginfo=stamp("icons", name))
+    palette(icon(192)).save(os.path.join(OUT, "icon-192.png"), optimize=True, pnginfo=stamp("icons", name))
+    palette(icon(512)).save(os.path.join(OUT, "icon-512.png"), optimize=True, pnginfo=stamp("icons", name))
+    palette(icon(512, maskable=True)).save(os.path.join(OUT, "maskable-512.png"), optimize=True, pnginfo=stamp("icons", name))
+    palette(icon(180)).save(os.path.join(OUT, "apple-touch-icon.png"), optimize=True, pnginfo=stamp("icons", name))
     with open(FAVICON, "w", encoding="utf-8", newline="\n") as out:
         out.write(favicon())
     for f in sorted(os.listdir(OUT)):

@@ -18,11 +18,17 @@ const root = fileURLToPath(new URL("../", import.meta.url));
 const b64u = (bytes) => Buffer.from(bytes).toString("base64url");
 const types = { ".html": "text/html; charset=utf-8", ".mjs": "text/javascript", ".css": "text/css" };
 
-// The frame as publish.mjs bakes it, without minifying.
-async function bakedFrame() {
-  let module = await readFile(join(root, "frame/frame.mjs"), "utf8");
+// The frame as publish.mjs bakes it, without minifying: its panels module
+// beside it, named by its SHA-256, on the demo app's own origin.
+const PUBLISHED_HOST = "https://uor-foundation.github.io/template/frame/";
+async function bakedFrame(host) {
+  const at = (text) => text.split(JSON.stringify(PUBLISHED_HOST)).join(JSON.stringify(host));
+  const panels = at(await readFile(join(root, "frame/panels.mjs"), "utf8")).replace('"/*PANELS_CSS*/"', JSON.stringify(await readFile(join(root, "frame/panels.css"), "utf8")));
+  const sha = createHash("sha256").update(panels).digest("hex");
+  let module = at(await readFile(join(root, "frame/frame.mjs"), "utf8"));
   module = module.replace('"/*CSS*/"', JSON.stringify(await readFile(join(root, "frame/frame.css"), "utf8")));
-  return module.replace('"/*BRAND*/"', JSON.stringify(await readFile(join(root, "site/brand/hologram-warm.css"), "utf8")));
+  module = module.replace('"/*BRAND*/"', JSON.stringify(await readFile(join(root, "site/brand/hologram-warm.css"), "utf8")));
+  return { frame: module.replace('"/*PANELS*/"', JSON.stringify(sha)), panels, sha };
 }
 
 export function start({ idPort = 8790, appPort = 8791 } = {}) {
@@ -78,15 +84,17 @@ export function start({ idPort = 8790, appPort = 8791 } = {}) {
 
   const app = createServer(async (request, response) => {
     const path = new URL(request.url, "http://x").pathname;
-    if (path === "/frame.mjs") {
+    if (path === "/frame.mjs" || path === "/panels.mjs" || path.endsWith("/prism-panels.mjs")) {
+      const baked = await bakedFrame(`http://127.0.0.1:${appPort}/frame/`);
+      if (path.endsWith("/prism-panels.mjs") && path !== `/frame/${baked.sha}/prism-panels.mjs`) return json(response, 404, { error: "unknown", message: "Not found." });
       response.writeHead(200, { "content-type": "text/javascript", "cache-control": "no-store" });
-      return response.end(await bakedFrame());
+      return response.end(path === "/frame.mjs" ? baked.frame : baked.panels);
     }
     response.writeHead(200, {
       "content-type": "text/html; charset=utf-8",
       // /strict frames nothing, as a page whose policy predates accounts: the
       // frame must fall back to the sign-in window.
-      "content-security-policy": `default-src 'self'; script-src 'self'; style-src 'unsafe-inline'; frame-src ${path === "/strict" ? "'none'" : accounts}`,
+      "content-security-policy": `default-src 'self'; script-src 'self' blob:; style-src 'unsafe-inline'; frame-src ${path === "/strict" ? "'none'" : accounts}`,
     });
     response.end(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Account demo</title><script type="module" src="/frame.mjs"></script></head>
 <body><prism-frame name="Account demo" live="http://127.0.0.1:${appPort}/" accounts="${accounts}/"></prism-frame></body></html>`);

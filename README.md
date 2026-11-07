@@ -111,7 +111,9 @@ the archive carries. Every instance gets the same page; an app edits one file.
   `site/index.html` and `site/manifest.webmanifest` from it; `bootstrap/icons.py`
   draws the icons (the Hologram logomark, the brand kit's 70 dots, on the warm
   ground, and `site/favicon.svg`, the mark as a vector that follows the
-  browser's colour scheme), every app's default until it draws its own.
+  browser's colour scheme, which the page carries inline as its favicon and
+  its stand-in's mark, so neither costs a request), every app's default
+  until it draws its own.
 - **One live frame.** The frame every Prism app opens in (the top bar and
   the window the app shows through) is one web component, `<prism-frame>`, in `frame/`. On
   every push to `main`, `try-page.yml` publishes it to this repository's
@@ -150,13 +152,39 @@ the archive carries. Every instance gets the same page; an app edits one file.
   ([holo-search](https://humuhumu33.github.io/holo-search/)), then the
   address across the bar, the shield first, then `holo://` and the app's
   name in lower case with hyphens (`holo://luhn-check`), and the share icon
-  at its right end; then GitHub (the app's repository), the theme as a sun
-  or moon, and full screen. Its icons are bare 16 px line drawings with a
+  at its right end; then GitHub (the app's repository), the theme, and full
+  screen. Its icons are bare 16 px line drawings with a
   soft square tint on hover; on a touch screen each takes a 48 px tap
   beyond what it draws, so the bar is the same height everywhere. Under
   600 px GitHub steps out (the footer still links the repository); at large
   text the bar wraps and the window moves down with it. It is the live
   frame above: no app carries a copy of it.
+- **Three themes: immersive, dark and light.** Immersive is every new
+  visitor's theme; a choice of dark or light is remembered. The theme button
+  shows the one in use (photo, moon or sun) and opens a panel to change it.
+  Immersive is the dark ground with an Unsplash photo behind the app under
+  a scrim, the cards frosted over it. The photo fills the app's window and
+  stops at its edges and corners; the chrome around it never changes. A
+  photo is never fetched with the page, which keeps every app inside its
+  Lighthouse budget: one shown before comes from the browser's cache at
+  once, and a new one arrives on the visitor's first move, its colour
+  standing in until then.
+  The frame draws all of it, so every Prism app and Holo Search has it with
+  no rebuild. What only a visitor's move needs (every panel's styles, the
+  theme panel and the photos) is a second module, `frame/panels.mjs` with
+  `frame/panels.css`, published beside the frame and named by its SHA-256,
+  which the frame carries: the frame fetches it after the first move,
+  checks it and imports it, and a panel opened before then waits for it. Nine photos, space first, were chosen once and are published
+  beside the frame (`frame/backdrops/`); the panel shows them by default, and
+  the frame fetches the one in use from its own
+  host, which every app page's `connect-src` already allows, and shows it
+  as a `data:` image, which every `img-src` allows. No key ships, the panel
+  credits each photographer, and nothing is fetched until the panel opens
+  or immersive is chosen. The panel also searches Unsplash: results arrive
+  as their colours, then fade in; choosing one sets it, tells Unsplash, and
+  keeps it among the last three chosen. Search goes through the frame's
+  worker (`frame/unsplash/`), which holds the key; the page build adds its
+  origin to `connect-src`, and a page without it keeps the built-in photos.
 - **The shield says why to trust the app.** As a browser's padlock does for
   a page, the shield sums what the visitor's browser found, and its panel
   shows each check: **Authentic** (every byte of the holo matches its
@@ -169,34 +197,37 @@ the archive carries. Every instance gets the same page; an app edits one file.
   plain statement and the proof attestation from `app.json`, `app.mjs`
   passes the fingerprint check and the replay as they finish, and the
   frame draws the rest.
-- **The bar is in the page.** `page.mjs` fetches the live frame at build,
-  checks its SHA-256 as the browser does, and writes its first paint into
-  `<prism-frame>` as a declarative shadow root: the frame's own styles and
-  markup for this app. The browser paints the real bar with the page's
-  first frame, and the frame script takes the same root over without a
-  pixel changing, so moving between apps never shows a stand-in; the
-  theme's colours and icon follow the page's `color-scheme`, set before
-  first paint. Without a network at build the page keeps its stand-in.
+- **The bar holds still.** Until the frame's module arrives, the page shows
+  a stand-in drawn as the bar will be: the Hologram mark and the address in
+  its field, at the bar's height and in the page's theme, so the frame
+  replaces it without anything moving. The stand-in is a few lines of the
+  page's own CSS; writing the whole frame into every page cost about half a
+  second of mobile LCP and broke the Lighthouse gate. A hop to an app the
+  address bar suggested is prerendered, so it shows the full bar at once.
 - **GitHub stars.** The GitHub icon in the address carries the repository's
   star count (128, 1.2k), written in at build and brought up to date from
   the Prism index on every load: no visitor's browser calls GitHub.
-- **The Prism index, which every app joins by deploying.** At the end of a
-  GitHub Actions build, `page.mjs` runs `bootstrap/register.mjs`: the holo is
-  pushed to the Prism registry (kappa-registry, behind a gateway) as
-  `prism/<owner>/<name>`, and the app's live page is recorded against the
-  holo's fingerprint. The run proves its repository with the OIDC token
-  GitHub mints for it, so there is no secret to hand out and a new app
-  registers on its first deploy; `"index": false` in `app.json` opts out,
-  and nothing here ever fails a build. Holo Search's index workflow lists an
-  app only when its live page serves a holo it registered, that holo
-  verifies and every example passes, re-checks every app every ten minutes,
-  and publishes a content-addressed snapshot (`registry/index/<sha256>.json`,
-  named by `registry/index/current.json`) with each app's stars. The frame
-  reads it at most once per page, and only when the visitor reaches for the
-  bar (the GitHub pill under the pointer or in focus, or the address bar
-  opened), never on load, so a page's first load keeps within its Lighthouse
-  budget of two third-party requests; it checks the snapshot's SHA-256 before
-  showing anything from it. The registry is off until `DEFAULT_REGISTRY` in `register.mjs` names it.
+- **The Prism index, which every app joins by deploying.** One canonical
+  kappa registry, at `registry.uor.foundation`, indexes every Prism app by
+  its self-verifying address; the app's bytes stay on its own site. At the
+  end of a GitHub Actions build, `page.mjs` runs `bootstrap/register.mjs`,
+  which sends the registry the holo's fingerprint (its last 32 bytes) and the
+  live page. The run proves its repository with the OIDC token GitHub mints
+  for it, so there is no secret to hand out and a new app registers on its
+  first deploy; `"index": false` in `app.json` opts out, and nothing here
+  ever fails a build. The registry's indexer lists an app only when its live
+  page serves a holo it registered, that holo verifies and every example
+  passes; it then stores the app's address card in kappa
+  (`prism/<owner>/<name>:blake3-<fingerprint>`: the fingerprint, SHA-256,
+  size and where the bytes are), re-checks every app every ten minutes,
+  finds new Prism apps on its own, and publishes a content-addressed
+  snapshot (`/index/<sha256>.json`, named by `/index/current.json`) with
+  each app's stars. Holo Search and every address bar read it downstream.
+  The frame reads it at most once per page, and only when the visitor
+  reaches for the bar (the GitHub pill under the pointer or in focus, or the
+  address bar opened), never on load, so a page's first load keeps within
+  its Lighthouse budget of two third-party requests; it checks the
+  snapshot's SHA-256 before showing anything from it.
 - **Hops between apps, ahead of the click.** A Prism app is named by its
   content, so a page loaded early is never stale and never another app's.
   When a visitor shows where they are going (home under the pointer, a
@@ -206,10 +237,9 @@ the archive carries. Every instance gets the same page; an app edits one file.
   prerender it: the next app loads, verifies its bytes and replays its
   examples before the click, so opening it shows a page already checked.
   Another origin is prefetched; a browser without speculation rules gets a
-  prefetch. Each page also asks for the whole vendored runtime and the holo
-  in parallel with its first paint, at low priority, instead of one import
-  at a time, opens the frame host's connection with its own, and holds the
-  bar in place across the navigation with a cross-document view transition.
+  prefetch. Each page also opens the frame host's connection with its own,
+  and holds the bar in place across the navigation with a cross-document
+  view transition.
 - **An address bar for Prism apps.** The holo:// pill is also an omnibox,
   like Chrome's. Focus it and it selects the address, a hairline in the UOR
   Foundation's colour spectrum runs round it, and it lists this app, every
@@ -267,7 +297,8 @@ the archive carries. Every instance gets the same page; an app edits one file.
   deploy shows one "Update available" chip and reloads only when asked.
 - **The gate.** `lighthouserc.json` asserts 100 in performance, accessibility,
   best practices and SEO on the mobile profile, LCP under 1.5 s, TBT under
-  100 ms, CLS 0, under 120 KB and no third-party request; `pages.yml` runs
+  100 ms, CLS 0, under 120 KiB and at most two third-party requests (the
+  frame's pointer and module); `pages.yml` runs
   Lighthouse CI on the assembled site before anything is deployed.
 
 `.github/workflows/pages.yml` checks the brand wiring on every push to

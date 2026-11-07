@@ -7,7 +7,7 @@
     },
     {
       "path": "bootstrap/icons.py",
-      "sha256": "d2ecf0fa7a8e6b0e6f5c6fd32aebf41e6e3c6aeb8f16fc20492bd1b7409626df"
+      "sha256": "e3cff5530d752ee1563df8622e4b9ff3453f2d62c850d00fb5a5f1467e5e0b4b"
     },
     {
       "path": "bootstrap/og.py",
@@ -15,7 +15,7 @@
     },
     {
       "path": "bootstrap/page.mjs",
-      "sha256": "d864e7c44f3e38d805ee3c629379ff76f397298eb42f226283ec95e0d670e000"
+      "sha256": "2a6bf39f0c709c3e5e4e67bad17ad6821f4273aab4c71c958112eda8888d3db3"
     },
     {
       "path": "bootstrap/precache.mjs",
@@ -23,11 +23,11 @@
     },
     {
       "path": "bootstrap/register.mjs",
-      "sha256": "70d6948b2161e351611a0ee71a3b2627b11bc592ac05ab96c88353dafa5a025a"
+      "sha256": "c83e32d67f7bf8964498527c44a35c4da6f5428e358ae367dc651f0a6c601cf7"
     },
     {
       "path": "bootstrap/screens.mjs",
-      "sha256": "0aaef44f114dfbec5f26c4de17e580f8b3c84e9ac231546d9a8d1fd757b300e4"
+      "sha256": "b318ca8fb52e34a4203dd4b45b5ace6b472a105783b7a7ad64648f24eee3e405"
     },
     {
       "path": "lighthouserc.json",
@@ -35,7 +35,7 @@
     },
     {
       "path": "site/app.mjs",
-      "sha256": "59f40ba9bd479cdb451ebd3b2aeda0bbb094d80d5c26f52cd5286aedf6ce075e"
+      "sha256": "1c77dd800ace96f920da9452e99065fd30286f704102bc916e28c4783c66d5d3"
     },
     {
       "path": "site/guest-worker.mjs",
@@ -43,11 +43,11 @@
     },
     {
       "path": "site/page.template.html",
-      "sha256": "826183ce949beb3aa304537dd9ea8e94bbc1b2986dc938b6b7a52d5c954fe48a"
+      "sha256": "3175a4320c087c8416cd23d97884bdff6ee8e7797e174caa06e17204c3375fa3"
     },
     {
       "path": "site/prism-page.css",
-      "sha256": "1656edaf70a860245c1bc204bc1ded57b91e12b375dc22422397df7603f046b7"
+      "sha256": "2db850d7646d4e2055a97a3742881569e2f3e603ac1620a8ad3eb1f347e87d05"
     },
     {
       "path": "site/sw.js",
@@ -55,7 +55,7 @@
     },
     {
       "path": "site/theme.js",
-      "sha256": "1eec883e864bbd39bcb1b910a91fb828c7aec8ea93e22092a7cbd2f3b04086e5"
+      "sha256": "5d73dc3e6c2ba9e0dce3fbf0504adf686c3b8d294a7a0fee5c732c6be785adb4"
     }
   ]
 }

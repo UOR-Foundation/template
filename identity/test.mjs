@@ -4,7 +4,7 @@
 import assert from "node:assert/strict";
 import { webcrypto as crypto } from "node:crypto";
 import { after, before, describe, test } from "node:test";
-import { IdentityError, acceptRecord, originsOf, verifySession, verifySigned } from "../frame/frame.mjs";
+import { IdentityError, acceptRecord, originsOf, verifySession, verifySigned } from "../frame/panels.mjs";
 import { start } from "./dev.mjs";
 
 const enc = new TextEncoder();
@@ -189,7 +189,7 @@ describe("the flow in Chromium, with a virtual passkey", () => {
     await page.locator("#account.signed-in").waitFor({ timeout: 10000 });
     const checked = await page.evaluate(async () => {
       const frame = document.querySelector("prism-frame");
-      const { verifySession, originsOf } = await import("/frame.mjs");
+      const { verifySession, originsOf } = await import("/panels.mjs");
       const data = new TextEncoder().encode("hello");
       const { signature, delegation } = await frame.sign(data);
       const who = await verifySession(delegation, originsOf(frame.getAttribute("accounts")));

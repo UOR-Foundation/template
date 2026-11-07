@@ -137,13 +137,29 @@ function answerState(text) {
   return "wait";
 }
 
-// The runtime and the holo are fetched after the first frame has painted:
-// everything above the fold is in the HTML already, and nothing the holo adds
-// is needed to read the page, so the first paint waits for nothing. A tab
-// opened in the background paints no frame, so a short timer stands in.
+// The frame, the runtime and the holo are fetched after the page's text has
+// painted: everything above the fold is in the HTML already, and nothing they
+// add is needed to read the page, so the first paint waits for nothing. That
+// is the first contentful paint, not the first frame: the brand's fonts are
+// font-display: optional, so the first frame can paint the ground with no
+// text, and a request started then lands inside the paint as Lighthouse
+// simulates it on a phone (the frame's host is a new connection, and the
+// runtime a chain of modules), which kept every app's LCP over its 1.5 s
+// budget. A tab opened in the background paints nothing, so a timer stands in.
 const afterFirstFrame = () => new Promise((resolve) => {
-  requestAnimationFrame(() => setTimeout(resolve, 0));
-  setTimeout(resolve, 200);
+  const after = () => requestAnimationFrame(() => setTimeout(resolve, 0));
+  setTimeout(resolve, 1000);
+  if (performance.getEntriesByName("first-contentful-paint").length) return after();
+  try {
+    const watch = new PerformanceObserver((list) => {
+      if (!list.getEntriesByName("first-contentful-paint").length) return;
+      watch.disconnect();
+      after();
+    });
+    watch.observe({ type: "paint", buffered: true });
+  } catch {
+    after();
+  }
 });
 
 // The guest runs in a worker, so a slow request or the replay of the
@@ -201,7 +217,9 @@ async function card(runner, reason) {
 }
 
 async function main() {
-  frame();
+  // The bar is already drawn (the page's stand-in, as the bar will be); the
+  // live frame takes it over once the text has painted.
+  afterFirstFrame().then(frame);
   offline();
 
   let app;
