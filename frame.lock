@@ -47,7 +47,7 @@
     },
     {
       "path": "site/prism-page.css",
-      "sha256": "70e08e875f86302cef3894252b92b711364472fa44038272f85e7df5f8aad25e"
+      "sha256": "2db850d7646d4e2055a97a3742881569e2f3e603ac1620a8ad3eb1f347e87d05"
     },
     {
       "path": "site/sw.js",
