@@ -160,10 +160,21 @@ async function frameShell() {
   }
 }
 // The repository's GitHub stars at build, so the bar shows them from its
-// first paint; the frame keeps the count current. None known, none shown.
+// first paint: from the Prism index on Holo Search, the snapshot the frame
+// keeps the count current from, then from GitHub's API for a repository the
+// file does not list yet. None known, none shown.
 async function githubStars() {
   const repo = (String(meta.repository ?? "").match(/^https:\/\/github\.com\/([\w.-]+\/[\w.-]+?)(?:\.git)?\/?$/) ?? [])[1];
   if (!repo) return null;
+  try {
+    const pointer = new URL("registry/index/current.json", holoSearch);
+    const named = await (await fetch(pointer, { cache: "no-store" })).json();
+    const index = await (await fetch(new URL(named.path, pointer))).json();
+    const app = (index.apps ?? []).find((entry) => (entry.repository ?? "").toLowerCase() === `https://github.com/${repo}`.toLowerCase());
+    if (Number.isInteger(app?.stars)) return app.stars;
+  } catch {
+    // Not listed there: ask GitHub.
+  }
   try {
     const headers = { accept: "application/vnd.github+json", ...(process.env.GITHUB_TOKEN ? { authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}) };
     const response = await fetch(`https://api.github.com/repos/${repo}`, { headers });
@@ -257,3 +268,16 @@ const manifest = {
 };
 await writeFile(join(site, "manifest.webmanifest"), JSON.stringify(manifest, null, 2) + "\n");
 console.log(`page: site/manifest.webmanifest for ${meta.name} at ${meta.live}`);
+
+// The Prism index: in a GitHub Actions build, this app registers its holo and
+// live page with the Prism registry (bootstrap/register.mjs), which is how
+// every app comes to be listed in every app's address bar and in Holo Search.
+// A refusal is reported and the build goes on: the index never blocks a page.
+if (process.env.GITHUB_ACTIONS === "true") {
+  try {
+    const { register } = await import("./register.mjs");
+    await register(site);
+  } catch (error) {
+    console.warn(`page: not registered in the Prism index (${error.message})`);
+  }
+}

@@ -191,40 +191,39 @@ const starsOf = (n) => {
   };
 };
 
-// GitHub: a repository's "owner/name" from its link, and its star count,
-// from GitHub's API at most once an hour per repository in this browser,
-// and only where the page's Content-Security-Policy admits api.github.com.
-// Resolves to null when it cannot know.
+// The Prism index: every Prism app that verifies, with its GitHub stars,
+// from Holo Search's registry/index/ (its index workflow re-verifies every app
+// every ten minutes and on each registration, and publishes a content-
+// addressed snapshot). The frame reads it once per page: the pointer fresh
+// (no-cache, so a new app or star shows on the next load), then the snapshot
+// it names, whose SHA-256 is checked before anything in it is shown. It is
+// read only where the page's Content-Security-Policy admits Holo Search; any
+// failure leaves an empty index and the counts the page was built with. No
+// visitor's browser ever calls GitHub.
 const repoOf = (link) => (String(link ?? "").match(/^https:\/\/github\.com\/([\w.-]+\/[\w.-]+?)(?:\.git)?\/?$/) ?? [])[1] ?? "";
-const asking = new Map();
-function githubStars(repo) {
-  if (!repo) return Promise.resolve(null);
-  const policy = [...document.querySelectorAll('meta[http-equiv="Content-Security-Policy" i]')].map((meta) => meta.content).join(";");
-  if (policy && !policy.includes("https://api.github.com")) return Promise.resolve(null);
-  const key = `prism-stars:${repo}`;
+const NO_INDEX = Object.freeze({ apps: [], stars: {} });
+let indexAsked = null;
+function holoIndex(home) {
+  if (indexAsked) return indexAsked;
+  let pointer;
   try {
-    const kept = JSON.parse(localStorage.getItem(key) ?? "null");
-    if (kept && Date.now() - kept.at < 3600e3) return Promise.resolve(kept.stars);
+    pointer = new URL("registry/index/current.json", home);
   } catch {
-    // No storage: ask GitHub.
+    return (indexAsked = Promise.resolve(NO_INDEX));
   }
-  if (!asking.has(repo)) {
-    asking.set(repo, fetch(`https://api.github.com/repos/${repo}`, { headers: { accept: "application/vnd.github+json" } })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((info) => {
-        const stars = Number.isInteger(info?.stargazers_count) ? info.stargazers_count : null;
-        if (stars !== null) {
-          try {
-            localStorage.setItem(key, JSON.stringify({ stars, at: Date.now() }));
-          } catch {
-            // A private window keeps nothing; the count still shows.
-          }
-        }
-        return stars;
-      })
-      .catch(() => null));
-  }
-  return asking.get(repo);
+  const policy = [...document.querySelectorAll('meta[http-equiv="Content-Security-Policy" i]')].map((meta) => meta.content).join(";");
+  const connect = /(?:^|;)\s*connect-src([^;]*)/.exec(policy)?.[1] ?? /(?:^|;)\s*default-src([^;]*)/.exec(policy)?.[1];
+  const admitted = connect === undefined || (pointer.origin === location.origin && connect.includes("'self'")) || connect.includes(pointer.origin);
+  if (!admitted) return (indexAsked = Promise.resolve(NO_INDEX));
+  const hex = (buffer) => Array.from(new Uint8Array(buffer), (b) => b.toString(16).padStart(2, "0")).join("");
+  return (indexAsked = (async () => {
+    const named = await (await fetch(pointer, { cache: "no-cache" })).json();
+    if (!/^[0-9a-f]{64}$/.test(named?.sha256 ?? "")) return NO_INDEX;
+    const bytes = await (await fetch(new URL(`${named.sha256}.json`, pointer))).arrayBuffer();
+    if (hex(await crypto.subtle.digest("SHA-256", bytes)) !== named.sha256) return NO_INDEX;
+    const apps = (JSON.parse(new TextDecoder().decode(bytes)).apps ?? []).filter((app) => typeof app?.name === "string" && /^https:\/\//.test(app.live ?? ""));
+    return { apps, stars: Object.fromEntries(apps.map((app) => [repoOf(app.repository), app.stars])) };
+  })().catch(() => NO_INDEX));
 }
 // The star count as a row shows it: GitHub's gold star and the short count.
 const githubMark = '<svg class="gh" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z" /></svg>';
@@ -323,6 +322,7 @@ class PrismFrame extends Element {
     this.data = m;
     this.shadowRoot.innerHTML = markup(e);
     if (!m.repo) this.$("github").hidden = true;
+    this.liveStars();
     this.paintTrust();
     this.paintTheme();
     this.trust();
@@ -440,16 +440,18 @@ class PrismFrame extends Element {
     frame.$("trust-details").addEventListener("click", () => panel.hidePopover());
   }
 
-  // The star count the page was built with, refreshed (githubStars) when a
-  // visitor opens the address bar, never on load: a page that only loads
-  // (a visit, a Lighthouse run, a gate) never calls GitHub, so its API's
-  // hourly limit can never put an error in the console. A changed count is
-  // set as the stars attribute, which repaints only the GitHub pill, so a
-  // visitor typing in the address bar is never interrupted.
+  // The star count the page was built with, brought up to date from the Prism
+  // index on load (holoIndex): from no count to one
+  // star and on, the bar follows the repository. A changed count is set as
+  // the stars attribute, which repaints only the GitHub pill, so a visitor
+  // typing in the address bar is never interrupted.
   liveStars() {
-    if (this.starsAsked) return;
-    this.starsAsked = true;
-    githubStars(repoOf(this.data.repo)).then((n) => Number.isInteger(n) && String(n) !== (this.getAttribute("stars") ?? "") && this.setAttribute("stars", String(n)));
+    const repo = repoOf(this.data.repo);
+    if (!repo) return;
+    holoIndex(this.data.home).then(({ stars }) => {
+      const n = stars[repo];
+      if (Number.isInteger(n) && String(n) !== (this.getAttribute("stars") ?? "")) this.setAttribute("stars", String(n));
+    });
   }
 
   paintStars() {
@@ -669,9 +671,9 @@ class PrismFrame extends Element {
       const origin = new URL(link).origin;
       return (origin === location.origin && images.includes("'self'")) || images.includes(origin) || /(^|\s)(\*|https:)(\s|$)/.test(images);
     };
-    // Holo Search's registry (models, holos, images, by hash) and its list of
-    // Prism apps (registry/apps.json: name, holo:// address, live page,
-    // repository), fetched together the first time the bar is focused.
+    // Holo Search's registry (models, holos, images, by hash), fetched the
+    // first time the bar is focused, and the Prism index (holoIndex): every app
+    // that verifies, with its stars.
     let apps = [];
     const list_ = (path) =>
       fetch(new URL(path, search), { cache: "no-cache" })
@@ -679,8 +681,8 @@ class PrismFrame extends Element {
         .then((entries) => (Array.isArray(entries) ? entries : []))
         .catch(() => []);
     const load = () =>
-      (loading ??= Promise.all([list_("registry/index.json"), list_("registry/apps.json")]).then(([entries, known]) => {
-        apps = known.filter((app) => typeof app?.name === "string" && /^https:\/\//.test(app.live ?? ""));
+      (loading ??= Promise.all([list_("registry/index.json"), holoIndex(search)]).then(([entries, known]) => {
+        apps = known.apps;
         index = entries;
       }));
 
@@ -712,15 +714,16 @@ class PrismFrame extends Element {
       if (named(name) || named(slug) || hashed(here.fingerprint)) {
         out.push({ kind: "self", title: name, sub: `holo://${slug}`, tag: "This app", icon: selfIcon, print: here.fingerprint, repo: repoOf(frame.data.repo), stars: Number(frame.getAttribute("stars")), match: query });
       }
-      // The Prism apps Holo Search knows, by name or holo:// address; each
-      // opens its own live page. This app is listed once, as this app.
+      // The Prism apps the index lists, by name or holo:// address, in its
+      // order (most stars first); each opens its own live page. This app is
+      // listed once, as this app.
       const listed = new Set([fold(name)]);
       for (const app of apps) {
         const address = app.address ?? app.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
         if (fold(app.name) === fold(name) || address === slug) continue;
         if (query && !named(app.name) && !named(address)) continue;
         listed.add(fold(app.name));
-        out.push({ kind: "app", title: app.name, sub: `holo://${address}`, tag: "App", icon: iconOf(app), print: "", repo: repoOf(app.repository), live: app.live, match: query });
+        out.push({ kind: "app", title: app.name, sub: `holo://${address}`, tag: "App", icon: iconOf(app), print: app.fingerprint ?? "", repo: repoOf(app.repository), stars: app.stars, live: app.live, match: query });
       }
       // One row per app when matched by name, as Chrome shows a site once: its
       // holo first, then its model, then its image. A hash names one entry, so
@@ -859,7 +862,6 @@ class PrismFrame extends Element {
           };
           paint(Number.isInteger(row.stars) ? row.stars : null);
           li.append(stars);
-          if (!Number.isInteger(row.stars) || row.kind !== "self") githubStars(row.repo).then((n) => { row.stars = n; paint(n); });
         }
         li.setAttribute("aria-label", [row.title, row.sub, row.repo && `by ${row.repo.split("/")[0]}`, row.tag].filter(Boolean).join(", "));
         li.addEventListener("pointerdown", (event) => event.preventDefault());
@@ -924,7 +926,6 @@ class PrismFrame extends Element {
     }
 
     input.addEventListener("focus", () => {
-      frame.liveStars();
       bar.classList.add("editing");
       input.select();
       active = 0;
