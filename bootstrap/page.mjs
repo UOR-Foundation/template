@@ -157,7 +157,10 @@ async function frameShell() {
     const frame = await import(`data:text/javascript;base64,${bytes.toString("base64")}`);
     if (typeof frame.shell !== "function") throw new Error("this frame has no shell");
     const attributes = { name: meta.name, address: slug, live: live.href, repo: meta.repository, home: holoSearch.href, purpose: meta.purpose, card: new URL("og.png", live).href, identity: "#identity-title", stars: stars === null ? null : String(stars) };
-    return { ...frame.shell(attributes, live.href), sha256: pointer.sha256 };
+    // The frame's Unsplash worker, which this page's connect-src must name for
+    // the theme panel's search; the frame is its one source.
+    const unsplash = /^https:\/\/[a-z0-9.-]+$/.test(frame.UNSPLASH_ORIGIN ?? "") ? frame.UNSPLASH_ORIGIN : "";
+    return { ...frame.shell(attributes, live.href), sha256: pointer.sha256, unsplash };
   } catch (error) {
     console.warn(`page: no frame shell (${error.message}); the stand-in shows until the frame loads`);
     return null;
@@ -199,6 +202,7 @@ const fill = {
   HOLO_SEARCH_ORIGIN: holoSearch.origin,
   REGISTRY_ORIGIN: prismRegistry.origin,
   FRAME_ORIGIN: frameHost.origin,
+  UNSPLASH_ORIGIN: frameFirstPaint?.unsplash ?? "",
   OG_IMAGE: escape(new URL("og.png", live).href),
   OG_ALT: escape(`${meta.name}: ${meta.purpose}`),
   NAME: escape(meta.name),

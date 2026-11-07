@@ -28,8 +28,9 @@
 // The shield sums the three: green only when the bytes are authentic and
 // every example gives its proved answer; its panel shows each check, as a
 // browser shows a page's security.
-// The frame owns the theme: it toggles the dark class on <html> and
-// remembers the choice as "prism-theme", as the page's theme bootstrap reads.
+// The frame owns the theme: light, dark or immersive. It sets the dark and
+// immersive classes on <html> and remembers the choice as "prism-theme" (and
+// the photo as "prism-backdrop"), as the page's theme bootstrap reads.
 
 const CSS = "/*CSS*/";
 const BRAND = "/*BRAND*/";
@@ -37,6 +38,238 @@ const HOME = "https://humuhumu33.github.io/holo-search/";
 // The Prism registry: the canonical kappa registry. Its index lists every
 // Prism app by its self-verifying address; every address bar reads it.
 const REGISTRY = "https://registry.uor.foundation/";
+
+// Immersive: the dark ground over one of nine Unsplash photos, chosen once
+// (image is each one's Unsplash original) and published beside the frame
+// (frame/publish.mjs), so no key ships; each is credited to its
+// photographer in the theme panel.
+const UNSPLASH = "utm_source=prism&utm_medium=referral";
+const BACKDROPS = [
+  {
+    id: "E0AHdsENmDg",
+    image: "https://images.unsplash.com/photo-1464802686167-b939a6910659?ixid=M3w4OTc5NTl8MHwxfHNlYXJjaHwxfHxzcGFjZXxlbnwxfDB8fHwxNzk0MDU1OTU2fDA&ixlib=rb-4.1.0",
+    color: "#0c2659",
+    alt: "The Milky Way in blue and violet",
+    name: "Jeremy Thomas",
+    user: "jeremythomasphoto",
+    page: "https://unsplash.com/photos/blue-and-purple-galaxy-digital-wallpaper-E0AHdsENmDg",
+  },
+  {
+    id: "qtRF_RxCAo0",
+    image: "https://images.unsplash.com/photo-1610296669228-602fa827fc1f?ixid=M3w4OTc5NTl8MHwxfHNlYXJjaHw0fHxzcGFjZXxlbnwxfDB8fHwxNzk0MDU1OTU2fDA&ixlib=rb-4.1.0",
+    color: "#262626",
+    alt: "A nebula in blue, gold and rust",
+    name: "Aldebaran S",
+    user: "aldebarans",
+    page: "https://unsplash.com/photos/blue-and-black-galaxy-digital-wallpaper-qtRF_RxCAo0",
+  },
+  {
+    id: "RF4p4rTM-2s",
+    image: "https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?ixid=M3w4OTc5NTl8MHwxfHNlYXJjaHw1fHxtaWxreSUyMHdheXxlbnwxfDB8fHwxNzk0MDU2MjUxfDA&ixlib=rb-4.1.0",
+    color: "#262626",
+    alt: "The Andromeda galaxy among stars",
+    name: "Bryan Goff",
+    user: "bryangoffphoto",
+    page: "https://unsplash.com/photos/galaxy-with-starry-night-RF4p4rTM-2s",
+  },
+  {
+    id: "Q1p7bh3SHj8",
+    image: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?ixid=M3w4OTc5NTl8MHwxfHNlYXJjaHw1fHxzcGFjZXxlbnwxfDB8fHwxNzk0MDU1OTU2fDA&ixlib=rb-4.1.0",
+    color: "#0c2626",
+    alt: "City lights across Earth at night, from orbit",
+    name: "NASA",
+    user: "nasa",
+    page: "https://unsplash.com/photos/photo-of-outer-space-Q1p7bh3SHj8",
+  },
+  {
+    id: "t7EL2iG3jMc",
+    image: "https://images.unsplash.com/photo-1534996858221-380b92700493?ixid=M3w4OTc5NTl8MHwxfHNlYXJjaHw5fHxzcGFjZXxlbnwxfDB8fHwxNzk0MDU1OTU2fDA&ixlib=rb-4.1.0",
+    color: "#59598c",
+    alt: "Earth's blue horizon against space",
+    name: "ActionVance",
+    user: "actionvance",
+    page: "https://unsplash.com/photos/outer-space-photography-of-earth-t7EL2iG3jMc",
+  },
+  {
+    id: "9wH624ALFQA",
+    image: "https://images.unsplash.com/photo-1515705576963-95cad62945b6?ixid=M3w4OTc5NTl8MHwxfHNlYXJjaHwxfHxtaWxreSUyMHdheXxlbnwxfDB8fHwxNzk0MDU2MjUxfDA&ixlib=rb-4.1.0",
+    color: "#0c2640",
+    alt: "The Milky Way rising over mountains",
+    name: "Dns Dgn",
+    user: "dnsdgn",
+    page: "https://unsplash.com/photos/milky-way-on-mountains-9wH624ALFQA",
+  },
+  {
+    id: "oMcTmNHclZI",
+    image: "https://images.unsplash.com/photo-1628818144466-856f7d477125?ixid=M3w4OTc5NTl8MHwxfGFsbHx8fHx8fHx8fDE3OTQwNTIyMTV8&ixlib=rb-4.1.0",
+    color: "#0c2626",
+    alt: "Green and violet aurora over a starry sky",
+    name: "Condor Wei",
+    user: "cwcanchn",
+    page: "https://unsplash.com/photos/aurora-borealis-in-starry-night-sky-oMcTmNHclZI",
+  },
+  {
+    id: "cZgVpseeazg",
+    image: "https://images.unsplash.com/photo-1545431766-45ff67845191?ixid=M3w4OTc5NTl8MHwxfGFsbHx8fHx8fHx8fDE3OTQwNTIyMTB8&ixlib=rb-4.1.0",
+    color: "#26260c",
+    alt: "A soft blur of rainbow light",
+    name: "Sean Sinclair",
+    user: "seanwsinclair",
+    page: "https://unsplash.com/photos/abstract-rainbow-color-blur-cZgVpseeazg",
+  },
+  {
+    id: "0wFwSZn6I-I",
+    image: "https://images.unsplash.com/photo-1709625862266-014ef072fd93?ixid=M3w4OTc5NTl8MHwxfGFsbHx8fHx8fHx8fDE3OTQwNTIyMTJ8&ixlib=rb-4.1.0",
+    color: "#262626",
+    alt: "Dark curved forms in soft light",
+    name: "Pawel Czerwinski",
+    user: "pawel_czerwinski",
+    page: "https://unsplash.com/photos/a-black-and-white-photo-of-a-curved-object-0wFwSZn6I-I",
+  },
+];
+const MODES = ["immersive", "dark", "light"];
+// Drawn on the page, outside the frame's shadow root: the photo fixed
+// behind the app under a scrim, so the page's text stays legible on any of
+// the three. It fills the window, exactly its edges and corners, and never
+// the chrome around it. Only the ground goes; the page's surfaces keep
+// their colour.
+const BACKDROP_CSS = `
+html.immersive { background: var(--prism-backdrop-color, #151312); }
+html.immersive body { background: transparent; }
+html.immersive body::before {
+  content: "";
+  position: fixed;
+  top: var(--prism-window-top, 0px);
+  right: var(--prism-window-right, 0px);
+  bottom: var(--prism-window-bottom, 0px);
+  left: var(--prism-window-left, 0px);
+  border-radius: var(--prism-window-radius, 0px);
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(rgb(12 10 9 / 0.5), rgb(12 10 9 / 0.62)), var(--prism-backdrop, none) center / cover no-repeat, var(--prism-backdrop-color, #151312);
+}`;
+let backdropSheet = null;
+
+// Any other Unsplash photo, found from the theme panel, comes through the
+// frame's Unsplash worker (frame/unsplash/worker.mjs), which holds the key.
+const UNSPLASH_PROXY = "https://prism-unsplash.trinity-03d.workers.dev/";
+// The page build (bootstrap/page.mjs) reads this into the page's connect-src.
+export const UNSPLASH_ORIGIN = new URL(UNSPLASH_PROXY).origin;
+// A photo read back from storage is trusted only in the shape the worker gives.
+const photoOf = (value) => {
+  const p = value && typeof value === "object" ? value : {};
+  const ok =
+    /^[\w-]{6,20}$/.test(p.id ?? "") &&
+    typeof p.image === "string" && p.image.startsWith("https://images.unsplash.com/") &&
+    /^#[0-9a-f]{6}$/i.test(p.color ?? "") &&
+    /^[\w.-]{1,64}$/.test(p.user ?? "") &&
+    typeof p.name === "string";
+  return ok ? { id: p.id, image: p.image, color: p.color, alt: String(p.alt ?? "").slice(0, 200), name: p.name.slice(0, 80), user: p.user, page: String(p.page ?? "") } : null;
+};
+// The theme, the photo in use, and the last photos found and chosen (up to
+// three), which the panel shows before the built-in ones.
+const storedTheme = () => {
+  try {
+    const recent = JSON.parse(localStorage.getItem("prism-backdrop-recent") ?? "[]");
+    return {
+      mode: localStorage.getItem("prism-theme"),
+      photo: localStorage.getItem("prism-backdrop"),
+      recent: (Array.isArray(recent) ? recent : []).map(photoOf).filter(Boolean).slice(0, 3),
+    };
+  } catch {
+    return { mode: null, photo: null, recent: [] };
+  }
+};
+
+// A photo as a data: URL. Every page the frame runs on may show data:
+// images, while most may show no image from elsewhere. A built-in photo is
+// fetched from the frame's own host, which every app page's connect-src
+// names, so it works in every Prism app and in Holo Search, unrebuilt; any
+// other comes through the worker. Each is fetched once per page, and only
+// once it is to be shown.
+//
+// Never with the page, though: immersive is every new visitor's theme, and
+// an app's Lighthouse budget allows two third-party requests, which the
+// frame's pointer and module take. A photo shown before comes from this
+// origin's cache at once, with no request; a new one waits for the
+// visitor's first move (a pointer, a touch, a key, a scroll), as the stars
+// and the Prism index do, and its ground is the photo's colour until then.
+// The cache is not named prism-*: those are the app's service worker's.
+const FRAME_HOST = "https://uor-foundation.github.io/template/frame/";
+const SHOWN = "holo-backdrops";
+const KEPT = 4;
+let moved = null;
+const firstMove = () =>
+  (moved ??= new Promise((resolve) => {
+    const kinds = ["pointermove", "pointerdown", "touchstart", "keydown", "wheel", "scroll"];
+    const go = () => {
+      for (const kind of kinds) removeEventListener(kind, go, true);
+      resolve();
+    };
+    for (const kind of kinds) addEventListener(kind, go, { capture: true, passive: true });
+  }));
+const shownBefore = async (url) => {
+  try {
+    return (await (await caches.open(SHOWN)).match(url)) ?? null;
+  } catch {
+    return null; // No Cache API here (an insecure origin): fetched as new.
+  }
+};
+// The last few photos shown, and no more: each is a few hundred kilobytes.
+const keep = async (url, response) => {
+  try {
+    const cache = await caches.open(SHOWN);
+    await cache.put(url, response);
+    const kept = await cache.keys();
+    for (const old of kept.slice(0, Math.max(0, kept.length - KEPT))) await cache.delete(old);
+  } catch {
+    // Kept for this page only.
+  }
+};
+const pictures = new Map();
+const picture = (url, { thumb = false } = {}) => {
+  if (!pictures.has(url)) {
+    const loading = (async () => {
+      // A thumbnail is asked for only by the open panel, after a move.
+      let response = thumb ? null : await shownBefore(url);
+      if (!response) {
+        await firstMove();
+        response = await fetch(url);
+        if (!response.ok) throw new Error(`backdrop: HTTP ${response.status}`);
+        if (!thumb) keep(url, response.clone());
+      }
+      const blob = await response.blob();
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+      });
+    })();
+    // A failed fetch is tried again the next time the photo is wanted.
+    loading.catch(() => pictures.delete(url));
+    pictures.set(url, loading);
+  }
+  return pictures.get(url);
+};
+const builtIn = (photo) => BACKDROPS.some((p) => p.id === photo.id);
+const pictureOf = (photo, thumb = false) =>
+  picture(
+    builtIn(photo)
+      ? new URL(`backdrops/${photo.id}${thumb ? "-thumb" : ""}.jpg`, FRAME_HOST).href
+      : `${UNSPLASH_PROXY}image?${new URLSearchParams(thumb ? { src: photo.image, w: "240", h: "150" } : { src: photo.image, w: "2400" })}`,
+    { thumb },
+  );
+// Search is offered where the page lets the frame reach the worker: a page
+// whose policy names it (every app page built from this template) or one
+// with no policy (Holo Search).
+const searchable = () => {
+  const policy = document.querySelector('meta[http-equiv="Content-Security-Policy" i]')?.content ?? "";
+  const rule = /(?:^|;)\s*connect-src\s([^;]*)/i.exec(policy) ?? /(?:^|;)\s*default-src\s([^;]*)/i.exec(policy);
+  if (!rule) return true;
+  const origin = new URL(UNSPLASH_PROXY).origin;
+  return rule[1].trim().split(/\s+/).some((source) => source === "*" || source.replace(/\/$/, "") === origin);
+};
 
 const escape = (text) =>
   String(text ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -70,7 +303,7 @@ const markup = (e) => `
     <div class="end">
     <slot name="status"></slot>
     <span id="bar-status" class="sr" aria-live="polite"></span>
-    <button id="theme" class="ghost icon" type="button" aria-label="Switch theme" title="Switch theme"><svg class="moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" /></svg><svg class="sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg></button>
+    <button id="theme" class="ghost icon" type="button" popovertarget="theme-panel" aria-label="Theme" title="Theme"><svg class="moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" /></svg><svg class="sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg><svg class="photo" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><rect x="3" y="4.5" width="18" height="15" rx="2.5" /><circle cx="9" cy="10" r="1.75" /><path d="m3.5 17 5-4.5 3.5 3 3-2.5 5.5 4.5" /></svg></button>
     <button id="fullscreen" class="ghost icon" type="button" aria-label="Enter full screen" title="Full screen"><svg class="expand" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15" /></svg><svg class="shrink" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 4v3.5A1.5 1.5 0 0 1 7.5 9H4M20 9h-3.5A1.5 1.5 0 0 1 15 7.5V4M15 20v-3.5a1.5 1.5 0 0 1 1.5-1.5H20M4 15h3.5A1.5 1.5 0 0 1 9 16.5V20" /></svg></button>
     </div>
   </div></div>
@@ -123,6 +356,19 @@ const markup = (e) => `
       <li><a class="share-target" href="${e.email}"><span class="share-glyph"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3.5 6.5 8.5 6.5 8.5-6.5" /></svg></span>Email</a></li>
       <li id="share-more-item" hidden><button id="share-more" class="share-target" type="button"><span class="share-glyph"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></svg></span>More</button></li>
     </ul>
+  </div>
+  <div id="theme-panel" class="theme-panel" popover aria-labelledby="theme-title">
+    <p id="theme-title" class="theme-title">Theme</p>
+    <div class="modes" role="group" aria-labelledby="theme-title">
+      <button class="mode" type="button" aria-pressed="false" data-mode="immersive"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><rect x="2" y="3" width="12" height="10" rx="2" /><circle cx="5.75" cy="6.5" r="1" /><path d="m2.5 11.5 3.25-3 2.5 2 2-1.75 3.25 2.75" /></svg>Immersive</button>
+      <button class="mode" type="button" aria-pressed="false" data-mode="dark"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M13.5 9.6A5.6 5.6 0 1 1 6.4 2.5a4.5 4.5 0 0 0 7.1 7.1z" /></svg>Dark</button>
+      <button class="mode" type="button" aria-pressed="false" data-mode="light"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="2.75" /><path d="M8 1.5v1.25M8 13.25v1.25M1.5 8h1.25M13.25 8h1.25M3.4 3.4l.9.9M11.7 11.7l.9.9M3.4 12.6l.9-.9M11.7 4.3l.9-.9" /></svg>Light</button>
+    </div>
+    <label id="find" class="find" hidden><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="4.5" /><path d="m10.5 10.5 3 3" /></svg><input id="find-input" type="search" placeholder="Search Unsplash" aria-label="Search Unsplash for a background" aria-controls="photos" autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="search" /><span id="find-busy" class="find-busy" aria-hidden="true"></span></label>
+    <div id="photos" class="photos" role="group" aria-label="Immersive background" aria-busy="false"></div>
+    <p id="photos-note" class="photos-note" role="status" hidden></p>
+    <button id="photos-more" class="photos-more" type="button" hidden>More photos</button>
+    <p class="credit">Photo by <a id="credit-name" target="_blank" rel="noopener noreferrer"></a> on <a href="https://unsplash.com/?${UNSPLASH}" target="_blank" rel="noopener noreferrer">Unsplash</a></p>
   </div>
 `;
 
@@ -292,6 +538,15 @@ class PrismFrame extends Element {
     if (!getComputedStyle(document.documentElement).getPropertyValue("--background").trim()) {
       document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheetOf(BRAND)];
     }
+    backdropSheet ??= sheetOf(BACKDROP_CSS);
+    if (!document.adoptedStyleSheets.includes(backdropSheet)) {
+      document.adoptedStyleSheets = [...document.adoptedStyleSheets, backdropSheet];
+    }
+    // Immersive is the default: a visitor who has chosen nothing gets it. A
+    // page built before immersive existed reads both as its own default; the
+    // frame corrects it, once, as it arrives.
+    const chosen = storedTheme().mode;
+    if (chosen !== "light" && chosen !== "dark") document.documentElement.classList.add("dark", "immersive");
     this.render();
     this.watchTheme();
     this.watchHeight();
@@ -299,6 +554,7 @@ class PrismFrame extends Element {
 
   disconnectedCallback() {
     this.heightWatch?.disconnect();
+    this.windowWatch?.disconnect();
     this.fullscreenWatch?.abort();
     this.themeWatch?.disconnect();
   }
@@ -327,8 +583,9 @@ class PrismFrame extends Element {
     this.trust();
     this.share();
     this.omnibox();
-    this.$("theme").addEventListener("click", () => this.toggleTheme());
+    this.themePanel();
     this.fullScreen();
+    this.watchWindow();
     const home = this.$("home");
     for (const type of ["pointerenter", "focus", "touchstart"]) home.addEventListener(type, () => speculate(this.data.home), { passive: true });
   }
@@ -471,19 +728,235 @@ class PrismFrame extends Element {
   }
 
   // The theme lives on <html>, where the page's own bootstrap set it before
-  // first paint; the frame mirrors it and toggles it.
+  // first paint; the frame mirrors it and sets it. Immersive is the dark
+  // ground with the chosen photo behind the page.
   watchTheme() {
     this.themeWatch = new MutationObserver(() => this.paintTheme());
     this.themeWatch.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
   }
+  mode() {
+    const root = document.documentElement.classList;
+    return root.contains("immersive") ? "immersive" : root.contains("dark") ? "dark" : "light";
+  }
+  // The photo in use: a built-in one, one found and chosen before, or, where
+  // the browser keeps nothing (a private window), the one chosen this visit.
+  photo() {
+    const { photo: id, recent } = storedTheme();
+    const wanted = id ?? this.chosen?.id;
+    return [...BACKDROPS, ...recent, this.chosen].find((photo) => photo && photo.id === wanted) ?? BACKDROPS[0];
+  }
   paintTheme() {
-    const dark = document.documentElement.classList.contains("dark");
-    this.toggleAttribute("dark", dark);
+    const mode = this.mode();
+    // A photo found through the worker shows only where the page lets the
+    // frame reach it; elsewhere (an app built before) the first built-in one.
+    const chosen = this.photo();
+    const photo = builtIn(chosen) || searchable() ? chosen : BACKDROPS[0];
+    const root = document.documentElement;
+    this.toggleAttribute("dark", mode !== "light");
+    this.toggleAttribute("immersive", mode === "immersive");
+    if (mode === "immersive") {
+      root.style.setProperty("--prism-backdrop-color", photo.color);
+      if (this.backdrop !== photo.id) {
+        this.backdrop = photo.id;
+        // Until it arrives, or if it cannot, the photo's own colour is the ground.
+        pictureOf(photo)
+          .then((url) => {
+            if (this.backdrop === photo.id) root.style.setProperty("--prism-backdrop", `url("${url}")`);
+          })
+          .catch(() => {
+            // Not shown, so the next paint (a click, a reload) asks again.
+            if (this.backdrop === photo.id) this.backdrop = null;
+          });
+      }
+    } else {
+      this.backdrop = null;
+      root.style.removeProperty("--prism-backdrop");
+      root.style.removeProperty("--prism-backdrop-color");
+    }
     const button = this.$("theme");
     if (!button) return;
-    const label = `Switch to ${dark ? "light" : "dark"} theme`;
+    const label = `Theme: ${mode[0].toUpperCase()}${mode.slice(1)}`;
     button.setAttribute("aria-label", label);
     button.title = label;
+    for (const choice of this.shadowRoot.querySelectorAll(".mode")) choice.setAttribute("aria-pressed", String(choice.dataset.mode === mode));
+    for (const choice of this.shadowRoot.querySelectorAll("button.photo-pick")) choice.setAttribute("aria-pressed", String(choice.dataset.photo === photo.id));
+    const credit = this.$("credit-name");
+    credit.textContent = photo.name;
+    credit.href = `https://unsplash.com/@${photo.user}?${UNSPLASH}`;
+  }
+  setTheme(mode, photo) {
+    const root = document.documentElement;
+    if (photo) this.chosen = photo;
+    try {
+      localStorage.setItem("prism-theme", mode);
+      if (photo) {
+        localStorage.setItem("prism-backdrop", photo.id);
+        if (!builtIn(photo)) {
+          const recent = [photo, ...storedTheme().recent.filter((p) => p.id !== photo.id)].slice(0, 3);
+          localStorage.setItem("prism-backdrop-recent", JSON.stringify(recent));
+        }
+      }
+    } catch {
+      // A private window keeps no preference; the page still switches.
+    }
+    root.classList.toggle("dark", mode !== "light");
+    root.classList.toggle("immersive", mode === "immersive");
+    // A new photo in the same mode changes no class, so nothing else repaints.
+    this.paintTheme();
+  }
+
+  // The theme panel: the three modes, a search of Unsplash, and the photos:
+  // with nothing typed, the last ones found and chosen, then the nine built
+  // in, space first; with words, what Unsplash finds, nine at a time. Choosing a
+  // photo is also the way into immersive. It opens under the theme button,
+  // its right edge on the button's. Photos are fetched the first time the
+  // panel opens, never with the page. Without popovers the button steps
+  // through the modes.
+  themePanel() {
+    const frame = this;
+    const button = frame.$("theme");
+    const panel = frame.$("theme-panel");
+    for (const choice of panel.querySelectorAll(".mode")) {
+      choice.addEventListener("click", () => frame.setTheme(choice.dataset.mode));
+    }
+    if (typeof panel.showPopover !== "function") {
+      button.removeAttribute("popovertarget");
+      button.addEventListener("click", () => frame.setTheme(MODES[(MODES.indexOf(frame.mode()) + 1) % MODES.length]));
+      return;
+    }
+    const grid = frame.$("photos");
+    const note = frame.$("photos-note");
+    const more = frame.$("photos-more");
+    const find = frame.$("find");
+    const input = frame.$("find-input");
+    find.hidden = !searchable();
+    let query = "";
+    let page = 1;
+    let asking = null;
+    let timer = 0;
+
+    // A photo's tile: its colour at once, the photo fading in over it.
+    const tile = (photo) => {
+      const pick = document.createElement("button");
+      pick.type = "button";
+      pick.className = "photo-pick";
+      pick.dataset.photo = photo.id;
+      const words = `${photo.alt || "Photo"}, by ${photo.name}`;
+      pick.setAttribute("aria-label", words);
+      pick.title = words;
+      pick.setAttribute("aria-pressed", String(photo.id === frame.photo().id));
+      pick.style.backgroundColor = photo.color;
+      const img = new Image(240, 150);
+      img.alt = "";
+      img.decoding = "async";
+      img.addEventListener("load", () => pick.classList.add("ready"), { once: true });
+      pictureOf(photo, true).then((url) => (img.src = url)).catch(() => {});
+      pick.append(img);
+      pick.addEventListener("click", () => {
+        frame.setTheme("immersive", photo);
+        // Unsplash is told once a photo it found is put to use.
+        if (!builtIn(photo)) fetch(`${UNSPLASH_PROXY}use?id=${encodeURIComponent(photo.id)}`, { method: "POST" }).catch(() => {});
+      });
+      return pick;
+    };
+    const unique = (photos) => photos.filter((photo, i) => photos.findIndex((p) => p.id === photo.id) === i);
+    const say = (words) => {
+      note.textContent = words;
+      note.hidden = !words;
+    };
+    // Nine, as a search shows: the recent ones first, then the built-in
+    // ones, never leaving out the photo in use.
+    const home = () => {
+      const chosen = frame.chosen && !builtIn(frame.chosen) ? [frame.chosen] : [];
+      const all = unique([...chosen, ...storedTheme().recent, ...BACKDROPS]);
+      const shown = all.slice(0, 9);
+      const current = frame.photo();
+      if (!shown.some((p) => p.id === current.id)) shown[shown.length - 1] = current;
+      grid.replaceChildren(...shown.map(tile));
+      more.hidden = true;
+      say("");
+    };
+    const skeleton = () =>
+      grid.replaceChildren(...Array.from({ length: 9 }, () => {
+        const blank = document.createElement("span");
+        blank.className = "photo-pick blank";
+        return blank;
+      }));
+    const settle = (control) => {
+      if (asking !== control) return;
+      find.classList.remove("busy");
+      grid.setAttribute("aria-busy", "false");
+    };
+    async function ask(words, next = 0) {
+      asking?.abort();
+      const control = (asking = new AbortController());
+      find.classList.add("busy");
+      grid.setAttribute("aria-busy", "true");
+      if (!next) {
+        skeleton();
+        more.hidden = true;
+        say("");
+      }
+      let status = 0;
+      try {
+        const response = await fetch(`${UNSPLASH_PROXY}search?${new URLSearchParams({ q: words, page: String(next || 1) })}`, { signal: control.signal });
+        status = response.status;
+        const found = await response.json();
+        if (!response.ok) throw new Error(found.error ?? `HTTP ${status}`);
+        const photos = (Array.isArray(found.photos) ? found.photos : []).map(photoOf).filter(Boolean);
+        page = found.page ?? 1;
+        if (next) grid.append(...photos.map(tile));
+        else grid.replaceChildren(...photos.map(tile));
+        more.hidden = !found.more || !photos.length;
+        if (!next && !photos.length) say(`No photos for “${words}”`);
+      } catch (error) {
+        if (error.name === "AbortError") return;
+        if (!next) home();
+        say(status === 429 ? "Unsplash needs a short rest. Try again soon." : "Search isn’t available right now.");
+      } finally {
+        settle(control);
+      }
+    }
+
+    input.addEventListener("input", () => {
+      clearTimeout(timer);
+      const words = input.value.trim();
+      if (words === query) return;
+      query = words;
+      if (!words) {
+        asking?.abort();
+        settle(asking);
+        home();
+        return;
+      }
+      timer = setTimeout(() => ask(words), 280);
+    });
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        clearTimeout(timer);
+        if (query) ask(query);
+      } else if (event.key === "Escape" && input.value) {
+        // The first Escape clears the search; the next closes the panel.
+        event.preventDefault();
+        event.stopPropagation();
+        input.value = "";
+        input.dispatchEvent(new Event("input"));
+      }
+    });
+    more.addEventListener("click", () => query && ask(query, page + 1));
+
+    panel.addEventListener("beforetoggle", (event) => {
+      if (event.newState !== "open") return;
+      const bar = frame.shadowRoot.querySelector(".bar").getBoundingClientRect();
+      const edge = button.getBoundingClientRect();
+      const view = document.documentElement.clientWidth;
+      const width = Math.min(20 * parseFloat(getComputedStyle(document.documentElement).fontSize), view - 32);
+      const right = Math.max(16, Math.min(view - edge.right, view - width - 16));
+      panel.style.setProperty("--theme-top", `${Math.round(bar.bottom + 6)}px`);
+      panel.style.setProperty("--theme-right", `${Math.round(right)}px`);
+      if (!query) home();
+    });
   }
   // Full screen: the whole page, where the browser allows it; the button
   // hides where it does not (an iPhone's Safari). Escape, or the button,
@@ -517,16 +990,6 @@ class PrismFrame extends Element {
     paint();
   }
 
-  toggleTheme() {
-    const root = document.documentElement;
-    root.classList.toggle("dark");
-    try {
-      localStorage.setItem("prism-theme", root.classList.contains("dark") ? "dark" : "light");
-    } catch {
-      // A private window keeps no preference; the page still switches.
-    }
-  }
-
   // The window's top edge is the bar's bottom edge: the height the page
   // reserves, until the bar wraps at large text and grows.
   watchHeight() {
@@ -536,6 +999,31 @@ class PrismFrame extends Element {
       this.style.setProperty("--frame-height", `${height}px`);
     });
     this.heightWatch.observe(this);
+  }
+
+  // Immersive's photo is the app's, so it fills the window and stops at its
+  // edges. The window is the frame's to size (the bar's height, the gutters,
+  // the safe areas, the corners, none at all on a phone in landscape), so
+  // the frame measures it as drawn and publishes its edges on <html> for
+  // BACKDROP_CSS. It follows every resize of the window, which is fixed to
+  // the viewport. render() redraws the window, so it watches the new one.
+  watchWindow() {
+    this.windowWatch?.disconnect();
+    const canvas = this.shadowRoot.querySelector(".canvas");
+    const place = () => {
+      const view = document.documentElement;
+      const shown = getComputedStyle(canvas).display !== "none";
+      const box = canvas.getBoundingClientRect();
+      const edges = shown
+        ? { top: box.top, right: view.clientWidth - box.right, bottom: view.clientHeight - box.bottom, left: box.left, radius: parseFloat(getComputedStyle(canvas).borderTopLeftRadius) || 0 }
+        : { top: 0, right: 0, bottom: 0, left: 0, radius: 0 };
+      for (const [edge, px] of Object.entries(edges)) view.style.setProperty(`--prism-window-${edge}`, `${Math.max(0, Math.round(px * 100) / 100)}px`);
+    };
+    if ("ResizeObserver" in window) {
+      this.windowWatch = new ResizeObserver(place);
+      this.windowWatch.observe(canvas);
+    }
+    place();
   }
 
   share() {
