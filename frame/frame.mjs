@@ -516,7 +516,7 @@ function modelOf(get, title, base) {
 // click, after this module has loaded and drawn the whole root, so neither
 // they nor their styles are written into the page, which keeps every app's
 // first load inside its Lighthouse budget.
-const PANEL_RULE = /trust-panel|share-|check-|omnibox|opt-|\.trust-/;
+const PANEL_RULE = /trust-panel|share-|theme-|check-|omnibox|opt-|\.trust-/;
 function barCss(css) {
   const rules = [];
   for (let depth = 0, start = 0, at = 0; at < css.length; at++) {
