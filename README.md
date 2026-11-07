@@ -168,6 +168,19 @@ the archive carries. Every instance gets the same page; an app edits one file.
   plain statement and the proof attestation from `app.json`, `app.mjs`
   passes the fingerprint check and the replay as they finish, and the
   frame draws the rest.
+- **Hops between apps, ahead of the click.** A Prism app is named by its
+  content, so a page loaded early is never stale and never another app's.
+  When a visitor shows where they are going (home under the pointer, a
+  suggestion chosen in the address bar) the frame marks that page with a
+  `data-prism-ahead` link, and the page's one speculation rule (fixed, so
+  `page.mjs` hashes it into the Content-Security-Policy) has the browser
+  prerender it: the next app loads, verifies its bytes and replays its
+  examples before the click, so opening it shows a page already checked.
+  Another origin is prefetched; a browser without speculation rules gets a
+  prefetch. Each page also asks for the whole vendored runtime and the holo
+  in parallel with its first paint, at low priority, instead of one import
+  at a time, opens the frame host's connection with its own, and holds the
+  bar in place across the navigation with a cross-document view transition.
 - **An address bar for Prism apps.** The holo:// pill is also an omnibox,
   like Chrome's. Focus it and it selects the address, a hairline in the UOR
   Foundation's colour spectrum runs round it, and it lists this app and

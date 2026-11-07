@@ -96,6 +96,43 @@ const holoSearch = new URL("https://humuhumu33.github.io/holo-search/");
 const frameHost = new URL(meta.frame ?? "https://uor-foundation.github.io/template/frame/");
 const shareUrl = live.href;
 
+// What the app needs right after first paint, asked for in parallel with it:
+// the vendored runtime's whole module graph, walked from browser.mjs (one
+// round trip, not one per import), and the holo. Low priority, so they
+// never compete with the first paint; when app.mjs imports them they are
+// there. Where the runtime is not vendored yet (a local render before
+// pages.yml copies it), nothing is preloaded.
+async function runtimeGraph(entry) {
+  const seen = new Set();
+  const walk = async (path) => {
+    if (seen.has(path)) return;
+    const text = await read(path).catch(() => null);
+    if (text === null) return;
+    seen.add(path);
+    for (const [, spec] of text.matchAll(/(?:^|\n)\s*(?:import|export)\b[^'"]*?from\s*['"](\.{1,2}\/[^'"]+)['"]/g)) {
+      await walk(join(path, "..", spec).replace(/\\/g, "/"));
+    }
+  };
+  await walk(entry);
+  return [...seen];
+}
+const runtime = await runtimeGraph("vendor/prism-code/src/browser.mjs");
+const holoThere = await access(join(site, "app.holo")).then(() => true, () => false);
+const preloads = [
+  ...runtime.map((path) => `<link rel="modulepreload" href="./${path}" fetchpriority="low" />`),
+  ...(holoThere ? ['<link rel="preload" href="./app.holo" as="fetch" type="application/octet-stream" crossorigin fetchpriority="low" />'] : []),
+].join("\n    ");
+// The one speculation rule: the frame marks the pages a visitor is about to
+// open with data-prism-ahead links; this rule prerenders them (prefetches
+// one on another origin). It is fixed, so its hash is in the policy.
+const speculationRules = JSON.stringify({
+  prerender: [{ where: { and: [{ selector_matches: "a[data-prism-ahead]" }, { href_matches: "/*" }] }, eagerness: "immediate" }],
+  prefetch: [{ where: { selector_matches: "a[data-prism-ahead]" }, eagerness: "immediate" }],
+});
+// The frame's host, when it is another origin: its connection is opened
+// with the page's, so the frame does not wait for a TLS handshake.
+const frameConnect = frameHost.origin !== live.origin ? `<link rel="preconnect" href="${escape(frameHost.origin)}" crossorigin />` : "";
+
 const item = (mark, markClass, name, what) =>
   `<li><span class="${markClass}">${mark}</span><div><div class="name">${escape(name)}</div><div class="what">${escape(what)}</div></div></li>`;
 
@@ -135,8 +172,11 @@ const fill = {
   INLINE_CSS: css,
   INLINE_THEME: theme,
   IMPORTMAP: importmap,
+  SPECULATION_RULES: speculationRules,
+  PRELOADS: preloads,
+  FRAME_CONNECT: frameConnect,
   APP_DATA: JSON.stringify({ answers: meta.answers, frame: frameHost.href, card: cardModule }).replace(/</g, "\\u003c"),
-  CSP_SCRIPT_HASHES: `${sha(theme)} ${sha(importmap)}`,
+  CSP_SCRIPT_HASHES: `${sha(theme)} ${sha(importmap)} ${sha(speculationRules)}`,
   CSP_STYLE_HASHES: sha(css),
 };
 for (const [key, value] of Object.entries(fill)) {

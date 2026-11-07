@@ -122,6 +122,60 @@ const markup = (e) => `
   </div>
 `;
 
+// Speculation: the app a visitor shows they are about to open (home under
+// the pointer, a suggestion chosen in the address bar) is loaded before they
+// open it. A Prism app is named by its content, so what is loaded early is
+// never stale and never another app's; on its own origin it is prerendered,
+// so it also verifies its bytes and replays its examples before the visitor
+// arrives, and opening it is showing a page already checked. Another origin
+// is only fetched.
+// The page carries one fixed rule (bootstrap/page.mjs hashes it into its
+// Content-Security-Policy): prerender, or for another origin prefetch, any
+// link marked data-prism-ahead. The frame marks the pages to load: up to
+// three links, the latest first, rendered but out of sight and out of the
+// tab order, since the browser only acts on rendered links. A page without
+// the rule gets a plain prefetch of a same-origin page instead.
+const speculation = { box: null, prefetched: new Set() };
+function speculate(href) {
+  if (!href) return;
+  let url;
+  try {
+    url = new URL(href, location.href);
+  } catch {
+    return;
+  }
+  url.hash = "";
+  const here = new URL(location.href);
+  here.hash = "";
+  if (!/^https?:$/.test(url.protocol) || url.href === here.href) return;
+  if (document.querySelector('script[type="speculationrules"][data-prism-ahead]')) {
+    if (!speculation.box?.isConnected) {
+      speculation.box = document.createElement("div");
+      speculation.box.setAttribute("aria-hidden", "true");
+      Object.assign(speculation.box.style, { position: "absolute", width: "1px", height: "1px", overflow: "hidden", clipPath: "inset(50%)", pointerEvents: "none" });
+      document.body.append(speculation.box);
+    }
+    const held = [...speculation.box.children].find((link) => link.href === url.href);
+    if (held) {
+      speculation.box.prepend(held);
+      return;
+    }
+    const link = document.createElement("a");
+    link.href = url.href;
+    link.tabIndex = -1;
+    link.dataset.prismAhead = "";
+    speculation.box.prepend(link);
+    while (speculation.box.children.length > 3) speculation.box.lastElementChild.remove();
+    return;
+  }
+  if (url.origin !== location.origin || speculation.prefetched.has(url.href)) return;
+  speculation.prefetched.add(url.href);
+  const link = document.createElement("link");
+  link.rel = "prefetch";
+  link.href = url.href;
+  document.head.append(link);
+}
+
 class PrismFrame extends HTMLElement {
   static observedAttributes = ["name", "address", "live", "repo", "home", "purpose", "card", "identity", "verdict", "verdict-label", "fingerprint", "proof", "proof-url", "examples"];
 
@@ -195,6 +249,8 @@ class PrismFrame extends HTMLElement {
     this.omnibox();
     this.$("theme").addEventListener("click", () => this.toggleTheme());
     this.fullScreen();
+    const home = this.$("home");
+    for (const type of ["pointerenter", "focus", "touchstart"]) home.addEventListener(type, () => speculate(this.data.home), { passive: true });
   }
 
   // The shield and its panel: three checks, each from what the page found.
@@ -670,6 +726,7 @@ class PrismFrame extends HTMLElement {
       input.setAttribute("aria-expanded", String(!list.hidden));
       if (rows.length) input.setAttribute("aria-activedescendant", `omnibox-${active}`);
       else input.removeAttribute("aria-activedescendant");
+      lookAhead();
     }
 
     function select(i) {
@@ -678,6 +735,7 @@ class PrismFrame extends HTMLElement {
       for (const li of list.querySelectorAll(".opt")) li.setAttribute("aria-selected", String(li.id === `omnibox-${active}`));
       input.setAttribute("aria-activedescendant", `omnibox-${active}`);
       frame.$(`omnibox-${active}`)?.scrollIntoView({ block: "nearest" });
+      lookAhead();
     }
 
     function close() {
@@ -689,6 +747,16 @@ class PrismFrame extends HTMLElement {
       active = 0;
     }
 
+    // Where a row goes: this app stays here; any other opens through Holo Search.
+    const destination = (row) => (row && row.kind !== "self" ? `${search}?r=${encodeURIComponent(row.target)}` : "");
+    // The active row is loaded ahead, a beat after it settles, so arrowing
+    // through the list does not start a page for every row passed.
+    let ahead = 0;
+    const lookAhead = () => {
+      clearTimeout(ahead);
+      ahead = setTimeout(() => speculate(destination(rows[active])), 80);
+    };
+
     function choose(row) {
       if (row.kind === "self") {
         input.blur();
@@ -698,7 +766,7 @@ class PrismFrame extends HTMLElement {
         return;
       }
       list.hidden = true;
-      location.assign(`${search}?r=${encodeURIComponent(row.target)}`);
+      location.assign(destination(row));
     }
 
     input.addEventListener("focus", () => {

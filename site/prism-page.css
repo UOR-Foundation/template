@@ -110,6 +110,16 @@ prism-frame {
   z-index: 10;
   min-height: calc(var(--safe-top) + var(--frame-bar));
 }
+/* Between Prism apps the page changes and the frame stays: a navigation is
+ * a short cross-fade of the window, with the bar held in place, as a
+ * browser switches tabs. The bar takes part only once it is drawn, so a
+ * page whose frame has not arrived yet never morphs into the stand-in. */
+@view-transition { navigation: auto; }
+prism-frame:defined { view-transition-name: prism-frame; }
+::view-transition-group(*) { animation-duration: 160ms; animation-timing-function: cubic-bezier(0.2, 0, 0, 1); }
+@media (prefers-reduced-motion: reduce) {
+  @view-transition { navigation: none; }
+}
 prism-frame:not(:defined) {
   padding-top: var(--safe-top);
   background: var(--sidebar);
