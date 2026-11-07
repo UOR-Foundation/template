@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test:try": "node --test try/test.mjs"
+    "test:try": "node --test try/test.mjs",
+    "test:identity": "node --test identity/test.mjs"
   },
   "devDependencies": {
     "playwright": "1.62.1",

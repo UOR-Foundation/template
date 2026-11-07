@@ -7,7 +7,7 @@
 //
 // The contract (prism/frame/1):
 //   <prism-frame name address live repo home purpose card identity
-//                verdict verdict-label fingerprint proof proof-url examples>
+//                verdict verdict-label fingerprint proof proof-url examples accounts>
 //     <span slot="status">…</span>     optional: shown in the bar, e.g. "Update available"
 //   </prism-frame>
 // name      the app's name ("Luhn check")
@@ -25,6 +25,11 @@
 // proof-url optional: the proof's attestation
 // examples  optional: "passed/total" once the page has replayed the holo's
 //           examples, "running" while it does, "error" when it could not
+// accounts  optional: the Prism accounts origin (https://id.uor.foundation)
+// The element's account is the visitor's Prism account (null when signed
+// out); sign(bytes) signs with this browser's session key and returns the
+// signature with the passkey's delegation; "accountchange" fires on sign-in
+// and sign-out. identity/PROTOCOL.md is the account contract.
 // The shield sums the three: green only when the bytes are authentic and
 // every example gives its proved answer; its panel shows each check, as a
 // browser shows a page's security.
@@ -69,6 +74,7 @@ const markup = (e) => `
     <span id="bar-status" class="sr" aria-live="polite"></span>
     <button id="theme" class="ghost icon" type="button" aria-label="Switch theme" title="Switch theme"><svg class="moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" /></svg><svg class="sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg></button>
     <button id="fullscreen" class="ghost icon" type="button" aria-label="Enter full screen" title="Full screen"><svg class="expand" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15" /></svg><svg class="shrink" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 4v3.5A1.5 1.5 0 0 1 7.5 9H4M20 9h-3.5A1.5 1.5 0 0 1 15 7.5V4M15 20v-3.5a1.5 1.5 0 0 1 1.5-1.5H20M4 15h3.5A1.5 1.5 0 0 1 9 16.5V20" /></svg></button>
+    <button id="account" class="ghost icon" type="button" popovertarget="account-panel" aria-label="Sign in" title="Sign in"><svg class="person" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="3.5" /><path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6" /></svg></button>
     </div>
   </div></div>
   <div id="trust-panel" class="trust-panel" popover aria-labelledby="trust-title">
@@ -120,6 +126,17 @@ const markup = (e) => `
       <li><a class="share-target" href="${e.email}"><span class="share-glyph"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3.5 6.5 8.5 6.5 8.5-6.5" /></svg></span>Email</a></li>
       <li id="share-more-item" hidden><button id="share-more" class="share-target" type="button"><span class="share-glyph"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></svg></span>More</button></li>
     </ul>
+  </div>
+  <div id="account-panel" class="account-panel" popover aria-labelledby="account-title">
+    <p id="account-title" class="account-title">Prism account</p>
+    <p id="account-sub" class="account-sub">One account for every app. No password.</p>
+    <div id="account-in" class="account-in" hidden>
+      <p class="account-id"><code id="account-id"></code><button id="account-copy" class="text" type="button">Copy</button></p>
+      <button id="account-add" class="row" type="button">Add device</button>
+      <button id="account-out" class="row" type="button">Sign out</button>
+    </div>
+    <div id="account-ceremony" class="account-ceremony"></div>
+    <button id="account-window" class="primary" type="button" hidden>Sign in</button>
   </div>
 `;
 
@@ -229,6 +246,136 @@ function holoIndex(home) {
 const githubMark = '<svg class="gh" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z" /></svg>';
 const starMark = '<svg class="star" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false"><path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.751.751 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z" /></svg>';
 
+// Prism accounts (prism/identity/1, identity/PROTOCOL.md). An account is a
+// passkey: its private key stays in the device's secure hardware, and the
+// account's name is the hash of its public key. The sign-in page on the
+// accounts origin runs the ceremony; the frame trusts nothing it says and
+// checks every signature here, in the visitor's browser, as it checks the
+// holo's bytes. A failed check is an IdentityError naming which one.
+const ACCOUNTS = "https://id.uor.foundation";
+const SESSION_DAYS = 7;
+const MAX_CHAIN = 5;
+const enc = new TextEncoder();
+const b64u = (bytes) => btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const unb64u = (text) => {
+  if (typeof text !== "string" || !/^[\w-]*$/.test(text)) throw new IdentityError("encoding", "A value is not base64url");
+  return Uint8Array.from(atob(text.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+};
+const digest = async (bytes) => new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+
+export class IdentityError extends Error {
+  constructor(code, message) {
+    super(message);
+    this.name = "IdentityError";
+    this.code = code;
+  }
+}
+const deny = (code, message) => {
+  throw new IdentityError(code, message);
+};
+
+// The origins whose signatures count, each with its WebAuthn rpId.
+export const originsOf = (accounts) => ({ [new URL(accounts).origin]: new URL(accounts).hostname });
+
+const ALGORITHMS = {
+  [-7]: { key: { name: "ECDSA", namedCurve: "P-256" }, verify: { name: "ECDSA", hash: "SHA-256" } },
+  [-257]: { key: { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, verify: { name: "RSASSA-PKCS1-v1_5" } },
+};
+
+// WebAuthn's ECDSA signatures are DER; WebCrypto's are the two 32-byte halves.
+function rawSignature(der) {
+  let at = 2;
+  const integer = () => {
+    if (der[at++] !== 0x02) deny("signature", "The signature is not DER");
+    const length = der[at++];
+    let value = der.slice(at, (at += length));
+    while (value.length > 32 && value[0] === 0) value = value.slice(1);
+    if (value.length > 32 || at > der.length) deny("signature", "The signature is not DER");
+    const out = new Uint8Array(32);
+    out.set(value, 32 - value.length);
+    return out;
+  };
+  if (der[0] !== 0x30 || der[1] !== der.length - 2) deny("signature", "The signature is not DER");
+  const r = integer();
+  const s = integer();
+  return new Uint8Array([...r, ...s]);
+}
+
+// One WebAuthn assertion: the passkey of record signed message. The six
+// checks of PROTOCOL.md, in its order, failing closed.
+export async function verifySigned(record, signed, message, origins) {
+  if (signed?.credential !== record.credential) deny("credential", "The signature is from another passkey");
+  let client;
+  try {
+    client = JSON.parse(new TextDecoder().decode(unb64u(signed.clientDataJSON)));
+  } catch {
+    deny("client", "The signed client data is not JSON");
+  }
+  if (client.type !== "webauthn.get") deny("type", "The signature is not a sign-in");
+  if (client.challenge !== b64u(await digest(enc.encode(message)))) deny("challenge", "The signature is for another request");
+  const rp = Object.hasOwn(origins, client.origin) ? origins[client.origin] : null;
+  if (!rp) deny("origin", "The signature was made on another site");
+  const data = unb64u(signed.authenticatorData);
+  if (data.length < 37 || b64u(data.slice(0, 32)) !== b64u(await digest(enc.encode(rp)))) deny("rp", "The passkey belongs to another site");
+  if ((data[32] & 0x05) !== 0x05) deny("flags", "The device did not verify its user");
+  const algorithm = ALGORITHMS[record.alg] ?? deny("algorithm", "The passkey's algorithm is not ES256 or RS256");
+  const key = await crypto.subtle.importKey("spki", unb64u(record.spki), algorithm.key, false, ["verify"]).catch(() => deny("key", "The public key does not parse"));
+  let signature = unb64u(signed.signature);
+  if (record.alg === -7) signature = rawSignature(signature);
+  const body = new Uint8Array([...data, ...(await digest(unb64u(signed.clientDataJSON)))]);
+  if (!(await crypto.subtle.verify(algorithm.verify, key, signature, body))) deny("signature", "The signature does not verify");
+}
+
+// A key record, accepted only when its name is its key's hash and it is the
+// account's first key or bound to it by a key already accepted.
+export async function acceptRecord(credential, records, origins, depth = 0) {
+  const record = records.find((r) => r?.credential === credential);
+  if (!record || record.spec !== "prism/identity/key/1") deny("record", "The passkey has no record");
+  if (b64u(await digest(unb64u(record.spki))) !== record.key) deny("key", "The record's name is not its key's hash");
+  if (record.key === record.account) {
+    if (record.binding) deny("binding", "An account's first key has no binding");
+    return record;
+  }
+  if (depth >= MAX_CHAIN || !record.binding) deny("binding", "The key is not bound to its account");
+  const parent = await acceptRecord(record.binding.credential, records, origins, depth + 1);
+  if (parent.account !== record.account) deny("binding", "The key is bound by another account");
+  await verifySigned(parent, record.binding, `prism/identity/bind/1\n${record.account}\n${record.key}`, origins);
+  return record;
+}
+
+// A session: the account's passkey let one browser key act for it, on one
+// app's origin, until it expires. Anyone holding the session can check it.
+export async function verifySession(session, origins, now = Date.now()) {
+  const { app, nonce, sessionKey, expires, assertion, records } = session ?? {};
+  if (!Number.isSafeInteger(expires) || expires <= now) deny("expired", "The session has expired");
+  const record = await acceptRecord(assertion?.credential, records ?? [], origins);
+  await verifySigned(record, assertion, `prism/identity/session/1\n${app}\n${nonce}\n${sessionKey}\n${expires}`, origins);
+  return { account: record.account, key: record.key, credential: record.credential, expires };
+}
+
+// The session, in this app's IndexedDB: the browser key cannot be read out
+// of it by any script, only used. Nothing goes to localStorage.
+function store(mode, work) {
+  return new Promise((done, fail) => {
+    const open = indexedDB.open("prism-identity", 1);
+    open.onupgradeneeded = () => open.result.createObjectStore("session");
+    open.onerror = () => fail(open.error);
+    open.onsuccess = () => {
+      const db = open.result;
+      const tx = db.transaction("session", mode);
+      const request = work(tx.objectStore("session"));
+      tx.oncomplete = () => (db.close(), done(request?.result));
+      tx.onerror = () => (db.close(), fail(tx.error));
+    };
+  });
+}
+const accountChannel = { session: null, loaded: null };
+function loadSession() {
+  return (accountChannel.loaded ??= store("readonly", (s) => s.get("current"))
+    .then((saved) => (accountChannel.session = saved && saved.delegation.expires > Date.now() ? saved : null))
+    .catch(() => null));
+}
+
 // Everything the markup needs, from the attributes (get), the page's title
 // and its address: one function, for the element and for the shell.
 function modelOf(get, title, base) {
@@ -250,6 +397,7 @@ function modelOf(get, title, base) {
     ...starsOf(Number(get("stars"))),
     card: get("card") ?? new URL("og.png", url).href,
     identity: get("identity") ?? "#identity-title",
+    accounts: get("accounts") ?? ACCOUNTS,
     host: (url.host + url.pathname).replace(/\/$/, ""),
     x: `https://x.com/intent/post?${query({ text, url: url.href })}`,
     linkedin: `https://www.linkedin.com/sharing/share-offsite/?${query({ url: url.href })}`,
@@ -278,7 +426,7 @@ export function shell(attributes, base) {
 // there is none, to write the shell.
 const Element = globalThis.HTMLElement ?? class {};
 class PrismFrame extends Element {
-  static observedAttributes = ["name", "address", "live", "repo", "home", "purpose", "card", "identity", "verdict", "verdict-label", "fingerprint", "proof", "proof-url", "examples", "stars"];
+  static observedAttributes = ["name", "address", "live", "repo", "home", "purpose", "card", "identity", "verdict", "verdict-label", "fingerprint", "proof", "proof-url", "examples", "stars", "accounts"];
 
   constructor() {
     super();
@@ -302,6 +450,7 @@ class PrismFrame extends Element {
     this.heightWatch?.disconnect();
     this.fullscreenWatch?.abort();
     this.themeWatch?.disconnect();
+    this.accountWatch?.abort();
   }
 
   attributeChangedCallback(name, before, after) {
@@ -330,6 +479,7 @@ class PrismFrame extends Element {
     this.omnibox();
     this.$("theme").addEventListener("click", () => this.toggleTheme());
     this.fullScreen();
+    this.accountPanel();
     const home = this.$("home");
     for (const type of ["pointerenter", "focus", "touchstart"]) home.addEventListener(type, () => speculate(this.data.home), { passive: true });
   }
@@ -516,6 +666,228 @@ class PrismFrame extends Element {
       document.addEventListener(type, paint, { signal: this.fullscreenWatch.signal });
     }
     paint();
+  }
+
+  // The visitor's Prism account, for the app: null when signed out.
+  get account() {
+    const saved = accountChannel.session;
+    return saved ? { id: saved.account, key: saved.key, expires: saved.delegation.expires } : null;
+  }
+
+  // Signs bytes with this browser's session key. The delegation proves the
+  // account's passkey let that key act for it here; verifySession checks it.
+  async sign(data) {
+    const saved = accountChannel.session;
+    if (!saved || saved.delegation.expires <= Date.now()) throw new IdentityError("signed-out", "No one is signed in");
+    const signature = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, saved.privateKey, data);
+    return { signature: b64u(signature), delegation: saved.delegation };
+  }
+
+  // The account icon, after full screen: a line drawing signed out, a soft
+  // pulse while a passkey is asked, filled once signed in. Its panel holds
+  // the sign-in page from the accounts origin, loaded when the visitor
+  // reaches for the icon (never on load), so the panel opens ready and the
+  // page keeps its request budget. A page whose policy will not frame that
+  // origin gets the same page in a small window instead. Where passkeys
+  // cannot work (no secure context, no WebAuthn, no IndexedDB, no popover)
+  // the icon is not shown, so it never offers what would fail.
+  accountPanel() {
+    const frame = this;
+    const button = frame.$("account");
+    const panel = frame.$("account-panel");
+    if (typeof panel.showPopover !== "function" || !window.isSecureContext || !window.PublicKeyCredential || !globalThis.indexedDB) {
+      button.hidden = true;
+      return;
+    }
+    const target = new URL(frame.data.accounts);
+    const origin = target.origin;
+    const origins = originsOf(target.href);
+    const SPEC = "prism/identity/1";
+    const box = frame.$("account-ceremony");
+    const windowButton = frame.$("account-window");
+    let ceremony = null;
+
+    const policy = [...document.querySelectorAll('meta[http-equiv="Content-Security-Policy" i]')].map((meta) => meta.content).join(";");
+    const directive = (name) => new RegExp(`(?:^|;)\\s*${name}([^;]*)`).exec(policy)?.[1];
+    const frames = directive("frame-src") ?? directive("child-src") ?? directive("default-src");
+    const framed = frames === undefined || frames.split(/\s+/).some((source) => source === "*" || source === origin || (source === "'self'" && origin === location.origin));
+
+    const say = (words) => {
+      frame.$("bar-status").textContent = words;
+      setTimeout(() => (frame.$("bar-status").textContent = ""), 1600);
+    };
+    const paint = () => {
+      const saved = accountChannel.session;
+      const label = saved ? "Prism account" : "Sign in";
+      button.classList.toggle("signed-in", Boolean(saved));
+      button.setAttribute("aria-label", label);
+      button.title = label;
+      frame.$("account-in").hidden = !saved;
+      frame.$("account-sub").textContent = saved ? "Signed in on this device." : "One account for every app. No password.";
+      if (saved) {
+        frame.$("account-id").textContent = `${saved.account.slice(0, 8)}…${saved.account.slice(-4)}`;
+        frame.$("account-id").title = saved.account;
+      }
+    };
+    const changed = () => {
+      paint();
+      frame.dispatchEvent(new CustomEvent("accountchange", { detail: frame.account, bubbles: true, composed: true }));
+    };
+    const close = () => {
+      box.replaceChildren();
+      ceremony?.popup?.close();
+      ceremony = null;
+      windowButton.hidden = true;
+      button.classList.remove("busy");
+    };
+
+    // One ceremony at a time, each with its own session key and nonce, used once.
+    const begin = (mode) => {
+      if (ceremony?.mode === mode) return;
+      close();
+      paint();
+      if (mode === "add") frame.$("account-sub").textContent = "Add your phone or another computer.";
+      const saved = accountChannel.session;
+      ceremony = {
+        mode,
+        ready: crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, false, ["sign", "verify"]).then(async (keys) => ({
+          keys,
+          request: {
+            type: `${SPEC}/request`,
+            mode,
+            nonce: b64u(crypto.getRandomValues(new Uint8Array(32))),
+            sessionKey: b64u(await crypto.subtle.exportKey("raw", keys.publicKey)),
+            expires: Date.now() + SESSION_DAYS * 864e5,
+            ...(mode === "add" ? { account: saved.account, credential: saved.credential } : {}),
+          },
+        })),
+      };
+      if (!framed) {
+        windowButton.hidden = false;
+        return;
+      }
+      const iframe = document.createElement("iframe");
+      const page = new URL(target);
+      page.hash = `theme=${document.documentElement.classList.contains("dark") ? "dark" : "light"}`;
+      iframe.src = page.href;
+      iframe.title = mode === "add" ? "Add device" : "Sign in";
+      iframe.allow = "publickey-credentials-get; publickey-credentials-create";
+      iframe.referrerPolicy = "no-referrer";
+      box.replaceChildren(iframe);
+      ceremony.iframe = iframe;
+      const waiting = ceremony;
+      // A policy the frame cannot read (a header, not a meta tag) that will
+      // not frame the accounts origin says so here: the window takes over.
+      document.addEventListener(
+        "securitypolicyviolation",
+        (event) => {
+          if (ceremony !== waiting || !/^(frame|child|default)-src/.test(event.effectiveDirective) || !String(event.blockedURI).startsWith(origin)) return;
+          waiting.answered = true;
+          box.replaceChildren();
+          windowButton.hidden = false;
+        },
+        { signal: frame.accountWatch.signal },
+      );
+      // An accounts origin that never answers leaves no browser error page in
+      // the panel (the iframe shows only once it answers): one plain
+      // sentence, and the next reach tries again.
+      setTimeout(() => {
+        if (ceremony !== waiting || waiting.answered) return;
+        close();
+        frame.$("account-sub").textContent = "Accounts are unreachable right now. Try again soon.";
+      }, 8000);
+    };
+
+    windowButton.addEventListener("click", () => {
+      const page = new URL(target);
+      page.hash = `popup&theme=${document.documentElement.classList.contains("dark") ? "dark" : "light"}`;
+      ceremony.popup = open(page.href, "prism-identity", "popup,width=420,height=420");
+      if (!ceremony.popup) say("Allow pop-ups for this page to sign in");
+    });
+
+    const finish = async (data) => {
+      const { keys, request } = await ceremony.ready;
+      const delegation = { app: location.origin, nonce: request.nonce, sessionKey: request.sessionKey, expires: request.expires, assertion: data.assertion, records: data.records };
+      try {
+        const who = await verifySession(delegation, origins);
+        const saved = { ...who, delegation, privateKey: keys.privateKey };
+        await store("readwrite", (s) => s.put(saved, "current"));
+        accountChannel.session = saved;
+        close();
+        panel.hidePopover();
+        changed();
+        say("Signed in");
+      } catch (error) {
+        close();
+        begin("signin");
+        frame.$("account-sub").textContent = error instanceof IdentityError ? `Sign-in was refused: ${error.message.toLowerCase()}.` : "Sign-in did not finish. Try again.";
+      }
+    };
+
+    frame.accountWatch?.abort();
+    frame.accountWatch = new AbortController();
+    addEventListener(
+      "message",
+      async (event) => {
+        if (!ceremony || event.origin !== origin || event.source !== (ceremony.iframe?.contentWindow ?? ceremony.popup)) return;
+        const data = event.data ?? {};
+        ceremony.answered = true;
+        if (data.type === `${SPEC}/ready`) ceremony.iframe?.classList.add("ready");
+        if (data.type === `${SPEC}/ready`) event.source.postMessage((await ceremony.ready).request, origin);
+        else if (data.type === `${SPEC}/size` && ceremony.iframe) ceremony.iframe.style.height = `${Math.min(Math.max(Number(data.height) || 0, 48), 480)}px`;
+        else if (data.type === `${SPEC}/busy`) button.classList.toggle("busy", Boolean(data.on));
+        else if (data.type === `${SPEC}/session` && ceremony.mode === "signin") await finish(data);
+        else if (data.type === `${SPEC}/added` && ceremony.mode === "add") {
+          close();
+          panel.hidePopover();
+          say("Device added");
+        }
+      },
+      { signal: frame.accountWatch.signal },
+    );
+
+    // Only once the saved session is known, so a quick hover never starts a
+    // sign-in for someone already signed in.
+    const reach = () => loadSession().then(() => !accountChannel.session && begin("signin"));
+    for (const type of ["pointerenter", "focus", "touchstart"]) button.addEventListener(type, reach, { passive: true });
+
+    // The panel opens under the icon, its right edge on the icon's.
+    panel.addEventListener("beforetoggle", (event) => {
+      if (event.newState !== "open") {
+        if (ceremony?.mode === "add") close();
+        return;
+      }
+      reach();
+      const bar = frame.shadowRoot.querySelector(".bar").getBoundingClientRect();
+      const edge = button.getBoundingClientRect();
+      const view = document.documentElement.clientWidth;
+      const width = Math.min(20 * parseFloat(getComputedStyle(document.documentElement).fontSize), view - 32);
+      panel.style.setProperty("--account-top", `${Math.round(bar.bottom + 8)}px`);
+      panel.style.setProperty("--account-right", `${Math.round(Math.max(16, Math.min(view - edge.right, view - width - 16)))}px`);
+    });
+
+    frame.$("account-add").addEventListener("click", () => begin("add"));
+    frame.$("account-out").addEventListener("click", async () => {
+      await store("readwrite", (s) => s.delete("current")).catch(() => {});
+      accountChannel.session = null;
+      close();
+      panel.hidePopover();
+      changed();
+      say("Signed out");
+    });
+    frame.$("account-copy").addEventListener("click", async () => {
+      const copy = frame.$("account-copy");
+      try {
+        await navigator.clipboard.writeText(accountChannel.session?.account ?? "");
+        copy.textContent = "Copied";
+      } catch {
+        copy.textContent = "Select it";
+      }
+      setTimeout(() => (copy.textContent = "Copy"), 1600);
+    });
+
+    paint();
+    loadSession().then(paint);
   }
 
   toggleTheme() {

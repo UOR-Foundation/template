@@ -248,6 +248,59 @@ svg.gh, svg.fill { fill: currentColor; stroke: none; }
 #github[hidden] + .sep { display: none; }
 /* Full screen: the corners point out to enter, in to leave. */
 :host([fullscreen]) #fullscreen .expand, :host(:not([fullscreen])) #fullscreen .shrink { display: none; }
+/* The account: a line drawing signed out; while the device is asked for its
+ * passkey it breathes; signed in, the same figure filled, in the full text
+ * colour, so who is signed in reads at a glance and nothing else changes. */
+#account.signed-in { color: var(--foreground); }
+#account.signed-in svg.person { fill: currentColor; }
+#account.busy svg.person { animation: account-breathe 1.2s var(--ease) infinite; }
+@keyframes account-breathe { 50% { opacity: 0.35; } }
+
+/* The account panel, built as the share panel is: under its icon, right
+ * edges aligned (the script sets --account-top and --account-right). */
+.account-panel {
+  position: fixed;
+  inset: var(--account-top, 4rem) var(--account-right, 1rem) auto auto;
+  width: min(20rem, 100vw - 2rem);
+  max-height: calc(100vh - var(--account-top, 4rem) - 1rem);
+  margin: 0;
+  padding: var(--space-4);
+  overflow: auto;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--shadow-overlay);
+  font-size: var(--text-14);
+  line-height: 1.45;
+  transform-origin: top right;
+  transition: opacity var(--duration) var(--ease), transform var(--duration) var(--ease), overlay var(--duration) allow-discrete, display var(--duration) allow-discrete;
+}
+.account-panel:not(:popover-open) { opacity: 0; transform: translateY(-0.25rem) scale(0.98); }
+@starting-style {
+  .account-panel:popover-open { opacity: 0; transform: translateY(-0.25rem) scale(0.98); }
+}
+:host([dark]) .account-panel { box-shadow: none; border-color: var(--border-strong); }
+.account-panel p { margin: 0; }
+.account-title { font-family: var(--font-display); font-weight: 600; font-size: var(--text-16); letter-spacing: var(--tracking-display); }
+.account-sub { margin-block: var(--space-1) var(--space-3) !important; color: var(--muted-foreground); }
+.account-in { display: grid; gap: var(--space-1); }
+.account-id { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); margin-bottom: var(--space-2) !important; padding: var(--space-2) var(--space-3); border: var(--border-width) solid var(--border); border-radius: var(--radius-control); background: var(--background); }
+.account-id code { font-family: var(--font-mono); color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-panel .text { padding: 0; border: 0; background: none; color: var(--foreground); font-weight: 500; text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 0.2em; cursor: pointer; }
+.account-panel .row { justify-content: flex-start; width: 100%; min-height: var(--control); padding: 0 var(--space-3); border: 0; border-radius: var(--radius-control); background: none; color: var(--foreground); text-align: start; cursor: pointer; }
+.account-panel .row:hover { background: var(--accent); }
+.account-panel .row:focus-visible, .account-panel .text:focus-visible { outline: var(--ring-width) solid var(--ring); outline-offset: var(--ring-offset); }
+.account-ceremony:empty { display: none; }
+/* The iframe's colour scheme matches the page inside it; a mismatch would
+ * make the browser paint it an opaque ground over the panel. */
+.account-ceremony iframe { display: block; width: 100%; height: 7.5rem; border: 0; color-scheme: light; }
+:host([dark]) .account-ceremony iframe { color-scheme: dark; }
+/* Shown only once the sign-in page has answered, so a page that fails to
+ * load never shows the browser's error page in the panel. */
+.account-ceremony iframe:not(.ready) { visibility: hidden; height: 0 !important; }
+#account-window { width: 100%; }
+@media (pointer: coarse) { .account-panel .row { min-height: var(--touch); } }
 
 /* The address: the app's holo:// name in a pill across the bar, read the
  * way Chrome's address bar reads: the shield first, where Chrome shows

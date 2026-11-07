@@ -94,6 +94,10 @@ const holoSearch = new URL("https://humuhumu33.github.io/holo-search/");
 // a frame change reaches this app without rebuilding it. app.json may name
 // another frame host, for a test or a mirror.
 const frameHost = new URL(meta.frame ?? "https://uor-foundation.github.io/template/frame/");
+// Prism accounts: the sign-in page the frame's account panel shows. The
+// page's policy frames that one origin and no other. app.json may name
+// another, for a test.
+const accounts = new URL(meta.accounts ?? "https://id.uor.foundation/");
 const shareUrl = live.href;
 
 // What the app needs right after first paint, asked for in parallel with it:
@@ -152,7 +156,7 @@ async function frameShell() {
     if (hex(bytes) !== pointer.sha256) throw new Error(`the frame is ${hex(bytes)}, its pointer says ${pointer.sha256}`);
     const frame = await import(`data:text/javascript;base64,${bytes.toString("base64")}`);
     if (typeof frame.shell !== "function") throw new Error("this frame has no shell");
-    const attributes = { name: meta.name, address: slug, live: live.href, repo: meta.repository, home: holoSearch.href, purpose: meta.purpose, card: new URL("og.png", live).href, identity: "#identity-title", stars: stars === null ? null : String(stars) };
+    const attributes = { name: meta.name, address: slug, live: live.href, repo: meta.repository, home: holoSearch.href, purpose: meta.purpose, card: new URL("og.png", live).href, identity: "#identity-title", accounts: accounts.href, stars: stars === null ? null : String(stars) };
     return { ...frame.shell(attributes, live.href), sha256: pointer.sha256 };
   } catch (error) {
     console.warn(`page: no frame shell (${error.message}); the stand-in shows until the frame loads`);
@@ -194,6 +198,8 @@ const fill = {
   HOLO_SEARCH: escape(holoSearch.href),
   HOLO_SEARCH_ORIGIN: holoSearch.origin,
   FRAME_ORIGIN: frameHost.origin,
+  ACCOUNTS: escape(accounts.href),
+  ACCOUNTS_ORIGIN: accounts.origin,
   OG_IMAGE: escape(new URL("og.png", live).href),
   OG_ALT: escape(`${meta.name}: ${meta.purpose}`),
   NAME: escape(meta.name),
