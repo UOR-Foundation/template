@@ -217,8 +217,8 @@ async function card(runner, reason) {
 }
 
 async function main() {
-  // The bar is already drawn (the page carries the frame's shell); the live
-  // frame takes it over once the text has painted.
+  // The bar is already drawn (the page's stand-in, as the bar will be); the
+  // live frame takes it over once the text has painted.
   afterFirstFrame().then(frame);
   offline();
 
