@@ -7,7 +7,7 @@
     },
     {
       "path": "bootstrap/icons.py",
-      "sha256": "d2ecf0fa7a8e6b0e6f5c6fd32aebf41e6e3c6aeb8f16fc20492bd1b7409626df"
+      "sha256": "cae286f88e51ef5f9b442db2ade06b00e814f786a80b1af95f6b2f9e1de39993"
     },
     {
       "path": "bootstrap/og.py",
@@ -15,7 +15,7 @@
     },
     {
       "path": "bootstrap/page.mjs",
-      "sha256": "574241085003b0fa4c213ef9582254c8564285ae301b90aa531a1b54c32ee104"
+      "sha256": "e4373f27e68c4a46ce9e1ad9f711a45c2c637fa1c76711b7df328f946608e466"
     },
     {
       "path": "bootstrap/precache.mjs",
@@ -43,11 +43,11 @@
     },
     {
       "path": "site/page.template.html",
-      "sha256": "5c04f4d913d27a15097b1ef90fd099384ce2fdc6f94550f2903c69a505bc6b89"
+      "sha256": "e6b1dd6ee04fc460235e59d925435415ee65997478a29b9135739f7901fed842"
     },
     {
       "path": "site/prism-page.css",
-      "sha256": "1656edaf70a860245c1bc204bc1ded57b91e12b375dc22422397df7603f046b7"
+      "sha256": "571e8eb5252a540b8c4891a9602177a757cc9f79094b20db1e9e6dc9529a2c88"
     },
     {
       "path": "site/sw.js",

@@ -100,32 +100,6 @@ const prismRegistry = new URL(`https://${DEFAULT_REGISTRY}/`);
 const frameHost = new URL(meta.frame ?? "https://uor-foundation.github.io/template/frame/");
 const shareUrl = live.href;
 
-// What the app needs right after first paint, asked for in parallel with it:
-// the vendored runtime's whole module graph, walked from browser.mjs (one
-// round trip, not one per import), and the holo. Low priority, so they
-// never compete with the first paint; when app.mjs imports them they are
-// there. Where the runtime is not vendored yet (a local render before
-// pages.yml copies it), nothing is preloaded.
-async function runtimeGraph(entry) {
-  const seen = new Set();
-  const walk = async (path) => {
-    if (seen.has(path)) return;
-    const text = await read(path).catch(() => null);
-    if (text === null) return;
-    seen.add(path);
-    for (const [, spec] of text.matchAll(/(?:^|\n)\s*(?:import|export)\b[^'"]*?from\s*['"](\.{1,2}\/[^'"]+)['"]/g)) {
-      await walk(join(path, "..", spec).replace(/\\/g, "/"));
-    }
-  };
-  await walk(entry);
-  return [...seen];
-}
-const runtime = await runtimeGraph("vendor/prism-code/src/browser.mjs");
-const holoThere = await access(join(site, "app.holo")).then(() => true, () => false);
-const preloads = [
-  ...runtime.map((path) => `<link rel="modulepreload" href="./${path}" fetchpriority="low" />`),
-  ...(holoThere ? ['<link rel="preload" href="./app.holo" as="fetch" type="application/octet-stream" crossorigin fetchpriority="low" />'] : []),
-].join("\n    ");
 // The one speculation rule: the frame marks the pages a visitor is about to
 // open with data-prism-ahead links; this rule prerenders them (prefetches
 // one on another origin). It is fixed, so its hash is in the policy.
@@ -140,29 +114,6 @@ const frameConnect = frameHost.origin !== live.origin ? `<link rel="preconnect" 
 const item = (mark, markClass, name, what) =>
   `<li><span class="${markClass}">${mark}</span><div><div class="name">${escape(name)}</div><div class="what">${escape(what)}</div></div></li>`;
 
-// The frame's first paint, written into the page. The live frame is fetched
-// as the page fetches it (its pointer, then the module), checked against its
-// SHA-256 and asked for its shell: a declarative shadow root with its own
-// styles and markup for this app. The browser paints the real bar with the
-// page's first frame and the frame script takes it over unchanged, so a hop
-// between apps never shows the stand-in. A frame without a shell, or no
-// network at build, leaves the stand-in, which shows until the frame loads.
-const slug = meta.name.toLowerCase().normalize("NFKD").replace(/\p{M}/gu, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "app";
-async function frameShell() {
-  try {
-    const pointer = await (await fetch(new URL("current.json", frameHost), { cache: "no-store" })).json();
-    if (!/^[0-9a-f]{64}$/.test(pointer.sha256 ?? "")) throw new Error("the frame pointer names no sha256");
-    const bytes = Buffer.from(await (await fetch(new URL(pointer.module, frameHost))).arrayBuffer());
-    if (hex(bytes) !== pointer.sha256) throw new Error(`the frame is ${hex(bytes)}, its pointer says ${pointer.sha256}`);
-    const frame = await import(`data:text/javascript;base64,${bytes.toString("base64")}`);
-    if (typeof frame.shell !== "function") throw new Error("this frame has no shell");
-    const attributes = { name: meta.name, address: slug, live: live.href, repo: meta.repository, home: holoSearch.href, purpose: meta.purpose, card: new URL("og.png", live).href, identity: "#identity-title", stars: stars === null ? null : String(stars) };
-    return { ...frame.shell(attributes, live.href), sha256: pointer.sha256 };
-  } catch (error) {
-    console.warn(`page: no frame shell (${error.message}); the stand-in shows until the frame loads`);
-    return null;
-  }
-}
 // The repository's GitHub stars at build, so the bar shows them from its
 // first paint: from the Prism index on the Prism registry, the snapshot the
 // frame keeps the count current from, then from GitHub's API for a repository
@@ -189,7 +140,6 @@ async function githubStars() {
   }
 }
 const stars = await githubStars();
-const frameFirstPaint = await frameShell();
 
 const fill = {
   TITLE: escape(meta.name),
@@ -229,11 +179,10 @@ const fill = {
   INLINE_THEME: theme,
   IMPORTMAP: importmap,
   SPECULATION_RULES: speculationRules,
-  PRELOADS: preloads,
   FRAME_CONNECT: frameConnect,
   APP_DATA: JSON.stringify({ answers: meta.answers, frame: frameHost.href, card: cardModule }).replace(/</g, "\\u003c"),
   CSP_SCRIPT_HASHES: `${sha(theme)} ${sha(importmap)} ${sha(speculationRules)}`,
-  CSP_STYLE_HASHES: frameFirstPaint ? `${sha(css)} ${sha(frameFirstPaint.css)}` : sha(css),
+  CSP_STYLE_HASHES: sha(css),
 };
 for (const [key, value] of Object.entries(fill)) {
   html = html.split(`{{${key}}}`).join(value);
@@ -242,8 +191,8 @@ for (const [key, value] of Object.entries(fill)) {
   const open = html.indexOf('<prism-frame id="frame"');
   const close = html.indexOf(">", open) + 1;
   if (open < 0 || close <= open) throw new Error("page.template.html has no <prism-frame id=\"frame\">");
-  const more = `${stars === null ? "" : ` stars="${stars}"`}${frameFirstPaint ? ` data-shell="${frameFirstPaint.sha256}"` : ""}`;
-  html = `${html.slice(0, close - 1)}${more}>${frameFirstPaint?.html ?? ""}${html.slice(close)}`;
+  const more = stars === null ? "" : ` stars="${stars}"`;
+  html = `${html.slice(0, close - 1)}${more}>${html.slice(close)}`;
 }
 const left = html.match(/\{\{[A-Z_]+\}\}/g);
 if (left) throw new Error(`unfilled: ${left.join(", ")}`);

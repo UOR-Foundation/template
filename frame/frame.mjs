@@ -265,12 +265,31 @@ function modelOf(get, title, base) {
 // nothing flickers between apps. The verdict starts as the page starts
 // (checking), and the theme's icon and colours follow the page's colour
 // scheme, which the page sets before its first paint.
+//
+// The shell is the bar alone: the trust and share panels open only on a
+// click, after this module has loaded and drawn the whole root, so neither
+// they nor their styles are written into the page, which keeps every app's
+// first load inside its Lighthouse budget.
+const PANEL_RULE = /trust-panel|share-|check-|omnibox|opt-|\.trust-/;
+function barCss(css) {
+  const rules = [];
+  for (let depth = 0, start = 0, at = 0; at < css.length; at++) {
+    if (css[at] === "{") depth++;
+    else if (css[at] === "}" && --depth === 0) {
+      rules.push(css.slice(start, at + 1));
+      start = at + 1;
+    }
+  }
+  return rules.filter((rule) => rule.trimStart().startsWith("@") || !PANEL_RULE.test(rule.slice(0, rule.indexOf("{")))).join("");
+}
 export function shell(attributes, base) {
   const m = modelOf((name) => attributes[name] ?? null, attributes.name ?? "", base);
   const e = Object.fromEntries(Object.entries(m).map(([key, value]) => [key, escape(value)]));
   let html = markup(e);
+  html = html.slice(0, html.indexOf('  <div id="trust-panel"'));
   if (!m.repo) html = html.replace('<a id="github" ', '<a id="github" hidden ');
-  return { css: CSS, html: `<template shadowrootmode="open"><style>${CSS}</style>${html}</template>` };
+  const css = barCss(CSS);
+  return { css, html: `<template shadowrootmode="open"><style>${css}</style>${html}</template>` };
 }
 
 // The element runs in a browser; the module also loads at build time, where
