@@ -26,11 +26,19 @@ or test is added without the other two.
 | Gate | Planted defect | Result |
 | --- | --- | --- |
 | `check-model` | `CONFORMANCE.md` disagrees with the register | rejected |
+| `check-model` | an authority's committed artifact with no recorded checksum; one whose checksum no longer matches (a file altered, added or removed); a checksum with no artifact to check it against; an artifact that is missing, outside the repository, empty, or whose checksum is not a SHA-256 | all rejected |
 | `audit-deferral` | a deferral marker in a crate and in the gate's own source | both rejected |
 | honesty meta-gate | an ID with no test | rejected |
 | `contract_tc_01` | `Conformant` drops the `bootstrap` conjunct, or `dispatch` answers on `true` instead of `conformant` | both rejected |
 | `prismpm verify` | an acceptance vector set without the exact guest-allocation boundary | rejected (PP2009) |
 | `audit-bootstrap` | a floating/copied action, mutable SDK tag, changed universal file, narrowed boundary, shallow/credential-retaining checkout, copied project renderer, omitted standards lock, acceptance bypass, deploy-job signing privilege, incomplete release lifecycle, or a bootstrap that drops a native architecture from main or tags, cancels or replaces a main run, or skips runs by path, condition or matrix exclusion | all rejected |
+
+An authority's artifact may be committed when its row names it and records a
+SHA-256 over it, which `check-model` recomputes. The template cites no
+authority, so the fixtures build throwaway repositories with one; the rule is
+stated once, in `AUTHORITY_RULE`, and a test holds the doc comment of
+`AuthorityRow`, the header of `model/authorities.toml` and the generated
+`CONFORMANCE.md` to that text.
 
 `audit-deferral` reads every crate and `xtask`, including itself. Its token
 construction therefore cannot exempt the very gate in which a deferral could
