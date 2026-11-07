@@ -7,13 +7,14 @@
 //
 //   <out>/<sha256>/prism-frame.mjs   immutable: the frame, by its content
 //   <out>/current.json               the pointer: { spec, sha256, module, source }
+//   <out>/backdrops/<id>.jpg         the immersive photos, and <id>-thumb.jpg
 //
 // try-page.yml runs it on every push to main into the template's Pages site,
 // so the frame at https://uor-foundation.github.io/template/frame/ is always
 // main's, and every Prism app picks it up on its next load.
 //   node frame/publish.mjs <out-dir> [<source commit>]
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { minify as terser } from "terser";
 
@@ -37,6 +38,16 @@ const bytes = Buffer.from(minified.code, "utf8");
 const sha256 = createHash("sha256").update(bytes).digest("hex");
 await mkdir(join(out, sha256), { recursive: true });
 await writeFile(join(out, sha256, "prism-frame.mjs"), bytes);
+// The immersive photos, beside the frame: every app page may fetch from the
+// frame's host (its connect-src names it), so the frame can draw them on a
+// page whose img-src allows only its own files and data:. A photo the frame
+// names and the repository lacks fails the publish.
+await mkdir(join(out, "backdrops"), { recursive: true });
+for (const [, id] of module.matchAll(/\bid: "([\w-]+)",\s*\n\s*image: "https:\/\/images\.unsplash\.com\//g)) {
+  for (const file of [`${id}.jpg`, `${id}-thumb.jpg`]) {
+    await copyFile(join(root, "frame/backdrops", file), join(out, "backdrops", file));
+  }
+}
 const pointer = { spec: "prism/frame/1", sha256, module: `${sha256}/prism-frame.mjs`, source: { repository: "UOR-Foundation/template", commit } };
 await writeFile(join(out, "current.json"), JSON.stringify(pointer, null, 2) + "\n");
 console.log(`frame: ${sha256} (${bytes.length} bytes) -> ${out}/current.json`);
