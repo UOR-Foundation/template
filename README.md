@@ -111,9 +111,8 @@ the archive carries. Every instance gets the same page; an app edits one file.
   `site/index.html` and `site/manifest.webmanifest` from it; `bootstrap/icons.py`
   draws the icons from its name (the warm ground, the app's initial, the brand
   dot, no logo).
-- **One live frame.** The top bar every Prism app opens in (home, the
-  `holo://` address bar, the verdict's shield, share, GitHub, theme and the
-  spectrum line) is one web component, `<prism-frame>`, in `frame/`. On
+- **One live frame.** The frame every Prism app opens in (the top bar and
+  the window the app shows through) is one web component, `<prism-frame>`, in `frame/`. On
   every push to `main`, `try-page.yml` publishes it to this repository's
   Pages site, named by its SHA-256, with a pointer:
   `https://uor-foundation.github.io/template/frame/current.json`. Every app
@@ -143,21 +142,40 @@ the archive carries. Every instance gets the same page; an app edits one file.
   `node bootstrap/brand-sync.mjs --check` verifies the served files against the
   lock and runs in `pages.yml` before the build; `--pin <commit>` moves every
   app to a new kit revision. The page's own stylesheet declares no colour.
-- **One top bar.** Every app opens with the same sticky bar, read like a
-  browser's: home ([holo-search](https://humuhumu33.github.io/holo-search/)),
-  then the app's address in a pill, `holo://` and its name in lower case
-  with hyphens (`holo://luhn-check`), closed by a shield badge for the verdict
-  the visitor's browser reached on the holo (linking to the identity card
-  that backs it); then share, GitHub (the app's repository) and the theme as
-  a sun or moon. Once the page scrolls under it, a 2 px line in the UOR
-  Foundation's colour spectrum lights its lower edge and drifts, as on
-  [uor.foundation](https://uor.foundation/). Under 600 px GitHub steps out (the footer still links the
-  repository) so the address keeps its room. It is the live frame below:
-  no app carries a copy of it.
+- **One frame, read like a browser.** Every app opens in the same frame: a
+  46 px bar on the brand's chrome surface, and the app inside a rounded
+  window inset 8 px from the screen's edges, as Lovable and Hologram OS show
+  an app. The bar reads like Chrome's: home
+  ([holo-search](https://humuhumu33.github.io/holo-search/)), then the
+  address across the bar, the shield first, then `holo://` and the app's
+  name in lower case with hyphens (`holo://luhn-check`), and the share icon
+  at its right end; then GitHub (the app's repository), the theme as a sun
+  or moon, and full screen. Its icons are bare 16 px line drawings with a
+  soft square tint on hover; on a touch screen each takes a 48 px tap
+  beyond what it draws, so the bar is the same height everywhere. Under
+  600 px GitHub steps out (the footer still links the repository); at large
+  text the bar wraps and the window moves down with it. It is the live
+  frame above: no app carries a copy of it.
+- **The shield says why to trust the app.** As a browser's padlock does for
+  a page, the shield sums what the visitor's browser found, and its panel
+  shows each check: **Authentic** (every byte of the holo matches its
+  fingerprint, shown with Copy), **Formally proved** (what the theorem
+  guarantees, in one sentence, proved in Lean when the app was built, with
+  its attestation) and **Behaves as proved** (every example the holo
+  carries gives its proved answer here). Grey dots while it checks, green
+  only when every check passed, red with the failing check named when one
+  did not. Nothing is written by hand: `page.mjs` passes the proposition's
+  plain statement and the proof attestation from `app.json`, `app.mjs`
+  passes the fingerprint check and the replay as they finish, and the
+  frame draws the rest.
 - **An address bar for Prism apps.** The holo:// pill is also an omnibox,
-  like Chrome's. Focus it and it selects the address and lists this app and
+  like Chrome's. Focus it and it selects the address, a hairline in the UOR
+  Foundation's colour spectrum runs round it, and it lists this app and
   every app in [Holo Search](https://humuhumu33.github.io/holo-search/)'s
-  registry, one row per app with its hash. Type a name or a hash prefix to
+  registry, one row each: the app's icon (a registry entry's `icon`, or its
+  `live` page's, else its initial on a hue taken from its fingerprint, as a
+  browser shows a site with no icon), its name, its address or short hash,
+  and what it is. Type a name or a hash prefix to
   filter; paste a full address (a sha256 or blake3 digest, an IPFS CID, a
   Holo Search link) to open it. Enter hands it to Holo Search as `?r=`,
   which fetches the app, checks the bytes against the address and replays

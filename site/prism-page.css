@@ -30,7 +30,10 @@
   --measure-wide: 80rem;
   --column: var(--measure);
   --control: 2.25rem;
-  --bar-control: var(--control);
+  /* The frame's bar: 32 px controls and the thin chrome above and below
+   * them, the same height on every device (its controls take a 48 px tap
+   * past their circles on a touch screen). */
+  --frame-bar: 2.875rem;
   --touch: 3rem;
   --radius-control: calc(var(--radius) - 2px);
   --safe-top: env(safe-area-inset-top, 0px);
@@ -105,19 +108,18 @@ prism-frame {
   position: sticky;
   top: 0;
   z-index: 10;
-  min-height: calc(var(--safe-top) + var(--bar-control) + 2 * var(--space-2) + var(--border-width));
+  min-height: calc(var(--safe-top) + var(--frame-bar));
 }
 prism-frame:not(:defined) {
   padding-top: var(--safe-top);
-  background: var(--background);
-  border-bottom: var(--border-width) solid var(--border);
+  background: var(--sidebar);
 }
 .frame-fallback {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   width: min(100% - 2 * var(--margin) - var(--safe-left) - var(--safe-right), var(--column));
-  min-height: calc(var(--bar-control) + 2 * var(--space-2));
+  min-height: var(--frame-bar);
   margin: 0 auto;
   color: var(--foreground);
   font-size: var(--text-14);
@@ -129,7 +131,7 @@ prism-frame:not(:defined) {
 @media (max-height: 480px) { prism-frame { position: static; } }
 
 /* A jump to the identity card lands below the bar, not under it. */
-html { scroll-padding-top: calc(var(--safe-top) + var(--bar-control) + 2 * var(--space-2) + var(--space-4)); }
+html { scroll-padding-top: calc(var(--safe-top) + var(--frame-bar) + var(--space-4)); }
 @media (max-height: 480px) { html { scroll-padding-top: 0; } }
 
 /* Header */
@@ -398,7 +400,6 @@ input[type="text"]::placeholder { color: var(--muted-foreground); }
 /* Touch: every control is 48 px, Material's minimum, whatever rule sized it
  * above. Last, so nothing overrides it. */
 @media (pointer: coarse) {
-  :root { --bar-control: var(--touch); }
   button, button.ghost, button.primary, button.secondary, .ghost, a.ghost, input[type="text"], .disclosure summary { min-height: var(--touch); }
   .row { gap: var(--space-2); }
 }
