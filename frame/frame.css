@@ -209,6 +209,12 @@ svg.gh, svg.fill { fill: currentColor; stroke: none; }
 .ghost.icon::before { inset: calc((var(--hit) - var(--bar-control)) / 2); border-radius: var(--radius-control); }
 .ghost.icon svg { width: 1rem; height: 1rem; stroke-width: 1.6; }
 .ghost.icon svg.gh { width: 0.9375rem; height: 0.9375rem; }
+/* Home is the Hologram logomark, the brand kit's 70 dots exactly, in the
+ * full text colour: white on the dark chrome, near-black on the light, as
+ * Hologram OS draws it. A touch larger than the line icons, so its dots
+ * stay distinct. */
+#home { color: var(--foreground); }
+#home svg.mark { width: 1.25rem; height: 1.25rem; shape-rendering: geometricPrecision; }
 .ghost.icon:hover { color: var(--foreground); }
 .ghost.icon:hover::before { background: color-mix(in oklab, var(--chrome), var(--foreground) 7%); }
 .ghost.icon:active::before { background: color-mix(in oklab, var(--chrome), var(--foreground) 11%); transform: scale(0.94); }
