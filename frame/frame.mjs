@@ -39,12 +39,75 @@ const HOME = "https://humuhumu33.github.io/holo-search/";
 // Prism app by its self-verifying address; every address bar reads it.
 const REGISTRY = "https://registry.uor.foundation/";
 
-// Immersive: the dark ground over one of three Unsplash photos, chosen once
+// Immersive: the dark ground over one of nine Unsplash photos, chosen once
 // (image is each one's Unsplash original) and published beside the frame
 // (frame/publish.mjs), so no key ships; each is credited to its
 // photographer in the theme panel.
 const UNSPLASH = "utm_source=prism&utm_medium=referral";
 const BACKDROPS = [
+  {
+    id: "E0AHdsENmDg",
+    image: "https://images.unsplash.com/photo-1464802686167-b939a6910659?ixid=M3w4OTc5NTl8MHwxfHNlYXJjaHwxfHxzcGFjZXxlbnwxfDB8fHwxNzk0MDU1OTU2fDA&ixlib=rb-4.1.0",
+    color: "#0c2659",
+    alt: "The Milky Way in blue and violet",
+    name: "Jeremy Thomas",
+    user: "jeremythomasphoto",
+    page: "https://unsplash.com/photos/blue-and-purple-galaxy-digital-wallpaper-E0AHdsENmDg",
+  },
+  {
+    id: "qtRF_RxCAo0",
+    image: "https://images.unsplash.com/photo-1610296669228-602fa827fc1f?ixid=M3w4OTc5NTl8MHwxfHNlYXJjaHw0fHxzcGFjZXxlbnwxfDB8fHwxNzk0MDU1OTU2fDA&ixlib=rb-4.1.0",
+    color: "#262626",
+    alt: "A nebula in blue, gold and rust",
+    name: "Aldebaran S",
+    user: "aldebarans",
+    page: "https://unsplash.com/photos/blue-and-black-galaxy-digital-wallpaper-qtRF_RxCAo0",
+  },
+  {
+    id: "RF4p4rTM-2s",
+    image: "https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?ixid=M3w4OTc5NTl8MHwxfHNlYXJjaHw1fHxtaWxreSUyMHdheXxlbnwxfDB8fHwxNzk0MDU2MjUxfDA&ixlib=rb-4.1.0",
+    color: "#262626",
+    alt: "The Andromeda galaxy among stars",
+    name: "Bryan Goff",
+    user: "bryangoffphoto",
+    page: "https://unsplash.com/photos/galaxy-with-starry-night-RF4p4rTM-2s",
+  },
+  {
+    id: "Q1p7bh3SHj8",
+    image: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?ixid=M3w4OTc5NTl8MHwxfHNlYXJjaHw1fHxzcGFjZXxlbnwxfDB8fHwxNzk0MDU1OTU2fDA&ixlib=rb-4.1.0",
+    color: "#0c2626",
+    alt: "City lights across Earth at night, from orbit",
+    name: "NASA",
+    user: "nasa",
+    page: "https://unsplash.com/photos/photo-of-outer-space-Q1p7bh3SHj8",
+  },
+  {
+    id: "t7EL2iG3jMc",
+    image: "https://images.unsplash.com/photo-1534996858221-380b92700493?ixid=M3w4OTc5NTl8MHwxfHNlYXJjaHw5fHxzcGFjZXxlbnwxfDB8fHwxNzk0MDU1OTU2fDA&ixlib=rb-4.1.0",
+    color: "#59598c",
+    alt: "Earth's blue horizon against space",
+    name: "ActionVance",
+    user: "actionvance",
+    page: "https://unsplash.com/photos/outer-space-photography-of-earth-t7EL2iG3jMc",
+  },
+  {
+    id: "9wH624ALFQA",
+    image: "https://images.unsplash.com/photo-1515705576963-95cad62945b6?ixid=M3w4OTc5NTl8MHwxfHNlYXJjaHwxfHxtaWxreSUyMHdheXxlbnwxfDB8fHwxNzk0MDU2MjUxfDA&ixlib=rb-4.1.0",
+    color: "#0c2640",
+    alt: "The Milky Way rising over mountains",
+    name: "Dns Dgn",
+    user: "dnsdgn",
+    page: "https://unsplash.com/photos/milky-way-on-mountains-9wH624ALFQA",
+  },
+  {
+    id: "oMcTmNHclZI",
+    image: "https://images.unsplash.com/photo-1628818144466-856f7d477125?ixid=M3w4OTc5NTl8MHwxfGFsbHx8fHx8fHx8fDE3OTQwNTIyMTV8&ixlib=rb-4.1.0",
+    color: "#0c2626",
+    alt: "Green and violet aurora over a starry sky",
+    name: "Condor Wei",
+    user: "cwcanchn",
+    page: "https://unsplash.com/photos/aurora-borealis-in-starry-night-sky-oMcTmNHclZI",
+  },
   {
     id: "cZgVpseeazg",
     image: "https://images.unsplash.com/photo-1545431766-45ff67845191?ixid=M3w4OTc5NTl8MHwxfGFsbHx8fHx8fHx8fDE3OTQwNTIyMTB8&ixlib=rb-4.1.0",
@@ -63,17 +126,8 @@ const BACKDROPS = [
     user: "pawel_czerwinski",
     page: "https://unsplash.com/photos/a-black-and-white-photo-of-a-curved-object-0wFwSZn6I-I",
   },
-  {
-    id: "oMcTmNHclZI",
-    image: "https://images.unsplash.com/photo-1628818144466-856f7d477125?ixid=M3w4OTc5NTl8MHwxfGFsbHx8fHx8fHx8fDE3OTQwNTIyMTV8&ixlib=rb-4.1.0",
-    color: "#0c2626",
-    alt: "Green and violet aurora over a starry sky",
-    name: "Condor Wei",
-    user: "cwcanchn",
-    page: "https://unsplash.com/photos/aurora-borealis-in-starry-night-sky-oMcTmNHclZI",
-  },
 ];
-const MODES = ["light", "dark", "immersive"];
+const MODES = ["immersive", "dark", "light"];
 // Drawn on the page, outside the frame's shadow root: the photo fixed
 // behind the app under a scrim, so the page's text stays legible on any of
 // the three. It fills the window, exactly its edges and corners, and never
@@ -133,21 +187,65 @@ const storedTheme = () => {
 // names, so it works in every Prism app and in Holo Search, unrebuilt; any
 // other comes through the worker. Each is fetched once per page, and only
 // once it is to be shown.
+//
+// Never with the page, though: immersive is every new visitor's theme, and
+// an app's Lighthouse budget allows two third-party requests, which the
+// frame's pointer and module take. A photo shown before comes from this
+// origin's cache at once, with no request; a new one waits for the
+// visitor's first move (a pointer, a touch, a key, a scroll), as the stars
+// and the Prism index do, and its ground is the photo's colour until then.
+// The cache is not named prism-*: those are the app's service worker's.
 const FRAME_HOST = "https://uor-foundation.github.io/template/frame/";
+const SHOWN = "holo-backdrops";
+const KEPT = 4;
+let moved = null;
+const firstMove = () =>
+  (moved ??= new Promise((resolve) => {
+    const kinds = ["pointermove", "pointerdown", "touchstart", "keydown", "wheel", "scroll"];
+    const go = () => {
+      for (const kind of kinds) removeEventListener(kind, go, true);
+      resolve();
+    };
+    for (const kind of kinds) addEventListener(kind, go, { capture: true, passive: true });
+  }));
+const shownBefore = async (url) => {
+  try {
+    return (await (await caches.open(SHOWN)).match(url)) ?? null;
+  } catch {
+    return null; // No Cache API here (an insecure origin): fetched as new.
+  }
+};
+// The last few photos shown, and no more: each is a few hundred kilobytes.
+const keep = async (url, response) => {
+  try {
+    const cache = await caches.open(SHOWN);
+    await cache.put(url, response);
+    const kept = await cache.keys();
+    for (const old of kept.slice(0, Math.max(0, kept.length - KEPT))) await cache.delete(old);
+  } catch {
+    // Kept for this page only.
+  }
+};
 const pictures = new Map();
-const picture = (url) => {
+const picture = (url, { thumb = false } = {}) => {
   if (!pictures.has(url)) {
-    const loading = fetch(url)
-      .then((response) => {
+    const loading = (async () => {
+      // A thumbnail is asked for only by the open panel, after a move.
+      let response = thumb ? null : await shownBefore(url);
+      if (!response) {
+        await firstMove();
+        response = await fetch(url);
         if (!response.ok) throw new Error(`backdrop: HTTP ${response.status}`);
-        return response.blob();
-      })
-      .then((blob) => new Promise((resolve, reject) => {
+        if (!thumb) keep(url, response.clone());
+      }
+      const blob = await response.blob();
+      return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result);
         reader.onerror = () => reject(reader.error);
         reader.readAsDataURL(blob);
-      }));
+      });
+    })();
     // A failed fetch is tried again the next time the photo is wanted.
     loading.catch(() => pictures.delete(url));
     pictures.set(url, loading);
@@ -160,6 +258,7 @@ const pictureOf = (photo, thumb = false) =>
     builtIn(photo)
       ? new URL(`backdrops/${photo.id}${thumb ? "-thumb" : ""}.jpg`, FRAME_HOST).href
       : `${UNSPLASH_PROXY}image?${new URLSearchParams(thumb ? { src: photo.image, w: "240", h: "150" } : { src: photo.image, w: "2400" })}`,
+    { thumb },
   );
 // Search is offered where the page lets the frame reach the worker: a page
 // whose policy names it (every app page built from this template) or one
@@ -261,9 +360,9 @@ const markup = (e) => `
   <div id="theme-panel" class="theme-panel" popover aria-labelledby="theme-title">
     <p id="theme-title" class="theme-title">Theme</p>
     <div class="modes" role="group" aria-labelledby="theme-title">
-      <button class="mode" type="button" aria-pressed="false" data-mode="light"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="2.75" /><path d="M8 1.5v1.25M8 13.25v1.25M1.5 8h1.25M13.25 8h1.25M3.4 3.4l.9.9M11.7 11.7l.9.9M3.4 12.6l.9-.9M11.7 4.3l.9-.9" /></svg>Light</button>
-      <button class="mode" type="button" aria-pressed="false" data-mode="dark"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M13.5 9.6A5.6 5.6 0 1 1 6.4 2.5a4.5 4.5 0 0 0 7.1 7.1z" /></svg>Dark</button>
       <button class="mode" type="button" aria-pressed="false" data-mode="immersive"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><rect x="2" y="3" width="12" height="10" rx="2" /><circle cx="5.75" cy="6.5" r="1" /><path d="m2.5 11.5 3.25-3 2.5 2 2-1.75 3.25 2.75" /></svg>Immersive</button>
+      <button class="mode" type="button" aria-pressed="false" data-mode="dark"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M13.5 9.6A5.6 5.6 0 1 1 6.4 2.5a4.5 4.5 0 0 0 7.1 7.1z" /></svg>Dark</button>
+      <button class="mode" type="button" aria-pressed="false" data-mode="light"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="2.75" /><path d="M8 1.5v1.25M8 13.25v1.25M1.5 8h1.25M13.25 8h1.25M3.4 3.4l.9.9M11.7 11.7l.9.9M3.4 12.6l.9-.9M11.7 4.3l.9-.9" /></svg>Light</button>
     </div>
     <label id="find" class="find" hidden><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="4.5" /><path d="m10.5 10.5 3 3" /></svg><input id="find-input" type="search" placeholder="Search Unsplash" aria-label="Search Unsplash for a background" aria-controls="photos" autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="search" /><span id="find-busy" class="find-busy" aria-hidden="true"></span></label>
     <div id="photos" class="photos" role="group" aria-label="Immersive background" aria-busy="false"></div>
@@ -443,9 +542,11 @@ class PrismFrame extends Element {
     if (!document.adoptedStyleSheets.includes(backdropSheet)) {
       document.adoptedStyleSheets = [...document.adoptedStyleSheets, backdropSheet];
     }
-    // A page built before immersive existed reads "immersive" as light; the
+    // Immersive is the default: a visitor who has chosen nothing gets it. A
+    // page built before immersive existed reads both as its own default; the
     // frame corrects it, once, as it arrives.
-    if (storedTheme().mode === "immersive") document.documentElement.classList.add("dark", "immersive");
+    const chosen = storedTheme().mode;
+    if (chosen !== "light" && chosen !== "dark") document.documentElement.classList.add("dark", "immersive");
     this.render();
     this.watchTheme();
     this.watchHeight();
@@ -705,8 +806,8 @@ class PrismFrame extends Element {
   }
 
   // The theme panel: the three modes, a search of Unsplash, and the photos:
-  // with nothing typed, the last ones found and chosen, then the three
-  // built in; with words, what Unsplash finds, nine at a time. Choosing a
+  // with nothing typed, the last ones found and chosen, then the nine built
+  // in, space first; with words, what Unsplash finds, nine at a time. Choosing a
   // photo is also the way into immersive. It opens under the theme button,
   // its right edge on the button's. Photos are fetched the first time the
   // panel opens, never with the page. Without popovers the button steps
@@ -763,12 +864,12 @@ class PrismFrame extends Element {
       note.textContent = words;
       note.hidden = !words;
     };
-    // Whole rows only: the recent ones first, then as many built-in ones as
-    // fill the row, never leaving out the photo in use.
+    // Nine, as a search shows: the recent ones first, then the built-in
+    // ones, never leaving out the photo in use.
     const home = () => {
       const chosen = frame.chosen && !builtIn(frame.chosen) ? [frame.chosen] : [];
       const all = unique([...chosen, ...storedTheme().recent, ...BACKDROPS]);
-      const shown = all.slice(0, Math.max(3, Math.floor(all.length / 3) * 3));
+      const shown = all.slice(0, 9);
       const current = frame.photo();
       if (!shown.some((p) => p.id === current.id)) shown[shown.length - 1] = current;
       grid.replaceChildren(...shown.map(tile));

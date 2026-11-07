@@ -157,14 +157,20 @@ the archive carries. Every instance gets the same page; an app edits one file.
   600 px GitHub steps out (the footer still links the repository); at large
   text the bar wraps and the window moves down with it. It is the live
   frame above: no app carries a copy of it.
-- **Three themes: light, dark and immersive.** The theme button shows the
-  one in use (sun, moon or photo) and opens a panel to change it. Immersive
-  is the dark ground with one of three Unsplash photos behind the app under
+- **Three themes: immersive, dark and light.** Immersive is every new
+  visitor's theme; a choice of dark or light is remembered. The theme button
+  shows the one in use (photo, moon or sun) and opens a panel to change it.
+  Immersive is the dark ground with an Unsplash photo behind the app under
   a scrim, the cards frosted over it. The photo fills the app's window and
-  stops at its edges and corners; the chrome around it never changes.
+  stops at its edges and corners; the chrome around it never changes. A
+  photo is never fetched with the page, which keeps every app inside its
+  Lighthouse budget: one shown before comes from the browser's cache at
+  once, and a new one arrives on the visitor's first move, its colour
+  standing in until then.
   The frame draws all of it, so every Prism app and Holo Search has it with
-  no rebuild. The photos were chosen once and are published beside the
-  frame (`frame/backdrops/`); the frame fetches the one in use from its own
+  no rebuild. Nine photos, space first, were chosen once and are published
+  beside the frame (`frame/backdrops/`); the panel shows them by default, and
+  the frame fetches the one in use from its own
   host, which every app page's `connect-src` already allows, and shows it
   as a `data:` image, which every `img-src` allows. No key ships, the panel
   credits each photographer, and nothing is fetched until the panel opens

@@ -27,7 +27,7 @@
     },
     {
       "path": "bootstrap/screens.mjs",
-      "sha256": "0aaef44f114dfbec5f26c4de17e580f8b3c84e9ac231546d9a8d1fd757b300e4"
+      "sha256": "b318ca8fb52e34a4203dd4b45b5ace6b472a105783b7a7ad64648f24eee3e405"
     },
     {
       "path": "lighthouserc.json",
@@ -55,7 +55,7 @@
     },
     {
       "path": "site/theme.js",
-      "sha256": "857306ec905e1f1593915a78774d4a026f092df6853a400ca3ae95ad6ffb18c5"
+      "sha256": "5d73dc3e6c2ba9e0dce3fbf0504adf686c3b8d294a7a0fee5c732c6be785adb4"
     }
   ]
 }

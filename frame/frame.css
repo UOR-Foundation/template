@@ -811,7 +811,6 @@ svg.gh, svg.fill { fill: currentColor; stroke: none; }
 .credit { margin: var(--space-3) 0 0; padding: 0 var(--space-1); color: var(--muted-foreground); font-size: 0.75rem; }
 .credit a { color: inherit; text-decoration: underline; text-decoration-color: color-mix(in oklab, currentColor 40%, transparent); text-underline-offset: 0.15em; }
 .credit a:hover { color: var(--foreground); }
-:host(:not([immersive])) .credit { visibility: hidden; }
 /* Immersive keeps the chrome as it is: the photo is the app's, drawn inside
  * the window only (the frame publishes the window's edges; see watchWindow). */
 
