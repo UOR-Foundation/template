@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <meta name="referrer" content="no-referrer" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self' https://registry.uor.foundation; base-uri 'none'; form-action 'none'" />
+    <meta name="prism-registry" content="https://registry.uor.foundation" />
+    <title>Prism account</title>
+    <link rel="stylesheet" href="brand.css" />
+    <link rel="stylesheet" href="id.css" />
+    <script type="module" src="id.mjs"></script>
+  </head>
+  <body>
+    <main id="card" aria-live="polite">
+      <button id="go" class="primary" type="button" disabled>
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="3.5" /><path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6" /></svg>
+        <span id="go-label">Sign in</span>
+      </button>
+      <p id="fresh" class="note" hidden>No passkey on this device yet. <button id="again" class="link" type="button">Try again</button></p>
+      <p id="error" class="error" hidden></p>
+    </main>
+  </body>
+</html>

@@ -98,6 +98,10 @@ const prismRegistry = new URL(`https://${DEFAULT_REGISTRY}/`);
 // a frame change reaches this app without rebuilding it. app.json may name
 // another frame host, for a test or a mirror.
 const frameHost = new URL(meta.frame ?? "https://uor-foundation.github.io/template/frame/");
+// Prism accounts: the sign-in page the frame's account panel shows. The
+// page's policy frames that one origin and no other. app.json may name
+// another, for a test.
+const accounts = new URL(meta.accounts ?? "https://id.uor.foundation/");
 const shareUrl = live.href;
 
 // The one speculation rule: the frame marks the pages a visitor is about to
@@ -169,6 +173,8 @@ const fill = {
   HOLO_SEARCH_ORIGIN: holoSearch.origin,
   REGISTRY_ORIGIN: prismRegistry.origin,
   FRAME_ORIGIN: frameHost.origin,
+  ACCOUNTS: escape(accounts.href),
+  ACCOUNTS_ORIGIN: accounts.origin,
   UNSPLASH_ORIGIN: unsplashOrigin,
   OG_IMAGE: escape(new URL("og.png", live).href),
   OG_ALT: escape(`${meta.name}: ${meta.purpose}`),

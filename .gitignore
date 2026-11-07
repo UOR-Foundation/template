@@ -1,5 +1,6 @@
 # Build output.
 /target/
+/identity-out/
 **/target/
 **/.prism/
 **/.lexlean/

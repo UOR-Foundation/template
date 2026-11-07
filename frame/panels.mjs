@@ -6,8 +6,8 @@
 // first move, checks it and imports it: the page's first load carries none
 // of it.
 const CSS = "/*PANELS_CSS*/";
-export const sheet = new CSSStyleSheet();
-sheet.replaceSync(CSS);
+export const sheet = typeof CSSStyleSheet === "function" ? new CSSStyleSheet() : null;
+sheet?.replaceSync(CSS);
 
 const UNSPLASH = "utm_source=prism&utm_medium=referral";
 const UNSPLASH_PROXY = "https://prism-unsplash.trinity-03d.workers.dev/";
@@ -342,6 +342,332 @@ export function panel(frame, core) {
 }
 
 // The theme panel's contents, which the frame puts in its empty panel.
+// Prism accounts (prism/identity/1, identity/PROTOCOL.md): the checks the
+// sign-in page's answer must pass. The page is trusted with nothing; every
+// signature is checked here, in the visitor's browser, as the frame checks
+// the holo's bytes. A failed check is an IdentityError naming which one.
+const MAX_CHAIN = 5;
+const enc = new TextEncoder();
+const b64u = (bytes) => btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const unb64u = (text) => {
+  if (typeof text !== "string" || !/^[\w-]*$/.test(text)) throw new IdentityError("encoding", "A value is not base64url");
+  return Uint8Array.from(atob(text.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+};
+const digest = async (bytes) => new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+
+export class IdentityError extends Error {
+  constructor(code, message) {
+    super(message);
+    this.name = "IdentityError";
+    this.code = code;
+  }
+}
+const deny = (code, message) => {
+  throw new IdentityError(code, message);
+};
+
+// The origins whose signatures count, each with its WebAuthn rpId.
+export const originsOf = (accounts) => ({ [new URL(accounts).origin]: new URL(accounts).hostname });
+
+const ALGORITHMS = {
+  [-7]: { key: { name: "ECDSA", namedCurve: "P-256" }, verify: { name: "ECDSA", hash: "SHA-256" } },
+  [-257]: { key: { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, verify: { name: "RSASSA-PKCS1-v1_5" } },
+};
+
+// WebAuthn's ECDSA signatures are DER; WebCrypto's are the two 32-byte halves.
+function rawSignature(der) {
+  let at = 2;
+  const integer = () => {
+    if (der[at++] !== 0x02) deny("signature", "The signature is not DER");
+    const length = der[at++];
+    let value = der.slice(at, (at += length));
+    while (value.length > 32 && value[0] === 0) value = value.slice(1);
+    if (value.length > 32 || at > der.length) deny("signature", "The signature is not DER");
+    const out = new Uint8Array(32);
+    out.set(value, 32 - value.length);
+    return out;
+  };
+  if (der[0] !== 0x30 || der[1] !== der.length - 2) deny("signature", "The signature is not DER");
+  const r = integer();
+  const s = integer();
+  return new Uint8Array([...r, ...s]);
+}
+
+// One WebAuthn assertion: the passkey of record signed message. The six
+// checks of PROTOCOL.md, in its order, failing closed.
+export async function verifySigned(record, signed, message, origins) {
+  if (signed?.credential !== record.credential) deny("credential", "The signature is from another passkey");
+  let client;
+  try {
+    client = JSON.parse(new TextDecoder().decode(unb64u(signed.clientDataJSON)));
+  } catch {
+    deny("client", "The signed client data is not JSON");
+  }
+  if (client.type !== "webauthn.get") deny("type", "The signature is not a sign-in");
+  if (client.challenge !== b64u(await digest(enc.encode(message)))) deny("challenge", "The signature is for another request");
+  const rp = Object.hasOwn(origins, client.origin) ? origins[client.origin] : null;
+  if (!rp) deny("origin", "The signature was made on another site");
+  const data = unb64u(signed.authenticatorData);
+  if (data.length < 37 || b64u(data.slice(0, 32)) !== b64u(await digest(enc.encode(rp)))) deny("rp", "The passkey belongs to another site");
+  if ((data[32] & 0x05) !== 0x05) deny("flags", "The device did not verify its user");
+  const algorithm = ALGORITHMS[record.alg] ?? deny("algorithm", "The passkey's algorithm is not ES256 or RS256");
+  const key = await crypto.subtle.importKey("spki", unb64u(record.spki), algorithm.key, false, ["verify"]).catch(() => deny("key", "The public key does not parse"));
+  let signature = unb64u(signed.signature);
+  if (record.alg === -7) signature = rawSignature(signature);
+  const body = new Uint8Array([...data, ...(await digest(unb64u(signed.clientDataJSON)))]);
+  if (!(await crypto.subtle.verify(algorithm.verify, key, signature, body))) deny("signature", "The signature does not verify");
+}
+
+// A key record, accepted only when its name is its key's hash and it is the
+// account's first key or bound to it by a key already accepted.
+export async function acceptRecord(credential, records, origins, depth = 0) {
+  const record = records.find((r) => r?.credential === credential);
+  if (!record || record.spec !== "prism/identity/key/1") deny("record", "The passkey has no record");
+  if (b64u(await digest(unb64u(record.spki))) !== record.key) deny("key", "The record's name is not its key's hash");
+  if (record.key === record.account) {
+    if (record.binding) deny("binding", "An account's first key has no binding");
+    return record;
+  }
+  if (depth >= MAX_CHAIN || !record.binding) deny("binding", "The key is not bound to its account");
+  const parent = await acceptRecord(record.binding.credential, records, origins, depth + 1);
+  if (parent.account !== record.account) deny("binding", "The key is bound by another account");
+  await verifySigned(parent, record.binding, `prism/identity/bind/1\n${record.account}\n${record.key}`, origins);
+  return record;
+}
+
+// A session: the account's passkey let one browser key act for it, on one
+// app's origin, until it expires. Anyone holding the session can check it.
+export async function verifySession(session, origins, now = Date.now()) {
+  const { app, nonce, sessionKey, expires, assertion, records } = session ?? {};
+  if (!Number.isSafeInteger(expires) || expires <= now) deny("expired", "The session has expired");
+  const record = await acceptRecord(assertion?.credential, records ?? [], origins);
+  await verifySigned(record, assertion, `prism/identity/session/1\n${app}\n${nonce}\n${sessionKey}\n${expires}`, origins);
+  return { account: record.account, key: record.key, credential: record.credential, expires };
+}
+
+
+const ACCOUNT_PANEL = `
+<p id="account-title" class="account-title">Prism account</p>
+<p id="account-sub" class="account-sub">One account for every app. No password.</p>
+<div id="account-in" class="account-in" hidden>
+  <p class="account-id"><code id="account-id"></code><button id="account-copy" class="text" type="button">Copy</button></p>
+  <button id="account-add" class="row" type="button">Add device</button>
+  <button id="account-out" class="row" type="button">Sign out</button>
+</div>
+<div id="account-ceremony" class="account-ceremony"></div>
+<button id="account-window" class="primary" type="button" hidden>Sign in</button>
+`;
+
+// The account panel (prism/identity/1, identity/PROTOCOL.md): the sign-in
+// page from the accounts origin in an iframe, loaded when the visitor reaches
+// for the icon, so the panel opens ready. A page whose policy will not frame
+// that origin gets the same page in a small window instead. The page says
+// nothing the frame takes on trust: every signature is checked here (core's
+// verifySession) before a session is kept.
+export function accounts(frame, core) {
+  const { SESSION_DAYS, store, accountChannel, loadSession } = core;
+  frame.$("account-panel").innerHTML = ACCOUNT_PANEL;
+  const button = frame.$("account");
+  const panel = frame.$("account-panel");
+  const target = new URL(frame.data.accounts);
+  const origin = target.origin;
+  const origins = originsOf(target.href);
+  const SPEC = "prism/identity/1";
+  const box = frame.$("account-ceremony");
+  const windowButton = frame.$("account-window");
+  let ceremony = null;
+
+  const policy = [...document.querySelectorAll('meta[http-equiv="Content-Security-Policy" i]')].map((meta) => meta.content).join(";");
+  const directive = (name) => new RegExp(`(?:^|;)\\s*${name}([^;]*)`).exec(policy)?.[1];
+  const frames = directive("frame-src") ?? directive("child-src") ?? directive("default-src");
+  const framed = frames === undefined || frames.split(/\s+/).some((source) => source === "*" || source === origin || (source === "'self'" && origin === location.origin));
+
+  const say = (words) => {
+    frame.$("bar-status").textContent = words;
+    setTimeout(() => (frame.$("bar-status").textContent = ""), 1600);
+  };
+  const paint = () => {
+    const saved = accountChannel.session;
+    core.paint();
+    frame.$("account-in").hidden = !saved;
+    frame.$("account-sub").textContent = saved ? "Signed in on this device." : "One account for every app. No password.";
+    if (saved) {
+      frame.$("account-id").textContent = `${saved.account.slice(0, 8)}…${saved.account.slice(-4)}`;
+      frame.$("account-id").title = saved.account;
+    }
+  };
+  const changed = () => {
+    paint();
+    frame.dispatchEvent(new CustomEvent("accountchange", { detail: frame.account, bubbles: true, composed: true }));
+  };
+  const close = () => {
+    box.replaceChildren();
+    ceremony?.popup?.close();
+    ceremony = null;
+    windowButton.hidden = true;
+    button.classList.remove("busy");
+  };
+
+  // One ceremony at a time, each with its own session key and nonce, used once.
+  const begin = (mode) => {
+    if (ceremony?.mode === mode) return;
+    close();
+    paint();
+    if (mode === "add") frame.$("account-sub").textContent = "Add your phone or another computer.";
+    const saved = accountChannel.session;
+    ceremony = {
+      mode,
+      ready: crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, false, ["sign", "verify"]).then(async (keys) => ({
+        keys,
+        request: {
+          type: `${SPEC}/request`,
+          mode,
+          nonce: b64u(crypto.getRandomValues(new Uint8Array(32))),
+          sessionKey: b64u(await crypto.subtle.exportKey("raw", keys.publicKey)),
+          expires: Date.now() + SESSION_DAYS * 864e5,
+          ...(mode === "add" ? { account: saved.account, credential: saved.credential } : {}),
+        },
+      })),
+    };
+    if (!framed) {
+      windowButton.hidden = false;
+      return;
+    }
+    const iframe = document.createElement("iframe");
+    const page = new URL(target);
+    page.hash = `theme=${document.documentElement.classList.contains("dark") ? "dark" : "light"}`;
+    iframe.src = page.href;
+    iframe.title = mode === "add" ? "Add device" : "Sign in";
+    iframe.allow = "publickey-credentials-get; publickey-credentials-create";
+    iframe.referrerPolicy = "no-referrer";
+    box.replaceChildren(iframe);
+    ceremony.iframe = iframe;
+    const waiting = ceremony;
+    // A policy the frame cannot read (a header, not a meta tag) that will
+    // not frame the accounts origin says so here: the window takes over.
+    document.addEventListener(
+      "securitypolicyviolation",
+      (event) => {
+        if (ceremony !== waiting || !/^(frame|child|default)-src/.test(event.effectiveDirective) || !String(event.blockedURI).startsWith(origin)) return;
+        waiting.answered = true;
+        box.replaceChildren();
+        windowButton.hidden = false;
+      },
+      { signal: frame.accountWatch.signal },
+    );
+    // The iframe shows only once the page answers, so a page that fails
+    // leaves no browser error page in the panel. A slow network is not a
+    // failure: past 8 s the panel says it is still trying and keeps the
+    // page, which shows the moment it answers. Only past 30 s does it give
+    // up, with one plain sentence, and the next reach tries again.
+    setTimeout(() => {
+      if (ceremony !== waiting || waiting.answered) return;
+      waiting.slow = true;
+      frame.$("account-sub").textContent = "Accounts are slow to answer. Still trying.";
+    }, 8000);
+    setTimeout(() => {
+      if (ceremony !== waiting || waiting.answered) return;
+      close();
+      frame.$("account-sub").textContent = "Accounts are unreachable right now. Try again soon.";
+    }, 30000);
+  };
+
+  windowButton.addEventListener("click", () => {
+    const page = new URL(target);
+    page.hash = `popup&theme=${document.documentElement.classList.contains("dark") ? "dark" : "light"}`;
+    ceremony.popup = open(page.href, "prism-identity", "popup,width=420,height=420");
+    if (!ceremony.popup) say("Allow pop-ups for this page to sign in");
+  });
+
+  const finish = async (data) => {
+    const { keys, request } = await ceremony.ready;
+    const delegation = { app: location.origin, nonce: request.nonce, sessionKey: request.sessionKey, expires: request.expires, assertion: data.assertion, records: data.records };
+    try {
+      const who = await verifySession(delegation, origins);
+      const saved = { ...who, delegation, privateKey: keys.privateKey };
+      await store("readwrite", (s) => s.put(saved, "current"));
+      accountChannel.session = saved;
+      close();
+      panel.hidePopover();
+      changed();
+      say("Signed in");
+    } catch (error) {
+      close();
+      begin("signin");
+      frame.$("account-sub").textContent = error instanceof IdentityError ? `Sign-in was refused: ${error.message.toLowerCase()}.` : "Sign-in did not finish. Try again.";
+    }
+  };
+
+  frame.accountWatch?.abort();
+  frame.accountWatch = new AbortController();
+  addEventListener(
+    "message",
+    async (event) => {
+      if (!ceremony || event.origin !== origin || event.source !== (ceremony.iframe?.contentWindow ?? ceremony.popup)) return;
+      const data = event.data ?? {};
+      ceremony.answered = true;
+      if (data.type === `${SPEC}/ready`) ceremony.iframe?.classList.add("ready");
+      if (data.type === `${SPEC}/ready` && ceremony.slow) {
+        ceremony.slow = false;
+        paint();
+      }
+      if (data.type === `${SPEC}/ready`) event.source.postMessage((await ceremony.ready).request, origin);
+      else if (data.type === `${SPEC}/size` && ceremony.iframe) ceremony.iframe.style.height = `${Math.min(Math.max(Number(data.height) || 0, 48), 480)}px`;
+      else if (data.type === `${SPEC}/busy`) button.classList.toggle("busy", Boolean(data.on));
+      else if (data.type === `${SPEC}/session` && ceremony.mode === "signin") await finish(data);
+      else if (data.type === `${SPEC}/added` && ceremony.mode === "add") {
+        close();
+        panel.hidePopover();
+        say("Device added");
+      }
+    },
+    { signal: frame.accountWatch.signal },
+  );
+
+  // Only once the saved session is known, so a quick hover never starts a
+  // sign-in for someone already signed in.
+  const reach = () => loadSession().then(() => !accountChannel.session && begin("signin"));
+
+  // The panel opens under the icon, its right edge on the icon's.
+  panel.addEventListener("beforetoggle", (event) => {
+    if (event.newState !== "open") {
+      if (ceremony?.mode === "add") close();
+      return;
+    }
+    reach();
+    const bar = frame.shadowRoot.querySelector(".bar").getBoundingClientRect();
+    const edge = button.getBoundingClientRect();
+    const view = document.documentElement.clientWidth;
+    const width = Math.min(20 * parseFloat(getComputedStyle(document.documentElement).fontSize), view - 32);
+    panel.style.setProperty("--account-top", `${Math.round(bar.bottom + 8)}px`);
+    panel.style.setProperty("--account-right", `${Math.round(Math.max(16, Math.min(view - edge.right, view - width - 16)))}px`);
+  });
+
+  frame.$("account-add").addEventListener("click", () => begin("add"));
+  frame.$("account-out").addEventListener("click", async () => {
+    await store("readwrite", (s) => s.delete("current")).catch(() => {});
+    accountChannel.session = null;
+    close();
+    panel.hidePopover();
+    changed();
+    say("Signed out");
+  });
+  frame.$("account-copy").addEventListener("click", async () => {
+    const copy = frame.$("account-copy");
+    try {
+      await navigator.clipboard.writeText(accountChannel.session?.account ?? "");
+      copy.textContent = "Copied";
+    } catch {
+      copy.textContent = "Select it";
+    }
+    setTimeout(() => (copy.textContent = "Copy"), 1600);
+  });
+
+  paint();
+  loadSession().then(paint);
+  return { reach };
+}
+
 export const THEME_PANEL = `
     <p id="theme-title" class="theme-title">Theme</p>
     <div class="modes" role="group" aria-labelledby="theme-title">

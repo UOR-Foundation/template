@@ -34,8 +34,12 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Verify, answer add 20 22 and replay 22/22
         run: npm run test:try
+      - name: Prism accounts - every signature check refuses, and the passkey flow signs in
+        run: npm run test:identity
       - name: Build the canonical frame every Prism app loads
         run: node frame/publish.mjs "$RUNNER_TEMP/frame" "$GITHUB_SHA"
+      - name: Build the sign-in page for id.uor.foundation, pinned by hash
+        run: node identity/publish.mjs "$RUNNER_TEMP/identity" "$GITHUB_SHA"
 
   deploy:
     name: publish the try page and the canonical frame

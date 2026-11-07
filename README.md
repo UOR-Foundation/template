@@ -258,6 +258,12 @@ the archive carries. Every instance gets the same page; an app edits one file.
   bar is focused, and the index with the page; the Content-Security-Policy admits
   Holo Search's origin for that request and the search form. Without a
   script, Enter still submits the form to Holo Search.
+- **One Prism account, no password.** The person icon after full screen
+  signs the visitor in with the device's own passkey (Face ID, Touch ID,
+  Windows Hello, a phone), whose key never leaves its secure hardware. The
+  account is named by its key's hash and the frame checks every signature
+  in the browser, so no server is trusted to say who is signed in. See
+  [identity/README.md](identity/README.md).
 - **Made to be shared.** `bootstrap/og.py` draws `site/og.png`, the 1200 x
   630 card every platform shows for the link (the brand's dark ground, the
   mark, the app's name and purpose, "Proved in Lean. Verified in your

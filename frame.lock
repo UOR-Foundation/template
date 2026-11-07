@@ -15,7 +15,7 @@
     },
     {
       "path": "bootstrap/page.mjs",
-      "sha256": "c762691948920958090c4db94f95bd511b7511d603c90dccafbe9c4d7b193f21"
+      "sha256": "2a6bf39f0c709c3e5e4e67bad17ad6821f4273aab4c71c958112eda8888d3db3"
     },
     {
       "path": "bootstrap/precache.mjs",
@@ -43,7 +43,7 @@
     },
     {
       "path": "site/page.template.html",
-      "sha256": "e44be91fec12bfaa9e8476d5908d852fad61dae707324e601b6b98c511bdbc36"
+      "sha256": "3175a4320c087c8416cd23d97884bdff6ee8e7797e174caa06e17204c3375fa3"
     },
     {
       "path": "site/prism-page.css",

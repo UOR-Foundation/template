@@ -7,7 +7,7 @@
 //
 // The contract (prism/frame/1):
 //   <prism-frame name address live repo home purpose card identity
-//                verdict verdict-label fingerprint proof proof-url examples>
+//                verdict verdict-label fingerprint proof proof-url examples accounts>
 //     <span slot="status">…</span>     optional: shown in the bar, e.g. "Update available"
 //   </prism-frame>
 // name      the app's name ("Luhn check")
@@ -25,6 +25,11 @@
 // proof-url optional: the proof's attestation
 // examples  optional: "passed/total" once the page has replayed the holo's
 //           examples, "running" while it does, "error" when it could not
+// accounts  optional: the Prism accounts origin (https://id.uor.foundation)
+// The element's account is the visitor's Prism account (null when signed
+// out); sign(bytes) signs with this browser's session key and returns the
+// signature with the passkey's delegation; "accountchange" fires on sign-in
+// and sign-out. identity/PROTOCOL.md is the account contract.
 // The shield sums the three: green only when the bytes are authentic and
 // every example gives its proved answer; its panel shows each check, as a
 // browser shows a page's security.
@@ -179,6 +184,7 @@ const markup = (e) => `
     <span id="bar-status" class="sr" aria-live="polite"></span>
     <button id="theme" class="ghost icon" type="button" popovertarget="theme-panel" aria-label="Theme" title="Theme"><svg class="moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" /></svg><svg class="sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg><svg class="photo" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><rect x="3" y="4.5" width="18" height="15" rx="2.5" /><circle cx="9" cy="10" r="1.75" /><path d="m3.5 17 5-4.5 3.5 3 3-2.5 5.5 4.5" /></svg></button>
     <button id="fullscreen" class="ghost icon" type="button" aria-label="Enter full screen" title="Full screen"><svg class="expand" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15" /></svg><svg class="shrink" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 4v3.5A1.5 1.5 0 0 1 7.5 9H4M20 9h-3.5A1.5 1.5 0 0 1 15 7.5V4M15 20v-3.5a1.5 1.5 0 0 1 1.5-1.5H20M4 15h3.5A1.5 1.5 0 0 1 9 16.5V20" /></svg></button>
+    <button id="account" class="ghost icon" type="button" popovertarget="account-panel" aria-label="Sign in" title="Sign in"><svg class="person" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="3.5" /><path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6" /></svg></button>
     </div>
   </div></div>
   <div id="trust-panel" class="trust-panel" popover aria-labelledby="trust-title">
@@ -231,6 +237,7 @@ const markup = (e) => `
       <li id="share-more-item" hidden><button id="share-more" class="share-target" type="button"><span class="share-glyph"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></svg></span>More</button></li>
     </ul>
   </div>
+  <div id="account-panel" class="account-panel" popover aria-labelledby="account-title"></div>
   <div id="theme-panel" class="theme-panel" popover aria-labelledby="theme-title"></div>
 `;
 
@@ -336,6 +343,39 @@ function holoIndex() {
 const githubMark = '<svg class="gh" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z" /></svg>';
 const starMark = '<svg class="star" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false"><path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.751.751 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z" /></svg>';
 
+// Prism accounts (prism/identity/1, identity/PROTOCOL.md). An account is a
+// passkey: its private key stays in the device's secure hardware, and the
+// account's name is the hash of its public key. The frame keeps the session
+// and signs with it; the panels module runs the sign-in and checks every
+// signature the sign-in page hands back, in the visitor's browser.
+const ACCOUNTS = "https://id.uor.foundation";
+const SESSION_DAYS = 7;
+const b64u = (bytes) => btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+// The session, in this app's IndexedDB: the browser key cannot be read out
+// of it by any script, only used. Nothing goes to localStorage.
+function store(mode, work) {
+  return new Promise((done, fail) => {
+    const open = indexedDB.open("prism-identity", 1);
+    open.onupgradeneeded = () => open.result.createObjectStore("session");
+    open.onerror = () => fail(open.error);
+    open.onsuccess = () => {
+      const db = open.result;
+      const tx = db.transaction("session", mode);
+      const request = work(tx.objectStore("session"));
+      tx.oncomplete = () => (db.close(), done(request?.result));
+      tx.onerror = () => (db.close(), fail(tx.error));
+    };
+  });
+}
+const accountChannel = { session: null, loaded: null };
+function loadSession() {
+  return (accountChannel.loaded ??= store("readonly", (s) => s.get("current"))
+    .then((saved) => (accountChannel.session = saved && saved.delegation.expires > Date.now() ? saved : null))
+    .catch(() => null));
+}
+// What the account panel, in the panels module, borrows from the frame.
+const ACCOUNT_CORE = { SESSION_DAYS, b64u, store, accountChannel, loadSession };
+
 // Everything the markup needs, from the attributes (get), the page's title
 // and its address: one function, for the element and for the shell.
 function modelOf(get, title, base) {
@@ -357,6 +397,7 @@ function modelOf(get, title, base) {
     ...starsOf(Number(get("stars"))),
     card: get("card") ?? new URL("og.png", url).href,
     identity: get("identity") ?? "#identity-title",
+    accounts: get("accounts") ?? ACCOUNTS,
     host: (url.host + url.pathname).replace(/\/$/, ""),
     x: `https://x.com/intent/post?${query({ text, url: url.href })}`,
     linkedin: `https://www.linkedin.com/sharing/share-offsite/?${query({ url: url.href })}`,
@@ -404,7 +445,7 @@ export function shell(attributes, base) {
 // there is none, to write the shell.
 const Element = globalThis.HTMLElement ?? class {};
 class PrismFrame extends Element {
-  static observedAttributes = ["name", "address", "live", "repo", "home", "purpose", "card", "identity", "verdict", "verdict-label", "fingerprint", "proof", "proof-url", "examples", "stars"];
+  static observedAttributes = ["name", "address", "live", "repo", "home", "purpose", "card", "identity", "verdict", "verdict-label", "fingerprint", "proof", "proof-url", "examples", "stars", "accounts"];
 
   constructor() {
     super();
@@ -438,6 +479,7 @@ class PrismFrame extends Element {
     this.windowWatch?.disconnect();
     this.fullscreenWatch?.abort();
     this.themeWatch?.disconnect();
+    this.accountWatch?.abort();
   }
 
   attributeChangedCallback(name, before, after) {
@@ -469,6 +511,7 @@ class PrismFrame extends Element {
     this.omnibox();
     this.themePanel();
     this.fullScreen();
+    this.accountPanel();
     this.watchWindow();
     const home = this.$("home");
     for (const type of ["pointerenter", "focus", "touchstart"]) home.addEventListener(type, () => speculate(this.data.home), { passive: true });
@@ -778,6 +821,71 @@ class PrismFrame extends Element {
       document.addEventListener(type, paint, { signal: this.fullscreenWatch.signal });
     }
     paint();
+  }
+
+  // The visitor's Prism account, for the app: null when signed out.
+  get account() {
+    const saved = accountChannel.session;
+    return saved ? { id: saved.account, key: saved.key, expires: saved.delegation.expires } : null;
+  }
+
+  // Signs bytes with this browser's session key. The delegation proves the
+  // account's passkey let that key act for it here; verifySession checks it.
+  async sign(data) {
+    const saved = accountChannel.session;
+    if (!saved || saved.delegation.expires <= Date.now()) throw Object.assign(new Error("No one is signed in"), { name: "IdentityError", code: "signed-out" });
+    const signature = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, saved.privateKey, data);
+    return { signature: b64u(signature), delegation: saved.delegation };
+  }
+
+  // The account icon, after full screen: a line drawing signed out, a soft
+  // pulse while a passkey is asked, filled once signed in. Its panel and the
+  // sign-in itself come with the panels module (accounts() there), fetched
+  // when the visitor reaches for the icon, so an app's first load carries
+  // none of it. Where passkeys cannot work (no secure context, no WebAuthn,
+  // no IndexedDB, no popover) the icon is not shown, so it never offers
+  // what would fail.
+  accountPanel() {
+    const button = this.$("account");
+    const panel = this.$("account-panel");
+    this.accountWatch?.abort();
+    this.accountReady = null;
+    let wired = false;
+    if (typeof panel.showPopover !== "function" || !window.isSecureContext || !window.PublicKeyCredential || !globalThis.indexedDB) {
+      button.hidden = true;
+      return;
+    }
+    const paint = () => {
+      const saved = accountChannel.session;
+      const label = saved ? "Prism account" : "Sign in";
+      button.classList.toggle("signed-in", Boolean(saved));
+      button.setAttribute("aria-label", label);
+      button.title = label;
+    };
+    // Reaching for the icon is intent enough: no wait for a first move.
+    const ready = () =>
+      (this.accountReady ??= loadPanels().then(
+        (panels) => {
+          this.adoptPanels(panels);
+          const accounts = panels.accounts(this, { ...ACCOUNT_CORE, paint });
+          wired = true;
+          return accounts;
+        },
+        (error) => {
+          this.accountReady = null;
+          throw error;
+        },
+      ));
+    const reach = () => ready().then((accounts) => accounts.reach(), () => {});
+    for (const type of ["pointerenter", "focus", "touchstart"]) button.addEventListener(type, reach, { passive: true });
+    // A panel opened before its part of the panels module came waits for it.
+    panel.addEventListener("beforetoggle", (event) => {
+      if (event.newState !== "open" || wired) return;
+      event.preventDefault();
+      ready().then(() => panel.showPopover(), () => {});
+    });
+    paint();
+    loadSession().then(paint);
   }
 
   // The window's top edge is the bar's bottom edge: the height the page
