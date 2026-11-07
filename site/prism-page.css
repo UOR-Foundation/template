@@ -110,7 +110,21 @@ prism-frame {
   z-index: 10;
   min-height: calc(var(--safe-top) + var(--frame-bar));
 }
-prism-frame:not(:defined) {
+/* Between Prism apps the page changes and the frame stays: a navigation is
+ * a short cross-fade of the window, with the bar held in place, as a
+ * browser switches tabs. Every page paints the real bar first (the frame's
+ * shell, written in by bootstrap/page.mjs), so the bar is the same on both
+ * sides and only its address and the app beneath it change. */
+@view-transition { navigation: auto; }
+prism-frame { view-transition-name: prism-frame; }
+/* The page's colour scheme, which the frame's first paint follows. */
+:root { color-scheme: light; }
+:root.dark { color-scheme: dark; }
+::view-transition-group(*) { animation-duration: 160ms; animation-timing-function: cubic-bezier(0.2, 0, 0, 1); }
+@media (prefers-reduced-motion: reduce) {
+  @view-transition { navigation: none; }
+}
+prism-frame:not(:defined):not([data-shell]) {
   padding-top: var(--safe-top);
   background: var(--sidebar);
 }

@@ -48,7 +48,7 @@
   --chrome: var(--sidebar, var(--muted));
   /* The address: on the light chrome a white field, on the dark one barely
    * off the chrome, its hairline drawing it. */
-  --field: var(--card);
+  --field: light-dark(var(--card), color-mix(in oklab, var(--chrome), var(--foreground) 3%));
   --field-border: var(--border);
   --gutter: 0.5rem;
   --window-radius: 0.75rem;
@@ -68,7 +68,10 @@
 @media (min-width: 840px) { :host { --column: 80rem; } }
 /* Touch: the bar looks the same, and every control in it takes a 48 px tap. */
 @media (pointer: coarse) { :host { --hit: var(--touch); } }
-:host([dark]) { --field: color-mix(in oklab, var(--chrome), var(--foreground) 3%); }
+/* The theme is the page's colour scheme, which the page sets before its
+ * first paint; once the script runs the host says it too, for a page that
+ * sets none. */
+:host([dark]) { color-scheme: dark; }
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -209,6 +212,16 @@ svg.gh, svg.fill { fill: currentColor; stroke: none; }
 .ghost.icon::before { inset: calc((var(--hit) - var(--bar-control)) / 2); border-radius: var(--radius-control); }
 .ghost.icon svg { width: 1rem; height: 1rem; stroke-width: 1.6; }
 .ghost.icon svg.gh { width: 0.9375rem; height: 0.9375rem; }
+/* GitHub with its stars: the mark, then GitHub's own star in its gold and
+ * the count beside it, one quiet pill; the count in the muted grey and
+ * tabular figures, so it reads as a figure. */
+#github .stars { display: none; }
+/* In the address, beside share: a small pill the height of share's circle. */
+#github.starred { width: auto; gap: 0.375rem; padding-inline: 0.5rem; margin-inline: calc((1.5rem - var(--hit)) / 2 + 0.25rem) 0; }
+#github.starred::before { inset: calc((var(--hit) - 1.5rem) / 2) 0; border-radius: 999px; }
+#github.starred .stars { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.8125rem; font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: 0.01em; color: var(--muted-foreground); }
+#github .stars svg.star { width: 0.75rem; height: 0.75rem; fill: #e3b341; stroke: none; }
+#github.starred:hover .stars { color: var(--foreground); }
 /* Home is the Hologram logomark, the brand kit's 70 dots exactly, in the
  * full text colour: white on the dark chrome, near-black on the light, as
  * Hologram OS draws it. A touch larger than the line icons, so its dots
@@ -229,7 +242,10 @@ svg.gh, svg.fill { fill: currentColor; stroke: none; }
 }
 .ghost.icon.inset::before { inset: calc((var(--hit) - 1.5rem) / 2); border-radius: 50%; }
 /* While the address is edited it steps aside for the text. */
-.inner.editing #share { display: none; }
+.inner.editing #share, .inner.editing #github, .inner.editing .sep { display: none; }
+/* A hairline between GitHub and share, as a browser divides its icons. */
+.address .sep { flex: none; width: var(--border-width); height: 1rem; margin-inline: 0.125rem; background: var(--border-strong); }
+#github[hidden] + .sep { display: none; }
 /* Full screen: the corners point out to enter, in to leave. */
 :host([fullscreen]) #fullscreen .expand, :host(:not([fullscreen])) #fullscreen .shrink { display: none; }
 
@@ -614,7 +630,12 @@ svg.gh, svg.fill { fill: currentColor; stroke: none; }
 .share-target:active .share-glyph { transform: scale(0.94); }
 
 /* Theme: the moon offers the dark ground, the sun the light one. */
-:host([dark]) #theme .moon, :host(:not([dark])) #theme .sun { display: none; }
+/* Both theme icons are drawn in one place; the colour scheme shows the one
+ * that offers the other theme, so it is right from the first paint. */
+#theme { display: inline-grid; place-items: center; }
+#theme svg { grid-area: 1 / 1; }
+#theme .moon { color: light-dark(currentColor, transparent); }
+#theme .sun { color: light-dark(transparent, currentColor); }
 
 /* Read by screen readers, not shown. */
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -628,7 +649,7 @@ svg.gh, svg.fill { fill: currentColor; stroke: none; }
   .inner { gap: var(--space-1); }
   .start, .end { flex: none; gap: var(--space-1); }
   .address { flex-basis: 8rem; }
-  #github { display: none; }
+  #github, .address .sep { display: none; }
   .inner.editing > :not(.address) { display: none; }
 }
 

@@ -59,15 +59,16 @@ const markup = (e) => `
         <span class="url" aria-hidden="true"><span class="scheme">holo://</span><span class="host">${e.slug}</span></span>
         <input id="omnibox" class="omnibox" name="r" type="text" value="holo://${e.slug}" role="combobox" aria-label="Search Prism apps, or paste a holo address or hash" aria-autocomplete="list" aria-expanded="false" aria-controls="omnibox-list" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go" />
       </span>
+      <a id="github" class="ghost icon inset${e.starred}" href="${e.repo}" aria-label="${e.githubLabel}" title="${e.githubLabel}"><svg class="gh" viewBox="0 0 16 16" width="20" height="20" aria-hidden="true" focusable="false"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z" /></svg><span class="stars"><svg class="star" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false"><path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.751.751 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z" /></svg><span id="stars">${e.starsText}</span></span></a>
+      <span class="sep" aria-hidden="true"></span>
       <button id="share" class="ghost icon inset" type="button" popovertarget="share-panel" aria-label="Share this app" title="Share"><svg class="share" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="17.5" cy="5.5" r="2.5" /><circle cx="6.5" cy="12" r="2.5" /><circle cx="17.5" cy="18.5" r="2.5" /><path d="m8.7 13.3 6.6 3.9M15.3 6.8l-6.6 3.9" /></svg><svg class="done" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg></button>
       <ul id="omnibox-list" class="omnibox-list" role="listbox" aria-label="Prism apps" hidden></ul>
     </form>
     <div class="end">
     <slot name="status"></slot>
-    <a id="github" class="ghost icon" href="${e.repo}" aria-label="Source on GitHub" title="Source on GitHub"><svg class="gh" viewBox="0 0 16 16" width="20" height="20" aria-hidden="true" focusable="false"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z" /></svg></a>
     <span id="bar-status" class="sr" aria-live="polite"></span>
     <button id="theme" class="ghost icon" type="button" aria-label="Switch theme" title="Switch theme"><svg class="moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" /></svg><svg class="sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg></button>
-    <button id="fullscreen" class="ghost icon" type="button" aria-label="Enter full screen" title="Full screen" hidden><svg class="expand" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15" /></svg><svg class="shrink" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 4v3.5A1.5 1.5 0 0 1 7.5 9H4M20 9h-3.5A1.5 1.5 0 0 1 15 7.5V4M15 20v-3.5a1.5 1.5 0 0 1 1.5-1.5H20M4 15h3.5A1.5 1.5 0 0 1 9 16.5V20" /></svg></button>
+    <button id="fullscreen" class="ghost icon" type="button" aria-label="Enter full screen" title="Full screen"><svg class="expand" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15" /></svg><svg class="shrink" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 4v3.5A1.5 1.5 0 0 1 7.5 9H4M20 9h-3.5A1.5 1.5 0 0 1 15 7.5V4M15 20v-3.5a1.5 1.5 0 0 1 1.5-1.5H20M4 15h3.5A1.5 1.5 0 0 1 9 16.5V20" /></svg></button>
     </div>
   </div></div>
   <div id="trust-panel" class="trust-panel" popover aria-labelledby="trust-title">
@@ -122,8 +123,124 @@ const markup = (e) => `
   </div>
 `;
 
-class PrismFrame extends HTMLElement {
-  static observedAttributes = ["name", "address", "live", "repo", "home", "purpose", "card", "identity", "verdict", "verdict-label", "fingerprint", "proof", "proof-url", "examples"];
+// Speculation: the app a visitor shows they are about to open (home under
+// the pointer, a suggestion chosen in the address bar) is loaded before they
+// open it. A Prism app is named by its content, so what is loaded early is
+// never stale and never another app's; on its own origin it is prerendered,
+// so it also verifies its bytes and replays its examples before the visitor
+// arrives, and opening it is showing a page already checked. Another origin
+// is only fetched.
+// The page carries one fixed rule (bootstrap/page.mjs hashes it into its
+// Content-Security-Policy): prerender, or for another origin prefetch, any
+// link marked data-prism-ahead. The frame marks the pages to load: up to
+// three links, the latest first, rendered but out of sight and out of the
+// tab order, since the browser only acts on rendered links. A page without
+// the rule gets a plain prefetch of a same-origin page instead.
+const speculation = { box: null, prefetched: new Set() };
+function speculate(href) {
+  if (!href) return;
+  let url;
+  try {
+    url = new URL(href, location.href);
+  } catch {
+    return;
+  }
+  url.hash = "";
+  const here = new URL(location.href);
+  here.hash = "";
+  if (!/^https?:$/.test(url.protocol) || url.href === here.href) return;
+  if (document.querySelector('script[type="speculationrules"][data-prism-ahead]')) {
+    if (!speculation.box?.isConnected) {
+      speculation.box = document.createElement("div");
+      speculation.box.setAttribute("aria-hidden", "true");
+      Object.assign(speculation.box.style, { position: "absolute", width: "1px", height: "1px", overflow: "hidden", clipPath: "inset(50%)", pointerEvents: "none" });
+      document.body.append(speculation.box);
+    }
+    const held = [...speculation.box.children].find((link) => link.href === url.href);
+    if (held) {
+      speculation.box.prepend(held);
+      return;
+    }
+    const link = document.createElement("a");
+    link.href = url.href;
+    link.tabIndex = -1;
+    link.dataset.prismAhead = "";
+    speculation.box.prepend(link);
+    while (speculation.box.children.length > 3) speculation.box.lastElementChild.remove();
+    return;
+  }
+  if (url.origin !== location.origin || speculation.prefetched.has(url.href)) return;
+  speculation.prefetched.add(url.href);
+  const link = document.createElement("link");
+  link.rel = "prefetch";
+  link.href = url.href;
+  document.head.append(link);
+}
+
+// GitHub stars, as a short count: 128, 1.2k, 12k, 1.2m. None, or none
+// known, shows the GitHub mark alone.
+const shortCount = (n) =>
+  n < 1000 ? String(n) : n < 1e6 ? `${(n / 1000).toFixed(n < 10000 ? 1 : 0).replace(/\.0$/, "")}k` : `${(n / 1e6).toFixed(1).replace(/\.0$/, "")}m`;
+const starsOf = (n) => {
+  const stars = Number.isInteger(n) && n > 0 ? n : 0;
+  return {
+    stars,
+    starsText: stars ? shortCount(stars) : "",
+    starred: stars ? " starred" : "",
+    githubLabel: stars ? `Source on GitHub, ${stars} star${stars === 1 ? "" : "s"}` : "Source on GitHub",
+  };
+};
+
+// Everything the markup needs, from the attributes (get), the page's title
+// and its address: one function, for the element and for the shell.
+function modelOf(get, title, base) {
+  const name = get("name") ?? title;
+  const slug = get("address") ?? slugOf(name);
+  const home = get("home") ?? HOME;
+  const live = get("live") ?? base;
+  const purpose = get("purpose") ?? "";
+  const text = purpose ? `${name}: ${purpose.split(/(?<=\.)\s/)[0]}` : name;
+  const url = new URL(live, base);
+  const query = (params) => new URLSearchParams(params).toString();
+  return {
+    name,
+    slug,
+    home,
+    live: url.href,
+    text,
+    repo: get("repo") ?? "",
+    ...starsOf(Number(get("stars"))),
+    card: get("card") ?? new URL("og.png", url).href,
+    identity: get("identity") ?? "#identity-title",
+    host: (url.host + url.pathname).replace(/\/$/, ""),
+    x: `https://x.com/intent/post?${query({ text, url: url.href })}`,
+    linkedin: `https://www.linkedin.com/sharing/share-offsite/?${query({ url: url.href })}`,
+    facebook: `https://www.facebook.com/sharer/sharer.php?${query({ u: url.href })}`,
+    email: `mailto:?subject=${encodeURIComponent(name)}&body=${encodeURIComponent(`${text}\n\n${url.href}`)}`,
+  };
+}
+
+// The shell: the frame's first paint, which a page's build writes into the
+// page (bootstrap/page.mjs) as a declarative shadow root holding this
+// frame's own styles and markup for its attributes. The browser paints the
+// real bar with the page's first frame; when this module arrives the element
+// takes that root over and draws the same thing, so nothing moves and
+// nothing flickers between apps. The verdict starts as the page starts
+// (checking), and the theme's icon and colours follow the page's colour
+// scheme, which the page sets before its first paint.
+export function shell(attributes, base) {
+  const m = modelOf((name) => attributes[name] ?? null, attributes.name ?? "", base);
+  const e = Object.fromEntries(Object.entries(m).map(([key, value]) => [key, escape(value)]));
+  let html = markup(e);
+  if (!m.repo) html = html.replace('<a id="github" ', '<a id="github" hidden ');
+  return { css: CSS, html: `<template shadowrootmode="open"><style>${CSS}</style>${html}</template>` };
+}
+
+// The element runs in a browser; the module also loads at build time, where
+// there is none, to write the shell.
+const Element = globalThis.HTMLElement ?? class {};
+class PrismFrame extends Element {
+  static observedAttributes = ["name", "address", "live", "repo", "home", "purpose", "card", "identity", "verdict", "verdict-label", "fingerprint", "proof", "proof-url", "examples", "stars"];
 
   constructor() {
     super();
@@ -152,34 +269,13 @@ class PrismFrame extends HTMLElement {
   attributeChangedCallback(name, before, after) {
     if (!this.shadowRoot.firstChild || before === after) return;
     if (["verdict", "verdict-label", "fingerprint", "proof", "proof-url", "examples"].includes(name)) this.paintTrust();
+    else if (name === "stars") this.paintStars();
     else this.render();
   }
 
   // Everything the markup needs, from the attributes.
   model() {
-    const name = this.getAttribute("name") ?? document.title;
-    const slug = this.getAttribute("address") ?? slugOf(name);
-    const home = this.getAttribute("home") ?? HOME;
-    const live = this.getAttribute("live") ?? location.href;
-    const purpose = this.getAttribute("purpose") ?? "";
-    const text = purpose ? `${name}: ${purpose.split(/(?<=\.)\s/)[0]}` : name;
-    const url = new URL(live, location.href);
-    const query = (params) => new URLSearchParams(params).toString();
-    return {
-      name,
-      slug,
-      home,
-      live: url.href,
-      text,
-      repo: this.getAttribute("repo") ?? "",
-      card: this.getAttribute("card") ?? new URL("og.png", url).href,
-      identity: this.getAttribute("identity") ?? "#identity-title",
-      host: (url.host + url.pathname).replace(/\/$/, ""),
-      x: `https://x.com/intent/post?${query({ text, url: url.href })}`,
-      linkedin: `https://www.linkedin.com/sharing/share-offsite/?${query({ url: url.href })}`,
-      facebook: `https://www.facebook.com/sharer/sharer.php?${query({ u: url.href })}`,
-      email: `mailto:?subject=${encodeURIComponent(name)}&body=${encodeURIComponent(`${text}\n\n${url.href}`)}`,
-    };
+    return modelOf((name) => this.getAttribute(name), document.title, location.href);
   }
 
   render() {
@@ -188,6 +284,7 @@ class PrismFrame extends HTMLElement {
     this.data = m;
     this.shadowRoot.innerHTML = markup(e);
     if (!m.repo) this.$("github").hidden = true;
+    this.liveStars();
     this.paintTrust();
     this.paintTheme();
     this.trust();
@@ -195,6 +292,8 @@ class PrismFrame extends HTMLElement {
     this.omnibox();
     this.$("theme").addEventListener("click", () => this.toggleTheme());
     this.fullScreen();
+    const home = this.$("home");
+    for (const type of ["pointerenter", "focus", "touchstart"]) home.addEventListener(type, () => speculate(this.data.home), { passive: true });
   }
 
   // The shield and its panel: three checks, each from what the page found.
@@ -303,6 +402,52 @@ class PrismFrame extends HTMLElement {
     frame.$("trust-details").addEventListener("click", () => panel.hidePopover());
   }
 
+  // The star count the page was built with, kept current: the repository's
+  // count from GitHub's API, at most once an hour per repository in this
+  // browser, and only where the page's Content-Security-Policy admits
+  // api.github.com. A changed count is set as the stars attribute, which
+  // repaints the GitHub pill; an unchanged one leaves it alone.
+  liveStars() {
+    const repo = (this.data.repo.match(/^https:\/\/github\.com\/([\w.-]+\/[\w.-]+?)(?:\.git)?\/?$/) ?? [])[1];
+    if (!repo) return;
+    const policy = [...document.querySelectorAll('meta[http-equiv="Content-Security-Policy" i]')].map((meta) => meta.content).join(";");
+    if (policy && !policy.includes("https://api.github.com")) return;
+    const key = `prism-stars:${repo}`;
+    const set = (n) => Number.isInteger(n) && String(n) !== (this.getAttribute("stars") ?? "") && this.setAttribute("stars", String(n));
+    // The count changes only the GitHub pill, so a visitor typing in the
+    // address bar is never interrupted.
+    try {
+      const kept = JSON.parse(localStorage.getItem(key) ?? "null");
+      if (kept && Date.now() - kept.at < 3600e3) return set(kept.stars);
+    } catch {
+      // No storage: ask GitHub.
+    }
+    if (this.starsAsked) return;
+    this.starsAsked = true;
+    fetch(`https://api.github.com/repos/${repo}`, { headers: { accept: "application/vnd.github+json" } })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((info) => {
+        if (!Number.isInteger(info?.stargazers_count)) return;
+        try {
+          localStorage.setItem(key, JSON.stringify({ stars: info.stargazers_count, at: Date.now() }));
+        } catch {
+          // A private window keeps nothing; the count still shows.
+        }
+        set(info.stargazers_count);
+      })
+      .catch(() => {});
+  }
+
+  paintStars() {
+    const github = this.$("github");
+    if (!github) return;
+    const { starsText, starred, githubLabel } = starsOf(Number(this.getAttribute("stars")));
+    github.classList.toggle("starred", Boolean(starred));
+    this.$("stars").textContent = starsText;
+    github.setAttribute("aria-label", githubLabel);
+    github.title = githubLabel;
+  }
+
   // The theme lives on <html>, where the page's own bootstrap set it before
   // first paint; the frame mirrors it and toggles it.
   watchTheme() {
@@ -327,8 +472,10 @@ class PrismFrame extends HTMLElement {
     const enter = root.requestFullscreen ?? root.webkitRequestFullscreen;
     const leave = document.exitFullscreen ?? document.webkitExitFullscreen;
     const current = () => document.fullscreenElement ?? document.webkitFullscreenElement ?? null;
-    if (!(document.fullscreenEnabled ?? document.webkitFullscreenEnabled) || !enter || !leave) return;
-    button.hidden = false;
+    if (!(document.fullscreenEnabled ?? document.webkitFullscreenEnabled) || !enter || !leave) {
+      button.hidden = true;
+      return;
+    }
     const paint = () => {
       const on = Boolean(current());
       this.toggleAttribute("fullscreen", on);
@@ -670,6 +817,7 @@ class PrismFrame extends HTMLElement {
       input.setAttribute("aria-expanded", String(!list.hidden));
       if (rows.length) input.setAttribute("aria-activedescendant", `omnibox-${active}`);
       else input.removeAttribute("aria-activedescendant");
+      lookAhead();
     }
 
     function select(i) {
@@ -678,6 +826,7 @@ class PrismFrame extends HTMLElement {
       for (const li of list.querySelectorAll(".opt")) li.setAttribute("aria-selected", String(li.id === `omnibox-${active}`));
       input.setAttribute("aria-activedescendant", `omnibox-${active}`);
       frame.$(`omnibox-${active}`)?.scrollIntoView({ block: "nearest" });
+      lookAhead();
     }
 
     function close() {
@@ -689,6 +838,16 @@ class PrismFrame extends HTMLElement {
       active = 0;
     }
 
+    // Where a row goes: this app stays here; any other opens through Holo Search.
+    const destination = (row) => (row && row.kind !== "self" ? `${search}?r=${encodeURIComponent(row.target)}` : "");
+    // The active row is loaded ahead, a beat after it settles, so arrowing
+    // through the list does not start a page for every row passed.
+    let ahead = 0;
+    const lookAhead = () => {
+      clearTimeout(ahead);
+      ahead = setTimeout(() => speculate(destination(rows[active])), 80);
+    };
+
     function choose(row) {
       if (row.kind === "self") {
         input.blur();
@@ -698,7 +857,7 @@ class PrismFrame extends HTMLElement {
         return;
       }
       list.hidden = true;
-      location.assign(`${search}?r=${encodeURIComponent(row.target)}`);
+      location.assign(destination(row));
     }
 
     input.addEventListener("focus", () => {
@@ -740,4 +899,4 @@ class PrismFrame extends HTMLElement {
   }
 }
 
-if (!customElements.get("prism-frame")) customElements.define("prism-frame", PrismFrame);
+if (globalThis.customElements && !customElements.get("prism-frame")) customElements.define("prism-frame", PrismFrame);
