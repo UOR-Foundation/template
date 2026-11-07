@@ -114,6 +114,25 @@ const frameConnect = frameHost.origin !== live.origin ? `<link rel="preconnect" 
 const item = (mark, markClass, name, what) =>
   `<li><span class="${markClass}">${mark}</span><div><div class="name">${escape(name)}</div><div class="what">${escape(what)}</div></div></li>`;
 
+// The frame's Unsplash worker, which this page's connect-src must name for
+// the theme panel's search: read from the live frame at build, after its
+// SHA-256 is checked as the browser checks it. The frame itself is not
+// written into the page: the page's own stand-in (prism-page.css) shows,
+// drawn as the bar, until the module arrives, which keeps the first load
+// inside the Lighthouse budget.
+async function frameUnsplash() {
+  try {
+    const pointer = await (await fetch(new URL("current.json", frameHost), { cache: "no-store" })).json();
+    if (!/^[0-9a-f]{64}$/.test(pointer.sha256 ?? "")) throw new Error("the frame pointer names no sha256");
+    const bytes = Buffer.from(await (await fetch(new URL(pointer.module, frameHost))).arrayBuffer());
+    if (hex(bytes) !== pointer.sha256) throw new Error(`the frame is ${hex(bytes)}, its pointer says ${pointer.sha256}`);
+    const frame = await import(`data:text/javascript;base64,${bytes.toString("base64")}`);
+    return /^https:\/\/[a-z0-9.-]+$/.test(frame.UNSPLASH_ORIGIN ?? "") ? frame.UNSPLASH_ORIGIN : "";
+  } catch (error) {
+    console.warn(`page: the frame could not be read at build (${error.message}); no Unsplash origin in connect-src`);
+    return "";
+  }
+}
 // The repository's GitHub stars at build, so the bar shows them from its
 // first paint: from the Prism index on the Prism registry, the snapshot the
 // frame keeps the count current from, then from GitHub's API for a repository
@@ -140,6 +159,7 @@ async function githubStars() {
   }
 }
 const stars = await githubStars();
+const unsplashOrigin = await frameUnsplash();
 
 const fill = {
   TITLE: escape(meta.name),
@@ -149,6 +169,7 @@ const fill = {
   HOLO_SEARCH_ORIGIN: holoSearch.origin,
   REGISTRY_ORIGIN: prismRegistry.origin,
   FRAME_ORIGIN: frameHost.origin,
+  UNSPLASH_ORIGIN: unsplashOrigin,
   OG_IMAGE: escape(new URL("og.png", live).href),
   OG_ALT: escape(`${meta.name}: ${meta.purpose}`),
   NAME: escape(meta.name),

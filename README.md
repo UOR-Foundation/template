@@ -150,13 +150,35 @@ the archive carries. Every instance gets the same page; an app edits one file.
   ([holo-search](https://humuhumu33.github.io/holo-search/)), then the
   address across the bar, the shield first, then `holo://` and the app's
   name in lower case with hyphens (`holo://luhn-check`), and the share icon
-  at its right end; then GitHub (the app's repository), the theme as a sun
-  or moon, and full screen. Its icons are bare 16 px line drawings with a
+  at its right end; then GitHub (the app's repository), the theme, and full
+  screen. Its icons are bare 16 px line drawings with a
   soft square tint on hover; on a touch screen each takes a 48 px tap
   beyond what it draws, so the bar is the same height everywhere. Under
   600 px GitHub steps out (the footer still links the repository); at large
   text the bar wraps and the window moves down with it. It is the live
   frame above: no app carries a copy of it.
+- **Three themes: immersive, dark and light.** Immersive is every new
+  visitor's theme; a choice of dark or light is remembered. The theme button
+  shows the one in use (photo, moon or sun) and opens a panel to change it.
+  Immersive is the dark ground with an Unsplash photo behind the app under
+  a scrim, the cards frosted over it. The photo fills the app's window and
+  stops at its edges and corners; the chrome around it never changes. A
+  photo is never fetched with the page, which keeps every app inside its
+  Lighthouse budget: one shown before comes from the browser's cache at
+  once, and a new one arrives on the visitor's first move, its colour
+  standing in until then.
+  The frame draws all of it, so every Prism app and Holo Search has it with
+  no rebuild. Nine photos, space first, were chosen once and are published
+  beside the frame (`frame/backdrops/`); the panel shows them by default, and
+  the frame fetches the one in use from its own
+  host, which every app page's `connect-src` already allows, and shows it
+  as a `data:` image, which every `img-src` allows. No key ships, the panel
+  credits each photographer, and nothing is fetched until the panel opens
+  or immersive is chosen. The panel also searches Unsplash: results arrive
+  as their colours, then fade in; choosing one sets it, tells Unsplash, and
+  keeps it among the last three chosen. Search goes through the frame's
+  worker (`frame/unsplash/`), which holds the key; the page build adds its
+  origin to `connect-src`, and a page without it keeps the built-in photos.
 - **The shield says why to trust the app.** As a browser's padlock does for
   a page, the shield sums what the visitor's browser found, and its panel
   shows each check: **Authentic** (every byte of the holo matches its

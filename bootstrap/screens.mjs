@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // The size-class gate. Opens the assembled site at every Material 3 window
-// size class and at a phone in landscape, in both themes, and fails on any
+// size class and at a phone in landscape, in every theme (immersive, the
+// default, then dark and light), and fails on any
 // horizontal overflow, any touch target under 48 px on a coarse pointer, a
 // margin other than the class's, a missing pane split from 840 px, a clipped
 // line at 200 percent text, or a page that never verifies. Screenshots go to
@@ -56,16 +57,18 @@ await mkdir(out, { recursive: true });
 const browser = await chromium.launch();
 
 for (const c of classes) {
-  for (const theme of ["dark", "light"]) {
+  for (const theme of ["immersive", "dark", "light"]) {
     const where = `${c.name} ${c.width}x${c.height} ${theme}`;
     const context = await browser.newContext({
       viewport: { width: c.width, height: c.height },
       hasTouch: c.touch,
       isMobile: c.touch,
       deviceScaleFactor: c.touch ? 2 : 1,
-      colorScheme: theme,
+      colorScheme: theme === "light" ? "light" : "dark",
       serviceWorkers: "block",
     });
+    // The theme as a visitor's choice, which the page reads before first paint.
+    await context.addInitScript((chosen) => localStorage.setItem("prism-theme", chosen), theme);
     const page = await context.newPage();
     const errors = [];
     page.on("pageerror", (error) => errors.push(String(error)));
@@ -135,4 +138,4 @@ if (failures.length) {
   for (const f of failures) console.error(`  ${f}`);
   process.exit(1);
 }
-console.log(`screens: every size class passes in both themes; screenshots in ${out}/`);
+console.log(`screens: every size class passes in every theme; screenshots in ${out}/`);
