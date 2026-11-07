@@ -177,9 +177,23 @@ the archive carries. Every instance gets the same page; an app edits one file.
   pixel changing, so moving between apps never shows a stand-in; the
   theme's colours and icon follow the page's `color-scheme`, set before
   first paint. Without a network at build the page keeps its stand-in.
-- **GitHub stars.** The GitHub icon carries the repository's star count
-  (128, 1.2k), written in at build and kept current by the frame from
-  GitHub's API, at most once an hour per repository in each browser.
+- **GitHub stars.** The GitHub icon in the address carries the repository's
+  star count (128, 1.2k), written in at build and brought up to date from
+  the Prism index on every load: no visitor's browser calls GitHub.
+- **The Prism index, which every app joins by deploying.** At the end of a
+  GitHub Actions build, `page.mjs` runs `bootstrap/register.mjs`: the holo is
+  pushed to the Prism registry (kappa-registry, behind a gateway) as
+  `prism/<owner>/<name>`, and the app's live page is recorded against the
+  holo's fingerprint. The run proves its repository with the OIDC token
+  GitHub mints for it, so there is no secret to hand out and a new app
+  registers on its first deploy; `"index": false` in `app.json` opts out,
+  and nothing here ever fails a build. Holo Search's index workflow lists an
+  app only when its live page serves a holo it registered, that holo
+  verifies and every example passes, re-checks every app every ten minutes,
+  and publishes a content-addressed snapshot (`registry/index/<sha256>.json`,
+  named by `registry/index/current.json`) with each app's stars. The frame
+  reads it once per page and checks its SHA-256 before showing anything from
+  it. The registry is off until `DEFAULT_REGISTRY` in `register.mjs` names it.
 - **Hops between apps, ahead of the click.** A Prism app is named by its
   content, so a page loaded early is never stale and never another app's.
   When a visitor shows where they are going (home under the pointer, a
@@ -195,19 +209,20 @@ the archive carries. Every instance gets the same page; an app edits one file.
   bar in place across the navigation with a cross-document view transition.
 - **An address bar for Prism apps.** The holo:// pill is also an omnibox,
   like Chrome's. Focus it and it selects the address, a hairline in the UOR
-  Foundation's colour spectrum runs round it, and it lists this app and
-  every app in [Holo Search](https://humuhumu33.github.io/holo-search/)'s
-  registry, one row each: the app's icon (a registry entry's `icon`, or its
-  `live` page's, else its initial on a hue taken from its fingerprint, as a
-  browser shows a site with no icon), its name, its address or short hash,
-  and what it is. Type a name or a hash prefix to
+  Foundation's colour spectrum runs round it, and it lists this app, every
+  app in the Prism index (most stars first, each opening its own live page)
+  and every entry in [Holo Search](https://humuhumu33.github.io/holo-search/)'s
+  registry, one row each: the app's icon (its live page's, else its initial
+  on a hue taken from its fingerprint, as a browser shows a site with no
+  icon), its name, its address or short hash, and on the right its GitHub
+  owner and stars. Type a name or a hash prefix to
   filter; paste a full address (a sha256 or blake3 digest, an IPFS CID, a
   Holo Search link) to open it. Enter hands it to Holo Search as `?r=`,
   which fetches the app, checks the bytes against the address and replays
   its examples before it opens: this page only suggests, Holo Search
   verifies. Arrows move, Escape backs out, and on a phone the bar takes the
   whole width while you type. The registry is fetched the first time the
-  bar is focused, never with the page; the Content-Security-Policy admits
+  bar is focused, and the index with the page; the Content-Security-Policy admits
   Holo Search's origin for that request and the search form. Without a
   script, Enter still submits the form to Holo Search.
 - **Made to be shared.** `bootstrap/og.py` draws `site/og.png`, the 1200 x

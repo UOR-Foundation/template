@@ -3,7 +3,7 @@
   "files": [
     {
       "path": "bootstrap/frame-sync.mjs",
-      "sha256": "c25eee1a9e1a0e9573ddc4d0a32b2ab4958cb6a3f71fd35ee79a6b9816335f21"
+      "sha256": "0c72dce47beb0faea9c24b535e3ec6d6013a9fc8de21f92b61c8e00ec277280a"
     },
     {
       "path": "bootstrap/icons.py",
@@ -15,11 +15,15 @@
     },
     {
       "path": "bootstrap/page.mjs",
-      "sha256": "1faeda33b33cf46d1bf65bee36e4425e0e68ceb698fcbbc58f083efc624f51e6"
+      "sha256": "a880939c9b515d7aba09c56d40608e879ce73f378d1b5477454b6d84450b48c6"
     },
     {
       "path": "bootstrap/precache.mjs",
       "sha256": "d1af0e811ed68ea3695144e9c0abddd3c9bf24007b9fde8c5b12f91ec225a388"
+    },
+    {
+      "path": "bootstrap/register.mjs",
+      "sha256": "70d6948b2161e351611a0ee71a3b2627b11bc592ac05ab96c88353dafa5a025a"
     },
     {
       "path": "bootstrap/screens.mjs",
@@ -39,7 +43,7 @@
     },
     {
       "path": "site/page.template.html",
-      "sha256": "057ca7cd210208b1c6431edbfb69570a0b86b2937013a37745da7a85a9976bc0"
+      "sha256": "2dbffaee535e2d004aec3ef8b6496a1c9d822dae9c7ee658d3242002e38de2dd"
     },
     {
       "path": "site/prism-page.css",
