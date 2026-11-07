@@ -192,8 +192,11 @@ the archive carries. Every instance gets the same page; an app edits one file.
   verifies and every example passes, re-checks every app every ten minutes,
   and publishes a content-addressed snapshot (`registry/index/<sha256>.json`,
   named by `registry/index/current.json`) with each app's stars. The frame
-  reads it once per page and checks its SHA-256 before showing anything from
-  it. The registry is off until `DEFAULT_REGISTRY` in `register.mjs` names it.
+  reads it at most once per page, and only when the visitor reaches for the
+  bar (the GitHub pill under the pointer or in focus, or the address bar
+  opened), never on load, so a page's first load keeps within its Lighthouse
+  budget of two third-party requests; it checks the snapshot's SHA-256 before
+  showing anything from it. The registry is off until `DEFAULT_REGISTRY` in `register.mjs` names it.
 - **Hops between apps, ahead of the click.** A Prism app is named by its
   content, so a page loaded early is never stale and never another app's.
   When a visitor shows where they are going (home under the pointer, a

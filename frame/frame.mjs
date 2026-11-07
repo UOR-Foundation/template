@@ -440,18 +440,25 @@ class PrismFrame extends Element {
     frame.$("trust-details").addEventListener("click", () => panel.hidePopover());
   }
 
-  // The star count the page was built with, brought up to date from the Prism
-  // index on load (holoIndex): from no count to one
-  // star and on, the bar follows the repository. A changed count is set as
-  // the stars attribute, which repaints only the GitHub pill, so a visitor
+  // The star count the page was built with (bootstrap/page.mjs), brought up
+  // to date from the Prism index (holoIndex) once the visitor reaches for the
+  // bar: the GitHub pill under the pointer or in focus, or the address bar
+  // opened (omnibox). Never on load: the index is two requests to Holo
+  // Search, and an app's Lighthouse budget allows two third-party requests,
+  // which the frame's own pointer and module already take. From no count to
+  // one star and on, the bar follows the repository. A changed count is set
+  // as the stars attribute, which repaints only the GitHub pill, so a visitor
   // typing in the address bar is never interrupted.
   liveStars() {
-    const repo = repoOf(this.data.repo);
-    if (!repo) return;
-    holoIndex(this.data.home).then(({ stars }) => {
-      const n = stars[repo];
-      if (Number.isInteger(n) && String(n) !== (this.getAttribute("stars") ?? "")) this.setAttribute("stars", String(n));
-    });
+    const github = this.$("github");
+    if (!repoOf(this.data.repo) || !github) return;
+    const refresh = () => holoIndex(this.data.home).then((known) => this.applyStars(known));
+    for (const type of ["pointerenter", "focus", "touchstart"]) github.addEventListener(type, refresh, { once: true, passive: true });
+  }
+
+  applyStars({ stars }) {
+    const n = stars[repoOf(this.data.repo)];
+    if (Number.isInteger(n) && String(n) !== (this.getAttribute("stars") ?? "")) this.setAttribute("stars", String(n));
   }
 
   paintStars() {
@@ -684,6 +691,7 @@ class PrismFrame extends Element {
       (loading ??= Promise.all([list_("registry/index.json"), holoIndex(search)]).then(([entries, known]) => {
         apps = known.apps;
         index = entries;
+        frame.applyStars(known);
       }));
 
     // What was typed, without holo:// or the Holo Search link around it.
