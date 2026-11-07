@@ -191,6 +191,44 @@ const starsOf = (n) => {
   };
 };
 
+// GitHub: a repository's "owner/name" from its link, and its star count,
+// from GitHub's API at most once an hour per repository in this browser,
+// and only where the page's Content-Security-Policy admits api.github.com.
+// Resolves to null when it cannot know.
+const repoOf = (link) => (String(link ?? "").match(/^https:\/\/github\.com\/([\w.-]+\/[\w.-]+?)(?:\.git)?\/?$/) ?? [])[1] ?? "";
+const asking = new Map();
+function githubStars(repo) {
+  if (!repo) return Promise.resolve(null);
+  const policy = [...document.querySelectorAll('meta[http-equiv="Content-Security-Policy" i]')].map((meta) => meta.content).join(";");
+  if (policy && !policy.includes("https://api.github.com")) return Promise.resolve(null);
+  const key = `prism-stars:${repo}`;
+  try {
+    const kept = JSON.parse(localStorage.getItem(key) ?? "null");
+    if (kept && Date.now() - kept.at < 3600e3) return Promise.resolve(kept.stars);
+  } catch {
+    // No storage: ask GitHub.
+  }
+  if (!asking.has(repo)) {
+    asking.set(repo, fetch(`https://api.github.com/repos/${repo}`, { headers: { accept: "application/vnd.github+json" } })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((info) => {
+        const stars = Number.isInteger(info?.stargazers_count) ? info.stargazers_count : null;
+        if (stars !== null) {
+          try {
+            localStorage.setItem(key, JSON.stringify({ stars, at: Date.now() }));
+          } catch {
+            // A private window keeps nothing; the count still shows.
+          }
+        }
+        return stars;
+      })
+      .catch(() => null));
+  }
+  return asking.get(repo);
+}
+// The star count as a row shows it: GitHub's gold star and the short count.
+const starMark = '<svg class="star" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false"><path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.751.751 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z" /></svg>';
+
 // Everything the markup needs, from the attributes (get), the page's title
 // and its address: one function, for the element and for the shell.
 function modelOf(get, title, base) {
@@ -402,40 +440,14 @@ class PrismFrame extends Element {
     frame.$("trust-details").addEventListener("click", () => panel.hidePopover());
   }
 
-  // The star count the page was built with, kept current: the repository's
-  // count from GitHub's API, at most once an hour per repository in this
-  // browser, and only where the page's Content-Security-Policy admits
-  // api.github.com. A changed count is set as the stars attribute, which
-  // repaints the GitHub pill; an unchanged one leaves it alone.
+  // The star count the page was built with, kept current (githubStars). A
+  // changed count is set as the stars attribute, which repaints only the
+  // GitHub pill, so a visitor typing in the address bar is never
+  // interrupted; an unchanged one leaves it alone.
   liveStars() {
-    const repo = (this.data.repo.match(/^https:\/\/github\.com\/([\w.-]+\/[\w.-]+?)(?:\.git)?\/?$/) ?? [])[1];
-    if (!repo) return;
-    const policy = [...document.querySelectorAll('meta[http-equiv="Content-Security-Policy" i]')].map((meta) => meta.content).join(";");
-    if (policy && !policy.includes("https://api.github.com")) return;
-    const key = `prism-stars:${repo}`;
-    const set = (n) => Number.isInteger(n) && String(n) !== (this.getAttribute("stars") ?? "") && this.setAttribute("stars", String(n));
-    // The count changes only the GitHub pill, so a visitor typing in the
-    // address bar is never interrupted.
-    try {
-      const kept = JSON.parse(localStorage.getItem(key) ?? "null");
-      if (kept && Date.now() - kept.at < 3600e3) return set(kept.stars);
-    } catch {
-      // No storage: ask GitHub.
-    }
     if (this.starsAsked) return;
     this.starsAsked = true;
-    fetch(`https://api.github.com/repos/${repo}`, { headers: { accept: "application/vnd.github+json" } })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((info) => {
-        if (!Number.isInteger(info?.stargazers_count)) return;
-        try {
-          localStorage.setItem(key, JSON.stringify({ stars: info.stargazers_count, at: Date.now() }));
-        } catch {
-          // A private window keeps nothing; the count still shows.
-        }
-        set(info.stargazers_count);
-      })
-      .catch(() => {});
+    githubStars(repoOf(this.data.repo)).then((n) => Number.isInteger(n) && String(n) !== (this.getAttribute("stars") ?? "") && this.setAttribute("stars", String(n)));
   }
 
   paintStars() {
@@ -646,11 +658,29 @@ class PrismFrame extends Element {
       return "";
     };
     const fold = (text) => text.toLowerCase().replace(/[^a-z0-9]/g, "");
-    const load = () =>
-      (loading ??= fetch(new URL("registry/index.json", search), { cache: "no-cache" })
+    // An icon is loaded only where the page's Content-Security-Policy admits
+    // it, so a suggestion never logs a refusal; elsewhere its tile stands in.
+    const imageAdmitted = (link) => {
+      const policy = [...document.querySelectorAll('meta[http-equiv="Content-Security-Policy" i]')].map((meta) => meta.content).join(";");
+      const images = /(?:^|;)\s*img-src([^;]*)/.exec(policy)?.[1] ?? /(?:^|;)\s*default-src([^;]*)/.exec(policy)?.[1];
+      if (images === undefined) return true;
+      const origin = new URL(link).origin;
+      return (origin === location.origin && images.includes("'self'")) || images.includes(origin) || /(^|\s)(\*|https:)(\s|$)/.test(images);
+    };
+    // Holo Search's registry (models, holos, images, by hash) and its list of
+    // Prism apps (registry/apps.json: name, holo:// address, live page,
+    // repository), fetched together the first time the bar is focused.
+    let apps = [];
+    const list_ = (path) =>
+      fetch(new URL(path, search), { cache: "no-cache" })
         .then((response) => (response.ok ? response.json() : []))
-        .then((entries) => (index = Array.isArray(entries) ? entries : []))
-        .catch(() => (index = [])));
+        .then((entries) => (Array.isArray(entries) ? entries : []))
+        .catch(() => []);
+    const load = () =>
+      (loading ??= Promise.all([list_("registry/index.json"), list_("registry/apps.json")]).then(([entries, known]) => {
+        apps = known.filter((app) => typeof app?.name === "string" && /^https:\/\//.test(app.live ?? ""));
+        index = entries;
+      }));
 
     // What was typed, without holo:// or the Holo Search link around it.
     const clean = (text) => {
@@ -678,7 +708,17 @@ class PrismFrame extends Element {
       const hashed = (digest) => hashy && Boolean(digest) && digest.startsWith(hex);
       const out = [];
       if (named(name) || named(slug) || hashed(here.fingerprint)) {
-        out.push({ kind: "self", title: name, sub: `holo://${slug}`, tag: "This app", icon: selfIcon, print: here.fingerprint, match: query });
+        out.push({ kind: "self", title: name, sub: `holo://${slug}`, tag: "This app", icon: selfIcon, print: here.fingerprint, repo: repoOf(frame.data.repo), stars: Number(frame.getAttribute("stars")), match: query });
+      }
+      // The Prism apps Holo Search knows, by name or holo:// address; each
+      // opens its own live page. This app is listed once, as this app.
+      const listed = new Set([fold(name)]);
+      for (const app of apps) {
+        const address = app.address ?? app.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+        if (fold(app.name) === fold(name) || address === slug) continue;
+        if (query && !named(app.name) && !named(address)) continue;
+        listed.add(fold(app.name));
+        out.push({ kind: "app", title: app.name, sub: `holo://${address}`, tag: "App", icon: iconOf(app), print: "", repo: repoOf(app.repository), live: app.live, match: query });
       }
       // One row per app when matched by name, as Chrome shows a site once: its
       // holo first, then its model, then its image. A hash names one entry, so
@@ -688,6 +728,8 @@ class PrismFrame extends Element {
       let known = false;
       for (const entry of index ?? []) {
         if (entry.blake3 && entry.blake3 === here.fingerprint) continue;
+        // An app the list already shows is not shown again by name.
+        if (!hashed(entry.sha256) && !hashed(entry.blake3) && listed.has(fold(entry.module ?? ""))) continue;
         const byName = named(entry.module ?? "");
         const byHash = hashed(entry.sha256) || hashed(entry.blake3);
         if (query && !byName && !byHash) continue;
@@ -705,6 +747,7 @@ class PrismFrame extends Element {
           sub: holo ? `blake3:${short(entry.blake3)}` : `sha256:${short(entry.sha256)}`,
           tag: { holo: "App", model: "Model", image: "Image" }[kind],
           icon: iconOf(entry),
+          repo: repoOf(entry.repository),
           print: entry.blake3 ?? entry.sha256 ?? "",
           target: holo ? `blake3:${entry.blake3}` : entry.sha256,
           match: byName ? query : "",
@@ -751,7 +794,7 @@ class PrismFrame extends Element {
         box.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">${icons[row.kind]}</svg>`;
         return box;
       }
-      if (!row.icon) {
+      if (!row.icon || !imageAdmitted(row.icon)) {
         box.append(tile(row));
         return box;
       }
@@ -792,14 +835,37 @@ class PrismFrame extends Element {
         const sub = document.createElement("span");
         sub.className = "opt-sub";
         sub.textContent = row.sub;
-        li.append(iconFor(row), title(row.title, row.match), sub);
+        const fill = document.createElement("span");
+        fill.className = "opt-fill";
+        li.append(iconFor(row), title(row.title, row.match), sub, fill);
+        // Who keeps it on GitHub, and its stars, 0 included, so the column lines up.
+        const owner = row.repo ? row.repo.split("/")[0] : "";
+        if (owner) {
+          const by = document.createElement("span");
+          by.className = "opt-owner";
+          by.textContent = owner;
+          by.title = `github.com/${row.repo}`;
+          li.append(by);
+          const stars = document.createElement("span");
+          stars.className = "opt-stars";
+          const paint = (n) => {
+            stars.hidden = !Number.isInteger(n);
+            if (stars.hidden) return;
+            stars.innerHTML = starMark;
+            stars.append(shortCount(n));
+            stars.title = `${n} star${n === 1 ? "" : "s"} on GitHub`;
+          };
+          paint(Number.isInteger(row.stars) ? row.stars : null);
+          li.append(stars);
+          if (!Number.isInteger(row.stars) || row.kind !== "self") githubStars(row.repo).then((n) => { row.stars = n; paint(n); });
+        }
         if (row.tag) {
           const tag = document.createElement("span");
           tag.className = "opt-tag";
           tag.textContent = row.tag;
           li.append(tag);
         }
-        li.setAttribute("aria-label", [row.title, row.sub, row.tag].filter(Boolean).join(", "));
+        li.setAttribute("aria-label", [row.title, row.sub, row.repo && `by ${row.repo.split("/")[0]}`, row.tag].filter(Boolean).join(", "));
         li.addEventListener("pointerdown", (event) => event.preventDefault());
         li.addEventListener("pointermove", () => select(i));
         li.addEventListener("click", () => choose(row));
@@ -838,8 +904,9 @@ class PrismFrame extends Element {
       active = 0;
     }
 
-    // Where a row goes: this app stays here; any other opens through Holo Search.
-    const destination = (row) => (row && row.kind !== "self" ? `${search}?r=${encodeURIComponent(row.target)}` : "");
+    // Where a row goes: this app stays here; a Prism app opens its own live
+    // page; anything else opens through Holo Search, which verifies it.
+    const destination = (row) => (!row || row.kind === "self" ? "" : row.kind === "app" ? row.live : `${search}?r=${encodeURIComponent(row.target)}`);
     // The active row is loaded ahead, a beat after it settles, so arrowing
     // through the list does not start a page for every row passed.
     let ahead = 0;
