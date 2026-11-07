@@ -402,9 +402,10 @@ svg.gh, svg.fill { fill: currentColor; stroke: none; }
 /* Owner and stars sit on the right, before what it is: quiet, one line. */
 .opt-fill { flex: 1 1 0; min-width: 0; }
 .opt-owner { flex: none; max-width: 9rem; overflow: hidden; text-overflow: ellipsis; font-size: 0.8125rem; color: var(--muted-foreground); }
-.opt-stars { flex: none; display: inline-flex; align-items: center; justify-content: flex-end; gap: 0.25rem; min-width: 2.25rem; font-size: 0.8125rem; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--muted-foreground); }
+.opt-stars { flex: none; display: inline-flex; align-items: center; justify-content: flex-end; gap: 0.25rem; min-width: 3.25rem; font-size: 0.8125rem; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--muted-foreground); }
 .opt-stars[hidden] { display: none; }
 .opt-stars svg.star { width: 0.75rem; height: 0.75rem; fill: #e3b341; stroke: none; }
+.opt-stars svg.gh { width: 0.8125rem; height: 0.8125rem; margin-inline-end: 0.125rem; color: var(--muted-foreground); }
 .opt-tag { flex: none; min-width: 3.5rem; text-align: end; font-size: 0.75rem; color: var(--muted-foreground); }
 .opt-self .opt-tag { color: var(--success); }
 .opt-note { padding: var(--space-2) var(--space-3); font-size: var(--text-14); color: var(--muted-foreground); }
@@ -657,6 +658,9 @@ svg.gh, svg.fill { fill: currentColor; stroke: none; }
   .address { flex-basis: 8rem; }
   #github, .address .sep { display: none; }
   .opt-sub { display: none; }
+  /* What a row is steps out too, so names keep their room and the stars
+   * line up; this app is the first row, chosen. */
+  .opt-tag { display: none; }
   .inner.editing > :not(.address) { display: none; }
 }
 
