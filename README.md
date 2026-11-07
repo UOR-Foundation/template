@@ -196,23 +196,27 @@ the archive carries. Every instance gets the same page; an app edits one file.
 - **GitHub stars.** The GitHub icon in the address carries the repository's
   star count (128, 1.2k), written in at build and brought up to date from
   the Prism index on every load: no visitor's browser calls GitHub.
-- **The Prism index, which every app joins by deploying.** At the end of a
-  GitHub Actions build, `page.mjs` runs `bootstrap/register.mjs`: the holo is
-  pushed to the Prism registry (kappa-registry, behind a gateway) as
-  `prism/<owner>/<name>`, and the app's live page is recorded against the
-  holo's fingerprint. The run proves its repository with the OIDC token
-  GitHub mints for it, so there is no secret to hand out and a new app
-  registers on its first deploy; `"index": false` in `app.json` opts out,
-  and nothing here ever fails a build. Holo Search's index workflow lists an
-  app only when its live page serves a holo it registered, that holo
-  verifies and every example passes, re-checks every app every ten minutes,
-  and publishes a content-addressed snapshot (`registry/index/<sha256>.json`,
-  named by `registry/index/current.json`) with each app's stars. The frame
-  reads it at most once per page, and only when the visitor reaches for the
-  bar (the GitHub pill under the pointer or in focus, or the address bar
-  opened), never on load, so a page's first load keeps within its Lighthouse
-  budget of two third-party requests; it checks the snapshot's SHA-256 before
-  showing anything from it. The registry is off until `DEFAULT_REGISTRY` in `register.mjs` names it.
+- **The Prism index, which every app joins by deploying.** One canonical
+  kappa registry, at `registry.uor.foundation`, indexes every Prism app by
+  its self-verifying address; the app's bytes stay on its own site. At the
+  end of a GitHub Actions build, `page.mjs` runs `bootstrap/register.mjs`,
+  which sends the registry the holo's fingerprint (its last 32 bytes) and the
+  live page. The run proves its repository with the OIDC token GitHub mints
+  for it, so there is no secret to hand out and a new app registers on its
+  first deploy; `"index": false` in `app.json` opts out, and nothing here
+  ever fails a build. The registry's indexer lists an app only when its live
+  page serves a holo it registered, that holo verifies and every example
+  passes; it then stores the app's address card in kappa
+  (`prism/<owner>/<name>:blake3-<fingerprint>`: the fingerprint, SHA-256,
+  size and where the bytes are), re-checks every app every ten minutes,
+  finds new Prism apps on its own, and publishes a content-addressed
+  snapshot (`/index/<sha256>.json`, named by `/index/current.json`) with
+  each app's stars. Holo Search and every address bar read it downstream.
+  The frame reads it at most once per page, and only when the visitor
+  reaches for the bar (the GitHub pill under the pointer or in focus, or the
+  address bar opened), never on load, so a page's first load keeps within
+  its Lighthouse budget of two third-party requests; it checks the
+  snapshot's SHA-256 before showing anything from it.
 - **Hops between apps, ahead of the click.** A Prism app is named by its
   content, so a page loaded early is never stale and never another app's.
   When a visitor shows where they are going (home under the pointer, a

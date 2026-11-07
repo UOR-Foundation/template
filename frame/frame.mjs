@@ -35,6 +35,9 @@
 const CSS = "/*CSS*/";
 const BRAND = "/*BRAND*/";
 const HOME = "https://humuhumu33.github.io/holo-search/";
+// The Prism registry: the canonical kappa registry. Its index lists every
+// Prism app by its self-verifying address; every address bar reads it.
+const REGISTRY = "https://registry.uor.foundation/";
 
 // Immersive: the dark ground over one of three Unsplash photos, chosen once
 // (image is each one's Unsplash original) and published beside the frame
@@ -338,26 +341,22 @@ const starsOf = (n) => {
   };
 };
 
-// The Prism index: every Prism app that verifies, with its GitHub stars,
-// from Holo Search's registry/index/ (its index workflow re-verifies every app
-// every ten minutes and on each registration, and publishes a content-
-// addressed snapshot). The frame reads it once per page: the pointer fresh
+// The Prism index: every Prism app that verifies, with its GitHub stars, from
+// the Prism registry's /index/ (its indexer, beside the canonical kappa
+// registry, re-verifies every app every ten minutes and on each registration,
+// and publishes a content-addressed snapshot). The frame reads it once per
+// page: the pointer fresh
 // (no-cache, so a new app or star shows on the next load), then the snapshot
 // it names, whose SHA-256 is checked before anything in it is shown. It is
-// read only where the page's Content-Security-Policy admits Holo Search; any
+// read only where the page's Content-Security-Policy admits the registry; any
 // failure leaves an empty index and the counts the page was built with. No
 // visitor's browser ever calls GitHub.
 const repoOf = (link) => (String(link ?? "").match(/^https:\/\/github\.com\/([\w.-]+\/[\w.-]+?)(?:\.git)?\/?$/) ?? [])[1] ?? "";
 const NO_INDEX = Object.freeze({ apps: [], stars: {} });
 let indexAsked = null;
-function holoIndex(home) {
+function holoIndex() {
   if (indexAsked) return indexAsked;
-  let pointer;
-  try {
-    pointer = new URL("registry/index/current.json", home);
-  } catch {
-    return (indexAsked = Promise.resolve(NO_INDEX));
-  }
+  const pointer = new URL("index/current.json", REGISTRY);
   const policy = [...document.querySelectorAll('meta[http-equiv="Content-Security-Policy" i]')].map((meta) => meta.content).join(";");
   const connect = /(?:^|;)\s*connect-src([^;]*)/.exec(policy)?.[1] ?? /(?:^|;)\s*default-src([^;]*)/.exec(policy)?.[1];
   const admitted = connect === undefined || (pointer.origin === location.origin && connect.includes("'self'")) || connect.includes(pointer.origin);
@@ -608,7 +607,7 @@ class PrismFrame extends Element {
   liveStars() {
     const github = this.$("github");
     if (!repoOf(this.data.repo) || !github) return;
-    const refresh = () => holoIndex(this.data.home).then((known) => this.applyStars(known));
+    const refresh = () => holoIndex().then((known) => this.applyStars(known));
     for (const type of ["pointerenter", "focus", "touchstart"]) github.addEventListener(type, refresh, { once: true, passive: true });
   }
 
@@ -1075,7 +1074,7 @@ class PrismFrame extends Element {
         .then((entries) => (Array.isArray(entries) ? entries : []))
         .catch(() => []);
     const load = () =>
-      (loading ??= Promise.all([list_("registry/index.json"), holoIndex(search)]).then(([entries, known]) => {
+      (loading ??= Promise.all([list_("registry/index.json"), holoIndex()]).then(([entries, known]) => {
         apps = known.apps;
         index = entries;
         frame.applyStars(known);
