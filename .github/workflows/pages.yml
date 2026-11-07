@@ -5,8 +5,12 @@
 # It runs on every push to main, beside `bootstrap`, not after it: `just app`
 # is the proof-bearing build (the Lean kernel checks every theorem before the
 # holo exists), so the page goes live as soon as that passes, while the rest of
-# the gate runs on both architectures. The SDK step is the one `bootstrap.yml`
-# runs; when that file's `docker run` changes, copy it again.
+# the gate runs on both architectures. The SDK step and the signing step are
+# the ones `build.yml` runs, copied here: the gate pins every `uses:` to a
+# commit and so forbids calling a workflow by path. When `build.yml` changes
+# either step, copy it again. The page then carries the same holo that
+# `prism-code build --remote github` would hand a device, with the signed
+# provenance of the run that made it beside it.
 name: pages
 
 on:
@@ -23,11 +27,15 @@ concurrency:
 
 jobs:
   build:
-    name: build and verify the holo, assemble the page
+    name: build and verify the holo, sign its provenance, assemble the page
     # The template repository publishes its try page instead (try-page.yml).
     if: github.repository != 'UOR-Foundation/template'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     steps:
       - name: Check out the exact event revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -66,7 +74,8 @@ jobs:
             --env HOME=/tmp/prismpm-home \
             --env PRISMPM_EPHEMERAL_HOME=1 \
             "$image" just app
-      - name: Assemble the page
+      - name: Find the holo
+        id: holo
         shell: bash
         run: |
           set -euo pipefail
@@ -76,9 +85,38 @@ jobs:
             printf 'expected one holo, found %d\n' "${#holos[@]}" >&2
             exit 64
           fi
-          cp "${holos[0]}" site/app.holo
+          fingerprint=$(node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).archive_fingerprint)' "$(dirname "${holos[0]}")/application/holo-identities.json")
+          {
+            echo "path=${holos[0]}"
+            echo "fingerprint=$fingerprint"
+          } >>"$GITHUB_OUTPUT"
+      - name: Sign the holo's provenance as this repository's workflow
+        id: attest
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ steps.holo.outputs.path }}
+          show-summary: false
+      - name: Assemble the page
+        shell: bash
+        env:
+          HOLO: ${{ steps.holo.outputs.path }}
+          FINGERPRINT: ${{ steps.holo.outputs.fingerprint }}
+          ATTESTATION_URL: ${{ steps.attest.outputs.attestation-url }}
+        run: |
+          set -euo pipefail
+          cp "$HOLO" site/app.holo
           cp -r try/vendor site/vendor
           rm -rf site/vendor/prism-code/fixtures
+          # The page says where this holo's provenance is: the signed statement
+          # GitHub keeps for the build that made it.
+          node -e '
+            const { readFileSync, writeFileSync } = require("node:fs");
+            const [id, url] = process.argv.slice(1);
+            const app = JSON.parse(readFileSync("site/app.json", "utf8"));
+            app.attestations ??= {};
+            app.attestations.build = { id, url };
+            writeFileSync("site/app.json", `${JSON.stringify(app, null, 2)}\n`);
+          ' "$FINGERPRINT" "$ATTESTATION_URL"
           node bootstrap/page.mjs site
           node bootstrap/precache.mjs site
       - name: Lighthouse at 100 on mobile, before anything is deployed
