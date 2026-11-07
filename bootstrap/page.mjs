@@ -10,6 +10,7 @@ import { createHash } from "node:crypto";
 import { access, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { DEFAULT_REGISTRY } from "./register.mjs";
 
 const site = process.argv[2] ?? "site";
 const read = (path) => readFile(join(site, path), "utf8");
@@ -89,6 +90,9 @@ const live = new URL(meta.live);
 // Holo Search: the top bar's home, and where its address bar resolves a name,
 // a hash or a link, fetches the app and verifies it before opening it.
 const holoSearch = new URL("https://humuhumu33.github.io/holo-search/");
+// The Prism registry: the canonical kappa registry, whose index lists every
+// Prism app by its self-verifying address, with its stars.
+const prismRegistry = new URL(`https://${DEFAULT_REGISTRY}/`);
 // The canonical frame: the template's Pages site publishes it on every push
 // to main, and this page loads the current one at run time (site/app.mjs), so
 // a frame change reaches this app without rebuilding it. app.json may name
@@ -160,15 +164,15 @@ async function frameShell() {
   }
 }
 // The repository's GitHub stars at build, so the bar shows them from its
-// first paint: from the Prism index on Holo Search, the snapshot the frame
-// keeps the count current from, then from GitHub's API for a repository the
-// file does not list yet. None known, none shown.
+// first paint: from the Prism index on the Prism registry, the snapshot the
+// frame keeps the count current from, then from GitHub's API for a repository
+// the index does not list yet. None known, none shown.
 async function githubStars() {
   const repo = (String(meta.repository ?? "").match(/^https:\/\/github\.com\/([\w.-]+\/[\w.-]+?)(?:\.git)?\/?$/) ?? [])[1];
   if (!repo) return null;
   try {
-    const pointer = new URL("registry/index/current.json", holoSearch);
-    const named = await (await fetch(pointer, { cache: "no-store" })).json();
+    const pointer = new URL("index/current.json", prismRegistry);
+    const named = await (await fetch(pointer, { cache: "no-store", signal: AbortSignal.timeout(15e3) })).json();
     const index = await (await fetch(new URL(named.path, pointer))).json();
     const app = (index.apps ?? []).find((entry) => (entry.repository ?? "").toLowerCase() === `https://github.com/${repo}`.toLowerCase());
     if (Number.isInteger(app?.stars)) return app.stars;
@@ -193,6 +197,7 @@ const fill = {
   LIVE: escape(shareUrl),
   HOLO_SEARCH: escape(holoSearch.href),
   HOLO_SEARCH_ORIGIN: holoSearch.origin,
+  REGISTRY_ORIGIN: prismRegistry.origin,
   FRAME_ORIGIN: frameHost.origin,
   OG_IMAGE: escape(new URL("og.png", live).href),
   OG_ALT: escape(`${meta.name}: ${meta.purpose}`),
@@ -269,9 +274,10 @@ const manifest = {
 await writeFile(join(site, "manifest.webmanifest"), JSON.stringify(manifest, null, 2) + "\n");
 console.log(`page: site/manifest.webmanifest for ${meta.name} at ${meta.live}`);
 
-// The Prism index: in a GitHub Actions build, this app registers its holo and
-// live page with the Prism registry (bootstrap/register.mjs), which is how
-// every app comes to be listed in every app's address bar and in Holo Search.
+// The Prism index: in a GitHub Actions build, this app registers its address
+// (its holo's fingerprint and its live page) with the Prism registry
+// (bootstrap/register.mjs), which is how every app comes to be listed in
+// every app's address bar and in Holo Search.
 // A refusal is reported and the build goes on: the index never blocks a page.
 if (process.env.GITHUB_ACTIONS === "true") {
   try {
