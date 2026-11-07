@@ -111,7 +111,9 @@ the archive carries. Every instance gets the same page; an app edits one file.
   `site/index.html` and `site/manifest.webmanifest` from it; `bootstrap/icons.py`
   draws the icons (the Hologram logomark, the brand kit's 70 dots, on the warm
   ground, and `site/favicon.svg`, the mark as a vector that follows the
-  browser's colour scheme), every app's default until it draws its own.
+  browser's colour scheme, which the page carries inline as its favicon and
+  its stand-in's mark, so neither costs a request), every app's default
+  until it draws its own.
 - **One live frame.** The frame every Prism app opens in (the top bar and
   the window the app shows through) is one web component, `<prism-frame>`, in `frame/`. On
   every push to `main`, `try-page.yml` publishes it to this repository's
@@ -168,7 +170,11 @@ the archive carries. Every instance gets the same page; an app edits one file.
   once, and a new one arrives on the visitor's first move, its colour
   standing in until then.
   The frame draws all of it, so every Prism app and Holo Search has it with
-  no rebuild. Nine photos, space first, were chosen once and are published
+  no rebuild. What only a visitor's move needs (every panel's styles, the
+  theme panel and the photos) is a second module, `frame/panels.mjs` with
+  `frame/panels.css`, published beside the frame and named by its SHA-256,
+  which the frame carries: the frame fetches it after the first move,
+  checks it and imports it, and a panel opened before then waits for it. Nine photos, space first, were chosen once and are published
   beside the frame (`frame/backdrops/`); the panel shows them by default, and
   the frame fetches the one in use from its own
   host, which every app page's `connect-src` already allows, and shows it
@@ -191,14 +197,13 @@ the archive carries. Every instance gets the same page; an app edits one file.
   plain statement and the proof attestation from `app.json`, `app.mjs`
   passes the fingerprint check and the replay as they finish, and the
   frame draws the rest.
-- **The bar is in the page.** `page.mjs` fetches the live frame at build,
-  checks its SHA-256 as the browser does, and writes its first paint into
-  `<prism-frame>` as a declarative shadow root: the frame's own styles and
-  markup for this app. The browser paints the real bar with the page's
-  first frame, and the frame script takes the same root over without a
-  pixel changing, so moving between apps never shows a stand-in; the
-  theme's colours and icon follow the page's `color-scheme`, set before
-  first paint. Without a network at build the page keeps its stand-in.
+- **The bar holds still.** Until the frame's module arrives, the page shows
+  a stand-in drawn as the bar will be: the Hologram mark and the address in
+  its field, at the bar's height and in the page's theme, so the frame
+  replaces it without anything moving. The stand-in is a few lines of the
+  page's own CSS; writing the whole frame into every page cost about half a
+  second of mobile LCP and broke the Lighthouse gate. A hop to an app the
+  address bar suggested is prerendered, so it shows the full bar at once.
 - **GitHub stars.** The GitHub icon in the address carries the repository's
   star count (128, 1.2k), written in at build and brought up to date from
   the Prism index on every load: no visitor's browser calls GitHub.
@@ -232,10 +237,9 @@ the archive carries. Every instance gets the same page; an app edits one file.
   prerender it: the next app loads, verifies its bytes and replays its
   examples before the click, so opening it shows a page already checked.
   Another origin is prefetched; a browser without speculation rules gets a
-  prefetch. Each page also asks for the whole vendored runtime and the holo
-  in parallel with its first paint, at low priority, instead of one import
-  at a time, opens the frame host's connection with its own, and holds the
-  bar in place across the navigation with a cross-document view transition.
+  prefetch. Each page also opens the frame host's connection with its own,
+  and holds the bar in place across the navigation with a cross-document
+  view transition.
 - **An address bar for Prism apps.** The holo:// pill is also an omnibox,
   like Chrome's. Focus it and it selects the address, a hairline in the UOR
   Foundation's colour spectrum runs round it, and it lists this app, every
@@ -287,7 +291,8 @@ the archive carries. Every instance gets the same page; an app edits one file.
   deploy shows one "Update available" chip and reloads only when asked.
 - **The gate.** `lighthouserc.json` asserts 100 in performance, accessibility,
   best practices and SEO on the mobile profile, LCP under 1.5 s, TBT under
-  100 ms, CLS 0, under 120 KB and no third-party request; `pages.yml` runs
+  100 ms, CLS 0, under 120 KiB and at most two third-party requests (the
+  frame's pointer and module); `pages.yml` runs
   Lighthouse CI on the assembled site before anything is deployed.
 
 `.github/workflows/pages.yml` checks the brand wiring on every push to
