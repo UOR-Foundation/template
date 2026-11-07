@@ -398,9 +398,16 @@ svg.gh, svg.fill { fill: currentColor; stroke: none; }
 :host([dark]) .opt-tile { background: oklch(0.52 0.1 var(--tile-hue, 250)); }
 .opt-title { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--muted-foreground); }
 .opt-title b { font-weight: 600; color: var(--foreground); }
-.opt-sub { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-mono); font-size: 0.8125rem; color: var(--muted-foreground); }
-.opt-tag { flex: none; font-size: 0.75rem; color: var(--muted-foreground); }
-.opt-self .opt-tag { color: var(--success); }
+.opt-sub { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-mono); font-size: 0.8125rem; color: var(--muted-foreground); }
+/* Owner and stars sit on the right: quiet, one line. A row says what it is
+ * to a screen reader; on screen, this app is the first row, chosen. */
+.opt-fill { flex: 1 1 0; min-width: 0; }
+.opt-owner { flex: none; max-width: 9rem; overflow: hidden; text-overflow: ellipsis; font-size: 0.8125rem; color: var(--muted-foreground); }
+.opt-stars { flex: none; display: inline-flex; align-items: center; justify-content: flex-end; gap: 0.25rem; min-width: 3.25rem; font-size: 0.8125rem; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--muted-foreground); }
+/* A count not known yet keeps its place, so owners stay in line. */
+.opt-stars.unknown { visibility: hidden; }
+.opt-stars svg.star { width: 0.75rem; height: 0.75rem; fill: #e3b341; stroke: none; }
+.opt-stars svg.gh { width: 0.8125rem; height: 0.8125rem; margin-inline-end: 0.125rem; color: var(--muted-foreground); }
 .opt-note { padding: var(--space-2) var(--space-3); font-size: var(--text-14); color: var(--muted-foreground); }
 
 /* The shield, first in the address, where a browser shows a page's
@@ -650,6 +657,7 @@ svg.gh, svg.fill { fill: currentColor; stroke: none; }
   .start, .end { flex: none; gap: var(--space-1); }
   .address { flex-basis: 8rem; }
   #github, .address .sep { display: none; }
+  .opt-sub { display: none; }
   .inner.editing > :not(.address) { display: none; }
 }
 

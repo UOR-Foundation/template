@@ -34,6 +34,7 @@ const FRAME = [
   "bootstrap/og.py",
   "bootstrap/page.mjs",
   "bootstrap/precache.mjs",
+  "bootstrap/register.mjs",
   "bootstrap/screens.mjs",
   "lighthouserc.json",
   "site/app.mjs",
