@@ -44,89 +44,11 @@ const REGISTRY = "https://registry.uor.foundation/";
 // (frame/publish.mjs), so no key ships; each is credited to its
 // photographer in the theme panel.
 const UNSPLASH = "utm_source=prism&utm_medium=referral";
-const BACKDROPS = [
-  {
-    id: "E0AHdsENmDg",
-    image: "https://images.unsplash.com/photo-1464802686167-b939a6910659?ixid=M3w4OTc5NTl8MHwxfHNlYXJjaHwxfHxzcGFjZXxlbnwxfDB8fHwxNzk0MDU1OTU2fDA&ixlib=rb-4.1.0",
-    color: "#0c2659",
-    alt: "The Milky Way in blue and violet",
-    name: "Jeremy Thomas",
-    user: "jeremythomasphoto",
-    page: "https://unsplash.com/photos/blue-and-purple-galaxy-digital-wallpaper-E0AHdsENmDg",
-  },
-  {
-    id: "qtRF_RxCAo0",
-    image: "https://images.unsplash.com/photo-1610296669228-602fa827fc1f?ixid=M3w4OTc5NTl8MHwxfHNlYXJjaHw0fHxzcGFjZXxlbnwxfDB8fHwxNzk0MDU1OTU2fDA&ixlib=rb-4.1.0",
-    color: "#262626",
-    alt: "A nebula in blue, gold and rust",
-    name: "Aldebaran S",
-    user: "aldebarans",
-    page: "https://unsplash.com/photos/blue-and-black-galaxy-digital-wallpaper-qtRF_RxCAo0",
-  },
-  {
-    id: "RF4p4rTM-2s",
-    image: "https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?ixid=M3w4OTc5NTl8MHwxfHNlYXJjaHw1fHxtaWxreSUyMHdheXxlbnwxfDB8fHwxNzk0MDU2MjUxfDA&ixlib=rb-4.1.0",
-    color: "#262626",
-    alt: "The Andromeda galaxy among stars",
-    name: "Bryan Goff",
-    user: "bryangoffphoto",
-    page: "https://unsplash.com/photos/galaxy-with-starry-night-RF4p4rTM-2s",
-  },
-  {
-    id: "Q1p7bh3SHj8",
-    image: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?ixid=M3w4OTc5NTl8MHwxfHNlYXJjaHw1fHxzcGFjZXxlbnwxfDB8fHwxNzk0MDU1OTU2fDA&ixlib=rb-4.1.0",
-    color: "#0c2626",
-    alt: "City lights across Earth at night, from orbit",
-    name: "NASA",
-    user: "nasa",
-    page: "https://unsplash.com/photos/photo-of-outer-space-Q1p7bh3SHj8",
-  },
-  {
-    id: "t7EL2iG3jMc",
-    image: "https://images.unsplash.com/photo-1534996858221-380b92700493?ixid=M3w4OTc5NTl8MHwxfHNlYXJjaHw5fHxzcGFjZXxlbnwxfDB8fHwxNzk0MDU1OTU2fDA&ixlib=rb-4.1.0",
-    color: "#59598c",
-    alt: "Earth's blue horizon against space",
-    name: "ActionVance",
-    user: "actionvance",
-    page: "https://unsplash.com/photos/outer-space-photography-of-earth-t7EL2iG3jMc",
-  },
-  {
-    id: "9wH624ALFQA",
-    image: "https://images.unsplash.com/photo-1515705576963-95cad62945b6?ixid=M3w4OTc5NTl8MHwxfHNlYXJjaHwxfHxtaWxreSUyMHdheXxlbnwxfDB8fHwxNzk0MDU2MjUxfDA&ixlib=rb-4.1.0",
-    color: "#0c2640",
-    alt: "The Milky Way rising over mountains",
-    name: "Dns Dgn",
-    user: "dnsdgn",
-    page: "https://unsplash.com/photos/milky-way-on-mountains-9wH624ALFQA",
-  },
-  {
-    id: "oMcTmNHclZI",
-    image: "https://images.unsplash.com/photo-1628818144466-856f7d477125?ixid=M3w4OTc5NTl8MHwxfGFsbHx8fHx8fHx8fDE3OTQwNTIyMTV8&ixlib=rb-4.1.0",
-    color: "#0c2626",
-    alt: "Green and violet aurora over a starry sky",
-    name: "Condor Wei",
-    user: "cwcanchn",
-    page: "https://unsplash.com/photos/aurora-borealis-in-starry-night-sky-oMcTmNHclZI",
-  },
-  {
-    id: "cZgVpseeazg",
-    image: "https://images.unsplash.com/photo-1545431766-45ff67845191?ixid=M3w4OTc5NTl8MHwxfGFsbHx8fHx8fHx8fDE3OTQwNTIyMTB8&ixlib=rb-4.1.0",
-    color: "#26260c",
-    alt: "A soft blur of rainbow light",
-    name: "Sean Sinclair",
-    user: "seanwsinclair",
-    page: "https://unsplash.com/photos/abstract-rainbow-color-blur-cZgVpseeazg",
-  },
-  {
-    id: "0wFwSZn6I-I",
-    image: "https://images.unsplash.com/photo-1709625862266-014ef072fd93?ixid=M3w4OTc5NTl8MHwxfGFsbHx8fHx8fHx8fDE3OTQwNTIyMTJ8&ixlib=rb-4.1.0",
-    color: "#262626",
-    alt: "Dark curved forms in soft light",
-    name: "Pawel Czerwinski",
-    user: "pawel_czerwinski",
-    page: "https://unsplash.com/photos/a-black-and-white-photo-of-a-curved-object-0wFwSZn6I-I",
-  },
-];
+// The built-in photos by id, with the colour each shows until it arrives.
+// Who took them and where they are is in frame/theme.mjs, loaded only
+// when wanted.
+const BUILT_IN = { "E0AHdsENmDg": "#0c2659", "qtRF_RxCAo0": "#262626", "RF4p4rTM-2s": "#262626", "Q1p7bh3SHj8": "#0c2626", "t7EL2iG3jMc": "#59598c", "9wH624ALFQA": "#0c2640", "oMcTmNHclZI": "#0c2626", "cZgVpseeazg": "#26260c", "0wFwSZn6I-I": "#262626" };
+const FIRST_PHOTO = "E0AHdsENmDg";
 const MODES = ["immersive", "dark", "light"];
 // Drawn on the page, outside the frame's shadow root: the photo fixed
 // behind the app under a scrim, so the page's text stays legible on any of
@@ -181,23 +103,11 @@ const storedTheme = () => {
   }
 };
 
-// A photo as a data: URL. Every page the frame runs on may show data:
-// images, while most may show no image from elsewhere. A built-in photo is
-// fetched from the frame's own host, which every app page's connect-src
-// names, so it works in every Prism app and in Holo Search, unrebuilt; any
-// other comes through the worker. Each is fetched once per page, and only
-// once it is to be shown.
-//
-// Never with the page, though: immersive is every new visitor's theme, and
-// an app's Lighthouse budget allows two third-party requests, which the
-// frame's pointer and module take. A photo shown before comes from this
-// origin's cache at once, with no request; a new one waits for the
-// visitor's first move (a pointer, a touch, a key, a scroll), as the stars
-// and the Prism index do, and its ground is the photo's colour until then.
-// The cache is not named prism-*: those are the app's service worker's.
+// Where the frame is published, and its theme module beside it.
 const FRAME_HOST = "https://uor-foundation.github.io/template/frame/";
-const SHOWN = "holo-backdrops";
-const KEPT = 4;
+// The visitor's first move (a pointer, a touch, a key, a scroll): what the
+// theme module and the photo wait for, so neither is part of the page's
+// first load.
 let moved = null;
 const firstMove = () =>
   (moved ??= new Promise((resolve) => {
@@ -208,69 +118,28 @@ const firstMove = () =>
     };
     for (const kind of kinds) addEventListener(kind, go, { capture: true, passive: true });
   }));
-const shownBefore = async (url) => {
-  try {
-    return (await (await caches.open(SHOWN)).match(url)) ?? null;
-  } catch {
-    return null; // No Cache API here (an insecure origin): fetched as new.
-  }
-};
-// The last few photos shown, and no more: each is a few hundred kilobytes.
-const keep = async (url, response) => {
-  try {
-    const cache = await caches.open(SHOWN);
-    await cache.put(url, response);
-    const kept = await cache.keys();
-    for (const old of kept.slice(0, Math.max(0, kept.length - KEPT))) await cache.delete(old);
-  } catch {
-    // Kept for this page only.
-  }
-};
-const pictures = new Map();
-const picture = (url, { thumb = false } = {}) => {
-  if (!pictures.has(url)) {
-    const loading = (async () => {
-      // A thumbnail is asked for only by the open panel, after a move.
-      let response = thumb ? null : await shownBefore(url);
-      if (!response) {
-        await firstMove();
-        response = await fetch(url);
-        if (!response.ok) throw new Error(`backdrop: HTTP ${response.status}`);
-        if (!thumb) keep(url, response.clone());
-      }
-      const blob = await response.blob();
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(blob);
-      });
-    })();
-    // A failed fetch is tried again the next time the photo is wanted.
-    loading.catch(() => pictures.delete(url));
-    pictures.set(url, loading);
-  }
-  return pictures.get(url);
-};
-const builtIn = (photo) => BACKDROPS.some((p) => p.id === photo.id);
-const pictureOf = (photo, thumb = false) =>
-  picture(
-    builtIn(photo)
-      ? new URL(`backdrops/${photo.id}${thumb ? "-thumb" : ""}.jpg`, FRAME_HOST).href
-      : `${UNSPLASH_PROXY}image?${new URLSearchParams(thumb ? { src: photo.image, w: "240", h: "150" } : { src: photo.image, w: "2400" })}`,
-    { thumb },
-  );
-// Search is offered where the page lets the frame reach the worker: a page
-// whose policy names it (every app page built from this template) or one
-// with no policy (Holo Search).
-const searchable = () => {
-  const policy = document.querySelector('meta[http-equiv="Content-Security-Policy" i]')?.content ?? "";
-  const rule = /(?:^|;)\s*connect-src\s([^;]*)/i.exec(policy) ?? /(?:^|;)\s*default-src\s([^;]*)/i.exec(policy);
-  if (!rule) return true;
-  const origin = new URL(UNSPLASH_PROXY).origin;
-  return rule[1].trim().split(/\s+/).some((source) => source === "*" || source.replace(/\/$/, "") === origin);
-};
-
+// The theme panel and the immersive photos: frame/theme.mjs, published
+// beside the frame and named by its SHA-256, which publish.mjs writes here.
+// It is fetched after the first move, checked against that hash as the page
+// checks the frame, and imported; a failure is tried again the next time.
+const THEME = "/*THEME*/";
+let themeModule = null;
+const loadTheme = () =>
+  (themeModule ??= (async () => {
+    if (!/^[0-9a-f]{64}$/.test(THEME)) throw new Error("this frame was published without its theme");
+    const bytes = await (await fetch(new URL(`${THEME}/prism-theme.mjs`, FRAME_HOST))).arrayBuffer();
+    const hex = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), (b) => b.toString(16).padStart(2, "0")).join("");
+    if (hex !== THEME) throw new Error("the theme module is not the one this frame names");
+    const url = URL.createObjectURL(new Blob([bytes], { type: "text/javascript" }));
+    try {
+      return await import(url);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  })().catch((error) => {
+    themeModule = null;
+    throw error;
+  }));
 const escape = (text) =>
   String(text ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const slugOf = (name) =>
@@ -281,6 +150,9 @@ const sheetOf = (text) => {
   return sheet;
 };
 let frameSheet = null;
+
+// What the theme module borrows from the frame.
+const THEME_CORE = { storedTheme, photoOf };
 
 // The frame's markup. Every value in it is escaped by render().
 const markup = (e) => `
@@ -757,51 +629,42 @@ class PrismFrame extends Element {
     const root = document.documentElement.classList;
     return root.contains("immersive") ? "immersive" : root.contains("dark") ? "dark" : "light";
   }
-  // The photo in use: a built-in one, one found and chosen before, or, where
-  // the browser keeps nothing (a private window), the one chosen this visit.
-  photo() {
+  // The photo in use, as far as the ground needs it (its id and colour): a
+  // built-in one, one found and chosen before, or, where the browser keeps
+  // nothing (a private window), the one chosen this visit.
+  photoRef() {
     const { photo: id, recent } = storedTheme();
     const wanted = id ?? this.chosen?.id;
-    return [...BACKDROPS, ...recent, this.chosen].find((photo) => photo && photo.id === wanted) ?? BACKDROPS[0];
+    if (wanted && BUILT_IN[wanted]) return { id: wanted, color: BUILT_IN[wanted] };
+    const found = [...recent, this.chosen].find((photo) => photo && photo.id === wanted);
+    return found ? { id: found.id, color: found.color } : { id: FIRST_PHOTO, color: BUILT_IN[FIRST_PHOTO] };
+  }
+  // The theme module, after the visitor's first move.
+  theme() {
+    return firstMove().then(loadTheme);
   }
   paintTheme() {
     const mode = this.mode();
-    // A photo found through the worker shows only where the page lets the
-    // frame reach it; elsewhere (an app built before) the first built-in one.
-    const chosen = this.photo();
-    const photo = builtIn(chosen) || searchable() ? chosen : BACKDROPS[0];
     const root = document.documentElement;
     this.toggleAttribute("dark", mode !== "light");
     this.toggleAttribute("immersive", mode === "immersive");
     if (mode === "immersive") {
-      root.style.setProperty("--prism-backdrop-color", photo.color);
-      if (this.backdrop !== photo.id) {
-        this.backdrop = photo.id;
-        // Until it arrives, or if it cannot, the photo's own colour is the ground.
-        pictureOf(photo)
-          .then((url) => {
-            if (this.backdrop === photo.id) root.style.setProperty("--prism-backdrop", `url("${url}")`);
-          })
-          .catch(() => {
-            // Not shown, so the next paint (a click, a reload) asks again.
-            if (this.backdrop === photo.id) this.backdrop = null;
-          });
-      }
+      // The photo's own colour is the ground until the photo arrives.
+      root.style.setProperty("--prism-backdrop-color", this.photoRef().color);
     } else {
       this.backdrop = null;
       root.style.removeProperty("--prism-backdrop");
       root.style.removeProperty("--prism-backdrop-color");
     }
+    // The photo, and the panel's photos and credit, come with the theme module.
+    // Once the module is here it paints at once; before, it waits for a move.
+    if (mode === "immersive" || this.themed) (themeModule ?? this.theme()).then((theme) => theme.paint(this, THEME_CORE), () => {});
     const button = this.$("theme");
     if (!button) return;
     const label = `Theme: ${mode[0].toUpperCase()}${mode.slice(1)}`;
     button.setAttribute("aria-label", label);
     button.title = label;
     for (const choice of this.shadowRoot.querySelectorAll(".mode")) choice.setAttribute("aria-pressed", String(choice.dataset.mode === mode));
-    for (const choice of this.shadowRoot.querySelectorAll("button.photo-pick")) choice.setAttribute("aria-pressed", String(choice.dataset.photo === photo.id));
-    const credit = this.$("credit-name");
-    credit.textContent = photo.name;
-    credit.href = `https://unsplash.com/@${photo.user}?${UNSPLASH}`;
   }
   setTheme(mode, photo) {
     const root = document.documentElement;
@@ -810,7 +673,7 @@ class PrismFrame extends Element {
       localStorage.setItem("prism-theme", mode);
       if (photo) {
         localStorage.setItem("prism-backdrop", photo.id);
-        if (!builtIn(photo)) {
+        if (!BUILT_IN[photo.id]) {
           const recent = [photo, ...storedTheme().recent.filter((p) => p.id !== photo.id)].slice(0, 3);
           localStorage.setItem("prism-backdrop-recent", JSON.stringify(recent));
         }
@@ -843,130 +706,30 @@ class PrismFrame extends Element {
       button.addEventListener("click", () => frame.setTheme(MODES[(MODES.indexOf(frame.mode()) + 1) % MODES.length]));
       return;
     }
-    const grid = frame.$("photos");
-    const note = frame.$("photos-note");
-    const more = frame.$("photos-more");
-    const find = frame.$("find");
-    const input = frame.$("find-input");
-    find.hidden = !searchable();
-    let query = "";
-    let page = 1;
-    let asking = null;
-    let timer = 0;
-
-    // A photo's tile: its colour at once, the photo fading in over it.
-    const tile = (photo) => {
-      const pick = document.createElement("button");
-      pick.type = "button";
-      pick.className = "photo-pick";
-      pick.dataset.photo = photo.id;
-      const words = `${photo.alt || "Photo"}, by ${photo.name}`;
-      pick.setAttribute("aria-label", words);
-      pick.title = words;
-      pick.setAttribute("aria-pressed", String(photo.id === frame.photo().id));
-      pick.style.backgroundColor = photo.color;
-      const img = new Image(240, 150);
-      img.alt = "";
-      img.decoding = "async";
-      img.addEventListener("load", () => pick.classList.add("ready"), { once: true });
-      pictureOf(photo, true).then((url) => (img.src = url)).catch(() => {});
-      pick.append(img);
-      pick.addEventListener("click", () => {
-        frame.setTheme("immersive", photo);
-        // Unsplash is told once a photo it found is put to use.
-        if (!builtIn(photo)) fetch(`${UNSPLASH_PROXY}use?id=${encodeURIComponent(photo.id)}`, { method: "POST" }).catch(() => {});
-      });
-      return pick;
+    // Its photos, search and styles arrive with the theme module; the panel
+    // waits for them rather than open unstyled.
+    let ui = null;
+    const ready = (theme) => {
+      if (ui) return;
+      if (!frame.shadowRoot.adoptedStyleSheets.includes(theme.sheet)) frame.shadowRoot.adoptedStyleSheets = [...frame.shadowRoot.adoptedStyleSheets, theme.sheet];
+      frame.themed = true;
+      ui = theme.panel(frame, THEME_CORE);
+      theme.paint(frame, THEME_CORE);
     };
-    const unique = (photos) => photos.filter((photo, i) => photos.findIndex((p) => p.id === photo.id) === i);
-    const say = (words) => {
-      note.textContent = words;
-      note.hidden = !words;
-    };
-    // Nine, as a search shows: the recent ones first, then the built-in
-    // ones, never leaving out the photo in use.
-    const home = () => {
-      const chosen = frame.chosen && !builtIn(frame.chosen) ? [frame.chosen] : [];
-      const all = unique([...chosen, ...storedTheme().recent, ...BACKDROPS]);
-      const shown = all.slice(0, 9);
-      const current = frame.photo();
-      if (!shown.some((p) => p.id === current.id)) shown[shown.length - 1] = current;
-      grid.replaceChildren(...shown.map(tile));
-      more.hidden = true;
-      say("");
-    };
-    const skeleton = () =>
-      grid.replaceChildren(...Array.from({ length: 9 }, () => {
-        const blank = document.createElement("span");
-        blank.className = "photo-pick blank";
-        return blank;
-      }));
-    const settle = (control) => {
-      if (asking !== control) return;
-      find.classList.remove("busy");
-      grid.setAttribute("aria-busy", "false");
-    };
-    async function ask(words, next = 0) {
-      asking?.abort();
-      const control = (asking = new AbortController());
-      find.classList.add("busy");
-      grid.setAttribute("aria-busy", "true");
-      if (!next) {
-        skeleton();
-        more.hidden = true;
-        say("");
-      }
-      let status = 0;
-      try {
-        const response = await fetch(`${UNSPLASH_PROXY}search?${new URLSearchParams({ q: words, page: String(next || 1) })}`, { signal: control.signal });
-        status = response.status;
-        const found = await response.json();
-        if (!response.ok) throw new Error(found.error ?? `HTTP ${status}`);
-        const photos = (Array.isArray(found.photos) ? found.photos : []).map(photoOf).filter(Boolean);
-        page = found.page ?? 1;
-        if (next) grid.append(...photos.map(tile));
-        else grid.replaceChildren(...photos.map(tile));
-        more.hidden = !found.more || !photos.length;
-        if (!next && !photos.length) say(`No photos for “${words}”`);
-      } catch (error) {
-        if (error.name === "AbortError") return;
-        if (!next) home();
-        say(status === 429 ? "Unsplash needs a short rest. Try again soon." : "Search isn’t available right now.");
-      } finally {
-        settle(control);
-      }
-    }
-
-    input.addEventListener("input", () => {
-      clearTimeout(timer);
-      const words = input.value.trim();
-      if (words === query) return;
-      query = words;
-      if (!words) {
-        asking?.abort();
-        settle(asking);
-        home();
-        return;
-      }
-      timer = setTimeout(() => ask(words), 280);
-    });
-    input.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        clearTimeout(timer);
-        if (query) ask(query);
-      } else if (event.key === "Escape" && input.value) {
-        // The first Escape clears the search; the next closes the panel.
-        event.preventDefault();
-        event.stopPropagation();
-        input.value = "";
-        input.dispatchEvent(new Event("input"));
-      }
-    });
-    more.addEventListener("click", () => query && ask(query, page + 1));
-
+    this.theme().then(ready, () => {});
+    for (const type of ["pointerenter", "focus"]) button.addEventListener(type, () => this.theme().catch(() => {}), { passive: true });
     panel.addEventListener("beforetoggle", (event) => {
       if (event.newState !== "open") return;
+      // Opened before the module came (a click that moved nothing, as some
+      // assistive technology sends): fetch it now, then open.
+      if (!ui) {
+        event.preventDefault();
+        loadTheme().then((theme) => {
+          ready(theme);
+          panel.showPopover();
+        }, () => {});
+        return;
+      }
       const bar = frame.shadowRoot.querySelector(".bar").getBoundingClientRect();
       const edge = button.getBoundingClientRect();
       const view = document.documentElement.clientWidth;
@@ -974,7 +737,7 @@ class PrismFrame extends Element {
       const right = Math.max(16, Math.min(view - edge.right, view - width - 16));
       panel.style.setProperty("--theme-top", `${Math.round(bar.bottom + 6)}px`);
       panel.style.setProperty("--theme-right", `${Math.round(right)}px`);
-      if (!query) home();
+      ui.open();
     });
   }
   // Full screen: the whole page, where the browser allows it; the button

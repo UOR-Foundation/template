@@ -6,6 +6,9 @@
 // and writes the pointer every app follows:
 //
 //   <out>/<sha256>/prism-frame.mjs   immutable: the frame, by its content
+//   <out>/<sha256>/prism-theme.mjs   immutable: the theme panel and photos
+//                                    (frame/theme.mjs with frame/theme.css),
+//                                    whose hash the frame carries
 //   <out>/current.json               the pointer: { spec, sha256, module, source }
 //   <out>/backdrops/<id>.jpg         the immersive photos, and <id>-thumb.jpg
 //
@@ -13,6 +16,7 @@
 // so the frame at https://uor-foundation.github.io/template/frame/ is always
 // main's, and every Prism app picks it up on its next load.
 //   node frame/publish.mjs <out-dir> [<source commit>]
+// PRISM_FRAME_HOST=<url> publishes for a frame served there instead (a test).
 import { createHash } from "node:crypto";
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -23,31 +27,51 @@ const [out = "frame-out", commit = process.env.GITHUB_SHA ?? null] = process.arg
 
 const read = (path) => readFile(join(root, path), "utf8");
 const minify = (text) => text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]+/gm, "").replace(/\n{2,}/g, "\n").trim();
-
-let module = await read("frame/frame.mjs");
-for (const [mark, text] of [['"/*CSS*/"', minify(await read("frame/frame.css"))], ['"/*BRAND*/"', minify(await read("site/brand/hologram-warm.css"))]]) {
-  if (!module.includes(mark)) throw new Error(`frame/frame.mjs has no ${mark}`);
-  module = module.replace(mark, JSON.stringify(text));
-}
+const named = (bytes) => createHash("sha256").update(bytes).digest("hex");
+const PUBLISHED_HOST = "https://uor-foundation.github.io/template/frame/";
+const host = process.env.PRISM_FRAME_HOST ?? PUBLISHED_HOST;
+const at = (text) => text.split(JSON.stringify(PUBLISHED_HOST)).join(JSON.stringify(host));
+const bake = (text, mark, value, file) => {
+  if (!text.includes(mark)) throw new Error(`${file} has no ${mark}`);
+  return text.replace(mark, JSON.stringify(value));
+};
 // Every Prism app runs these bytes, so they ship minified: comments and
 // whitespace are Lighthouse's unminified-javascript failure, and the frame
 // is the largest script an app page loads.
-const minified = await terser(module, { module: true, compress: { passes: 2 }, mangle: true, format: { comments: false } });
-if (!minified.code) throw new Error("terser produced nothing");
-const bytes = Buffer.from(minified.code, "utf8");
-const sha256 = createHash("sha256").update(bytes).digest("hex");
+const minified = async (source, what) => {
+  const result = await terser(source, { module: true, compress: { passes: 2 }, mangle: true, format: { comments: false } });
+  if (!result.code) throw new Error(`terser produced no ${what}`);
+  return Buffer.from(result.code, "utf8");
+};
+
+// The theme module first: the frame carries its hash.
+const themeSource = await read("frame/theme.mjs");
+const themeBytes = await minified(bake(at(themeSource), '"/*THEME_CSS*/"', minify(await read("frame/theme.css")), "frame/theme.mjs"), "theme");
+const themeSha = named(themeBytes);
+await mkdir(join(out, themeSha), { recursive: true });
+await writeFile(join(out, themeSha, "prism-theme.mjs"), themeBytes);
+
+let module = at(await read("frame/frame.mjs"));
+module = bake(module, '"/*CSS*/"', minify(await read("frame/frame.css")), "frame/frame.mjs");
+module = bake(module, '"/*BRAND*/"', minify(await read("site/brand/hologram-warm.css")), "frame/frame.mjs");
+module = bake(module, '"/*THEME*/"', themeSha, "frame/frame.mjs");
+const bytes = await minified(module, "frame");
+const sha256 = named(bytes);
 await mkdir(join(out, sha256), { recursive: true });
 await writeFile(join(out, sha256, "prism-frame.mjs"), bytes);
 // The immersive photos, beside the frame: every app page may fetch from the
 // frame's host (its connect-src names it), so the frame can draw them on a
-// page whose img-src allows only its own files and data:. A photo the frame
+// page whose img-src allows only its own files and data:. A photo the theme
 // names and the repository lacks fails the publish.
 await mkdir(join(out, "backdrops"), { recursive: true });
-for (const [, id] of module.matchAll(/\bid: "([\w-]+)",\s*\n\s*image: "https:\/\/images\.unsplash\.com\//g)) {
+let photos = 0;
+for (const [, id] of themeSource.matchAll(/\bid: "([\w-]+)",\s*\n\s*image: "https:\/\/images\.unsplash\.com\//g)) {
   for (const file of [`${id}.jpg`, `${id}-thumb.jpg`]) {
     await copyFile(join(root, "frame/backdrops", file), join(out, "backdrops", file));
   }
+  photos++;
 }
+if (!photos) throw new Error("frame/theme.mjs names no built-in photo");
 const pointer = { spec: "prism/frame/1", sha256, module: `${sha256}/prism-frame.mjs`, source: { repository: "UOR-Foundation/template", commit } };
 await writeFile(join(out, "current.json"), JSON.stringify(pointer, null, 2) + "\n");
-console.log(`frame: ${sha256} (${bytes.length} bytes) -> ${out}/current.json`);
+console.log(`frame: ${sha256} (${bytes.length} bytes), theme ${themeSha} (${themeBytes.length} bytes), ${photos} photos -> ${out}/current.json`);
