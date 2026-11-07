@@ -168,6 +168,17 @@ the archive carries. Every instance gets the same page; an app edits one file.
   plain statement and the proof attestation from `app.json`, `app.mjs`
   passes the fingerprint check and the replay as they finish, and the
   frame draws the rest.
+- **The bar is in the page.** `page.mjs` fetches the live frame at build,
+  checks its SHA-256 as the browser does, and writes its first paint into
+  `<prism-frame>` as a declarative shadow root: the frame's own styles and
+  markup for this app. The browser paints the real bar with the page's
+  first frame, and the frame script takes the same root over without a
+  pixel changing, so moving between apps never shows a stand-in; the
+  theme's colours and icon follow the page's `color-scheme`, set before
+  first paint. Without a network at build the page keeps its stand-in.
+- **GitHub stars.** The GitHub icon carries the repository's star count
+  (128, 1.2k), written in at build and kept current by the frame from
+  GitHub's API, at most once an hour per repository in each browser.
 - **Hops between apps, ahead of the click.** A Prism app is named by its
   content, so a page loaded early is never stale and never another app's.
   When a visitor shows where they are going (home under the pointer, a

@@ -64,10 +64,10 @@ const markup = (e) => `
     </form>
     <div class="end">
     <slot name="status"></slot>
-    <a id="github" class="ghost icon" href="${e.repo}" aria-label="Source on GitHub" title="Source on GitHub"><svg class="gh" viewBox="0 0 16 16" width="20" height="20" aria-hidden="true" focusable="false"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z" /></svg></a>
+    <a id="github" class="ghost icon${e.starred}" href="${e.repo}" aria-label="${e.githubLabel}" title="${e.githubLabel}"><svg class="gh" viewBox="0 0 16 16" width="20" height="20" aria-hidden="true" focusable="false"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z" /></svg><span id="stars" class="stars">${e.starsText}</span></a>
     <span id="bar-status" class="sr" aria-live="polite"></span>
     <button id="theme" class="ghost icon" type="button" aria-label="Switch theme" title="Switch theme"><svg class="moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" /></svg><svg class="sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg></button>
-    <button id="fullscreen" class="ghost icon" type="button" aria-label="Enter full screen" title="Full screen" hidden><svg class="expand" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15" /></svg><svg class="shrink" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 4v3.5A1.5 1.5 0 0 1 7.5 9H4M20 9h-3.5A1.5 1.5 0 0 1 15 7.5V4M15 20v-3.5a1.5 1.5 0 0 1 1.5-1.5H20M4 15h3.5A1.5 1.5 0 0 1 9 16.5V20" /></svg></button>
+    <button id="fullscreen" class="ghost icon" type="button" aria-label="Enter full screen" title="Full screen"><svg class="expand" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15" /></svg><svg class="shrink" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 4v3.5A1.5 1.5 0 0 1 7.5 9H4M20 9h-3.5A1.5 1.5 0 0 1 15 7.5V4M15 20v-3.5a1.5 1.5 0 0 1 1.5-1.5H20M4 15h3.5A1.5 1.5 0 0 1 9 16.5V20" /></svg></button>
     </div>
   </div></div>
   <div id="trust-panel" class="trust-panel" popover aria-labelledby="trust-title">
@@ -176,8 +176,70 @@ function speculate(href) {
   document.head.append(link);
 }
 
-class PrismFrame extends HTMLElement {
-  static observedAttributes = ["name", "address", "live", "repo", "home", "purpose", "card", "identity", "verdict", "verdict-label", "fingerprint", "proof", "proof-url", "examples"];
+// GitHub stars, as a short count: 128, 1.2k, 12k, 1.2m. None, or none
+// known, shows the GitHub mark alone.
+const shortCount = (n) =>
+  n < 1000 ? String(n) : n < 1e6 ? `${(n / 1000).toFixed(n < 10000 ? 1 : 0).replace(/\.0$/, "")}k` : `${(n / 1e6).toFixed(1).replace(/\.0$/, "")}m`;
+const starsOf = (n) => {
+  const stars = Number.isInteger(n) && n > 0 ? n : 0;
+  return {
+    stars,
+    starsText: stars ? shortCount(stars) : "",
+    starred: stars ? " starred" : "",
+    githubLabel: stars ? `Source on GitHub, ${stars} star${stars === 1 ? "" : "s"}` : "Source on GitHub",
+  };
+};
+
+// Everything the markup needs, from the attributes (get), the page's title
+// and its address: one function, for the element and for the shell.
+function modelOf(get, title, base) {
+  const name = get("name") ?? title;
+  const slug = get("address") ?? slugOf(name);
+  const home = get("home") ?? HOME;
+  const live = get("live") ?? base;
+  const purpose = get("purpose") ?? "";
+  const text = purpose ? `${name}: ${purpose.split(/(?<=\.)\s/)[0]}` : name;
+  const url = new URL(live, base);
+  const query = (params) => new URLSearchParams(params).toString();
+  return {
+    name,
+    slug,
+    home,
+    live: url.href,
+    text,
+    repo: get("repo") ?? "",
+    ...starsOf(Number(get("stars"))),
+    card: get("card") ?? new URL("og.png", url).href,
+    identity: get("identity") ?? "#identity-title",
+    host: (url.host + url.pathname).replace(/\/$/, ""),
+    x: `https://x.com/intent/post?${query({ text, url: url.href })}`,
+    linkedin: `https://www.linkedin.com/sharing/share-offsite/?${query({ url: url.href })}`,
+    facebook: `https://www.facebook.com/sharer/sharer.php?${query({ u: url.href })}`,
+    email: `mailto:?subject=${encodeURIComponent(name)}&body=${encodeURIComponent(`${text}\n\n${url.href}`)}`,
+  };
+}
+
+// The shell: the frame's first paint, which a page's build writes into the
+// page (bootstrap/page.mjs) as a declarative shadow root holding this
+// frame's own styles and markup for its attributes. The browser paints the
+// real bar with the page's first frame; when this module arrives the element
+// takes that root over and draws the same thing, so nothing moves and
+// nothing flickers between apps. The verdict starts as the page starts
+// (checking), and the theme's icon and colours follow the page's colour
+// scheme, which the page sets before its first paint.
+export function shell(attributes, base) {
+  const m = modelOf((name) => attributes[name] ?? null, attributes.name ?? "", base);
+  const e = Object.fromEntries(Object.entries(m).map(([key, value]) => [key, escape(value)]));
+  let html = markup(e);
+  if (!m.repo) html = html.replace('<a id="github" ', '<a id="github" hidden ');
+  return { css: CSS, html: `<template shadowrootmode="open"><style>${CSS}</style>${html}</template>` };
+}
+
+// The element runs in a browser; the module also loads at build time, where
+// there is none, to write the shell.
+const Element = globalThis.HTMLElement ?? class {};
+class PrismFrame extends Element {
+  static observedAttributes = ["name", "address", "live", "repo", "home", "purpose", "card", "identity", "verdict", "verdict-label", "fingerprint", "proof", "proof-url", "examples", "stars"];
 
   constructor() {
     super();
@@ -206,34 +268,13 @@ class PrismFrame extends HTMLElement {
   attributeChangedCallback(name, before, after) {
     if (!this.shadowRoot.firstChild || before === after) return;
     if (["verdict", "verdict-label", "fingerprint", "proof", "proof-url", "examples"].includes(name)) this.paintTrust();
+    else if (name === "stars") this.paintStars();
     else this.render();
   }
 
   // Everything the markup needs, from the attributes.
   model() {
-    const name = this.getAttribute("name") ?? document.title;
-    const slug = this.getAttribute("address") ?? slugOf(name);
-    const home = this.getAttribute("home") ?? HOME;
-    const live = this.getAttribute("live") ?? location.href;
-    const purpose = this.getAttribute("purpose") ?? "";
-    const text = purpose ? `${name}: ${purpose.split(/(?<=\.)\s/)[0]}` : name;
-    const url = new URL(live, location.href);
-    const query = (params) => new URLSearchParams(params).toString();
-    return {
-      name,
-      slug,
-      home,
-      live: url.href,
-      text,
-      repo: this.getAttribute("repo") ?? "",
-      card: this.getAttribute("card") ?? new URL("og.png", url).href,
-      identity: this.getAttribute("identity") ?? "#identity-title",
-      host: (url.host + url.pathname).replace(/\/$/, ""),
-      x: `https://x.com/intent/post?${query({ text, url: url.href })}`,
-      linkedin: `https://www.linkedin.com/sharing/share-offsite/?${query({ url: url.href })}`,
-      facebook: `https://www.facebook.com/sharer/sharer.php?${query({ u: url.href })}`,
-      email: `mailto:?subject=${encodeURIComponent(name)}&body=${encodeURIComponent(`${text}\n\n${url.href}`)}`,
-    };
+    return modelOf((name) => this.getAttribute(name), document.title, location.href);
   }
 
   render() {
@@ -242,6 +283,7 @@ class PrismFrame extends HTMLElement {
     this.data = m;
     this.shadowRoot.innerHTML = markup(e);
     if (!m.repo) this.$("github").hidden = true;
+    this.liveStars();
     this.paintTrust();
     this.paintTheme();
     this.trust();
@@ -359,6 +401,52 @@ class PrismFrame extends HTMLElement {
     frame.$("trust-details").addEventListener("click", () => panel.hidePopover());
   }
 
+  // The star count the page was built with, kept current: the repository's
+  // count from GitHub's API, at most once an hour per repository in this
+  // browser, and only where the page's Content-Security-Policy admits
+  // api.github.com. A changed count is set as the stars attribute, which
+  // repaints the GitHub pill; an unchanged one leaves it alone.
+  liveStars() {
+    const repo = (this.data.repo.match(/^https:\/\/github\.com\/([\w.-]+\/[\w.-]+?)(?:\.git)?\/?$/) ?? [])[1];
+    if (!repo) return;
+    const policy = [...document.querySelectorAll('meta[http-equiv="Content-Security-Policy" i]')].map((meta) => meta.content).join(";");
+    if (policy && !policy.includes("https://api.github.com")) return;
+    const key = `prism-stars:${repo}`;
+    const set = (n) => Number.isInteger(n) && String(n) !== (this.getAttribute("stars") ?? "") && this.setAttribute("stars", String(n));
+    // The count changes only the GitHub pill, so a visitor typing in the
+    // address bar is never interrupted.
+    try {
+      const kept = JSON.parse(localStorage.getItem(key) ?? "null");
+      if (kept && Date.now() - kept.at < 3600e3) return set(kept.stars);
+    } catch {
+      // No storage: ask GitHub.
+    }
+    if (this.starsAsked) return;
+    this.starsAsked = true;
+    fetch(`https://api.github.com/repos/${repo}`, { headers: { accept: "application/vnd.github+json" } })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((info) => {
+        if (!Number.isInteger(info?.stargazers_count)) return;
+        try {
+          localStorage.setItem(key, JSON.stringify({ stars: info.stargazers_count, at: Date.now() }));
+        } catch {
+          // A private window keeps nothing; the count still shows.
+        }
+        set(info.stargazers_count);
+      })
+      .catch(() => {});
+  }
+
+  paintStars() {
+    const github = this.$("github");
+    if (!github) return;
+    const { starsText, starred, githubLabel } = starsOf(Number(this.getAttribute("stars")));
+    github.classList.toggle("starred", Boolean(starred));
+    this.$("stars").textContent = starsText;
+    github.setAttribute("aria-label", githubLabel);
+    github.title = githubLabel;
+  }
+
   // The theme lives on <html>, where the page's own bootstrap set it before
   // first paint; the frame mirrors it and toggles it.
   watchTheme() {
@@ -383,8 +471,10 @@ class PrismFrame extends HTMLElement {
     const enter = root.requestFullscreen ?? root.webkitRequestFullscreen;
     const leave = document.exitFullscreen ?? document.webkitExitFullscreen;
     const current = () => document.fullscreenElement ?? document.webkitFullscreenElement ?? null;
-    if (!(document.fullscreenEnabled ?? document.webkitFullscreenEnabled) || !enter || !leave) return;
-    button.hidden = false;
+    if (!(document.fullscreenEnabled ?? document.webkitFullscreenEnabled) || !enter || !leave) {
+      button.hidden = true;
+      return;
+    }
     const paint = () => {
       const on = Boolean(current());
       this.toggleAttribute("fullscreen", on);
@@ -808,4 +898,4 @@ class PrismFrame extends HTMLElement {
   }
 }
 
-if (!customElements.get("prism-frame")) customElements.define("prism-frame", PrismFrame);
+if (globalThis.customElements && !customElements.get("prism-frame")) customElements.define("prism-frame", PrismFrame);
