@@ -216,8 +216,9 @@ svg.gh, svg.fill { fill: currentColor; stroke: none; }
  * the count beside it, one quiet pill; the count in the muted grey and
  * tabular figures, so it reads as a figure. */
 #github .stars { display: none; }
-#github.starred { width: auto; gap: 0.5rem; padding-inline: 0.625rem; }
-#github.starred::before { inset: calc((var(--hit) - var(--bar-control)) / 2) 0; }
+/* In the address, beside share: a small pill the height of share's circle. */
+#github.starred { width: auto; gap: 0.375rem; padding-inline: 0.5rem; margin-inline: calc((1.5rem - var(--hit)) / 2 + 0.25rem) 0; }
+#github.starred::before { inset: calc((var(--hit) - 1.5rem) / 2) 0; border-radius: 999px; }
 #github.starred .stars { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.8125rem; font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: 0.01em; color: var(--muted-foreground); }
 #github .stars svg.star { width: 0.75rem; height: 0.75rem; fill: #e3b341; stroke: none; }
 #github.starred:hover .stars { color: var(--foreground); }
@@ -241,7 +242,10 @@ svg.gh, svg.fill { fill: currentColor; stroke: none; }
 }
 .ghost.icon.inset::before { inset: calc((var(--hit) - 1.5rem) / 2); border-radius: 50%; }
 /* While the address is edited it steps aside for the text. */
-.inner.editing #share { display: none; }
+.inner.editing #share, .inner.editing #github, .inner.editing .sep { display: none; }
+/* A hairline between GitHub and share, as a browser divides its icons. */
+.address .sep { flex: none; width: var(--border-width); height: 1rem; margin-inline: 0.125rem; background: var(--border-strong); }
+#github[hidden] + .sep { display: none; }
 /* Full screen: the corners point out to enter, in to leave. */
 :host([fullscreen]) #fullscreen .expand, :host(:not([fullscreen])) #fullscreen .shrink { display: none; }
 
@@ -645,7 +649,7 @@ svg.gh, svg.fill { fill: currentColor; stroke: none; }
   .inner { gap: var(--space-1); }
   .start, .end { flex: none; gap: var(--space-1); }
   .address { flex-basis: 8rem; }
-  #github { display: none; }
+  #github, .address .sep { display: none; }
   .inner.editing > :not(.address) { display: none; }
 }
 
