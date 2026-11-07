@@ -7,7 +7,7 @@
 //
 // The contract (prism/frame/1):
 //   <prism-frame name address live repo home purpose card identity
-//                verdict verdict-label fingerprint>
+//                verdict verdict-label fingerprint proof proof-url examples>
 //     <span slot="status">…</span>     optional: shown in the bar, e.g. "Update available"
 //   </prism-frame>
 // name      the app's name ("Luhn check")
@@ -17,10 +17,17 @@
 // home      Holo Search: the home icon, and where the address bar resolves
 // purpose   one or more sentences; the first is the share text
 // card      the 1200 x 630 social card; live + "og.png" when absent
-// identity  where the shield links (default "#identity-title")
-// verdict   wait | good | bad: the shield's state; verdict-label says it in
-//           words, fingerprint is the holo's (shown in the label, matched by
-//           the address bar)
+// identity  the page's full verification details (default "#identity-title")
+// verdict   wait | good | bad: whether the holo's bytes match its fingerprint;
+//           verdict-label says it in words, fingerprint is the holo's (shown
+//           in the shield's panel, matched by the address bar)
+// proof     optional: what the app's theorem guarantees, in one sentence
+// proof-url optional: the proof's attestation
+// examples  optional: "passed/total" once the page has replayed the holo's
+//           examples, "running" while it does, "error" when it could not
+// The shield sums the three: green only when the bytes are authentic and
+// every example gives its proved answer; its panel shows each check, as a
+// browser shows a page's security.
 // The frame owns the theme: it toggles the dark class on <html> and
 // remembers the choice as "prism-theme", as the page's theme bootstrap reads.
 
@@ -41,23 +48,63 @@ let frameSheet = null;
 
 // The frame's markup. Every value in it is escaped by render().
 const markup = (e) => `
+  <div class="canvas" aria-hidden="true"></div>
   <div class="bar"><div class="inner">
-    <a id="home" class="ghost icon" href="${e.home}" aria-label="Home" title="Home"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9v12h14V9" /><path d="M10 21v-6h4v6" /></svg></a>
+    <div class="start">
+      <a id="home" class="ghost icon" href="${e.home}" aria-label="Home" title="Home"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M4 10.2 12 4l8 6.2V19a1 1 0 0 1-1 1h-4v-5.5H9V20H5a1 1 0 0 1-1-1z" /></svg></a>
+    </div>
     <form id="address" class="address" role="search" action="${e.home}" method="get" autocomplete="off">
-      <span class="dot" aria-hidden="true"></span>
+      <button id="trust" class="ghost icon inset trust wait" type="button" popovertarget="trust-panel" aria-label="Verifying this app" title="Verifying this app"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path class="body" d="M12 3 4 6v6c0 4.6 3.4 8.4 8 9 4.6-.6 8-4.4 8-9V6z" /><path class="wait" d="M8.5 12h.01M12 12h.01M15.5 12h.01" /><path class="ok" d="m8.5 12 2.5 2.5 4.5-5" /><path class="bad" d="M12 8v4.5M12 16h.01" /></svg></button>
       <span class="field">
         <span class="url" aria-hidden="true"><span class="scheme">holo://</span><span class="host">${e.slug}</span></span>
         <input id="omnibox" class="omnibox" name="r" type="text" value="holo://${e.slug}" role="combobox" aria-label="Search Prism apps, or paste a holo address or hash" aria-autocomplete="list" aria-expanded="false" aria-controls="omnibox-list" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go" />
       </span>
-      <a id="trust" class="chip chip-wait trust" href="${e.identity}" aria-label="Verifying the app in this browser" title="Verifying the app in this browser"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path class="body" d="M12 3 4 6v6c0 4.6 3.4 8.4 8 9 4.6-.6 8-4.4 8-9V6z" /><path class="wait" d="M8.5 12h.01M12 12h.01M15.5 12h.01" /><path class="ok" d="m8.5 12 2.5 2.5 4.5-5" /><path class="bad" d="M12 8v4.5M12 16h.01" /></svg></a>
+      <button id="share" class="ghost icon inset" type="button" popovertarget="share-panel" aria-label="Share this app" title="Share"><svg class="share" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="17.5" cy="5.5" r="2.5" /><circle cx="6.5" cy="12" r="2.5" /><circle cx="17.5" cy="18.5" r="2.5" /><path d="m8.7 13.3 6.6 3.9M15.3 6.8l-6.6 3.9" /></svg><svg class="done" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg></button>
       <ul id="omnibox-list" class="omnibox-list" role="listbox" aria-label="Prism apps" hidden></ul>
     </form>
+    <div class="end">
     <slot name="status"></slot>
-    <button id="share" class="ghost icon" type="button" popovertarget="share-panel" aria-label="Share this app" title="Share"><svg class="share" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4" /></svg><svg class="done" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg></button>
     <a id="github" class="ghost icon" href="${e.repo}" aria-label="Source on GitHub" title="Source on GitHub"><svg class="gh" viewBox="0 0 16 16" width="20" height="20" aria-hidden="true" focusable="false"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z" /></svg></a>
     <span id="bar-status" class="sr" aria-live="polite"></span>
     <button id="theme" class="ghost icon" type="button" aria-label="Switch theme" title="Switch theme"><svg class="moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" /></svg><svg class="sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg></button>
+    <button id="fullscreen" class="ghost icon" type="button" aria-label="Enter full screen" title="Full screen" hidden><svg class="expand" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15" /></svg><svg class="shrink" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 4v3.5A1.5 1.5 0 0 1 7.5 9H4M20 9h-3.5A1.5 1.5 0 0 1 15 7.5V4M15 20v-3.5a1.5 1.5 0 0 1 1.5-1.5H20M4 15h3.5A1.5 1.5 0 0 1 9 16.5V20" /></svg></button>
+    </div>
   </div></div>
+  <div id="trust-panel" class="trust-panel" popover aria-labelledby="trust-title">
+    <div class="trust-head">
+      <span id="trust-badge" class="trust-badge wait"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path class="body" d="M12 3 4 6v6c0 4.6 3.4 8.4 8 9 4.6-.6 8-4.4 8-9V6z" /><path class="wait" d="M8.5 12h.01M12 12h.01M15.5 12h.01" /><path class="ok" d="m8.5 12 2.5 2.5 4.5-5" /><path class="bad" d="M12 8v4.5M12 16h.01" /></svg></span>
+      <div class="trust-words">
+        <p id="trust-title" class="trust-title">Verifying this app</p>
+        <p id="trust-sub" class="trust-sub">Checking it in your browser</p>
+      </div>
+    </div>
+    <ol class="checks">
+      <li id="check-authentic" class="check wait">
+        <span class="mark"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><circle class="ring" cx="12" cy="12" r="9" /><path class="wait" d="M8 12h.01M12 12h.01M16 12h.01" /><path class="ok" d="m8 12.5 2.8 2.8L16.5 9.5" /><path class="bad" d="M12 7.5v5M12 16.2h.01" /></svg></span>
+        <div class="check-words">
+          <p class="check-title">Authentic</p>
+          <p id="authentic-detail" class="check-detail">Checking every byte against its fingerprint</p>
+          <p id="authentic-print" class="check-meta" hidden><code id="trust-print"></code><button id="trust-copy" class="text" type="button">Copy</button></p>
+        </div>
+      </li>
+      <li id="check-proved" class="check wait" hidden>
+        <span class="mark"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><circle class="ring" cx="12" cy="12" r="9" /><path class="wait" d="M8 12h.01M12 12h.01M16 12h.01" /><path class="ok" d="m8 12.5 2.8 2.8L16.5 9.5" /><path class="bad" d="M12 7.5v5M12 16.2h.01" /></svg></span>
+        <div class="check-words">
+          <p class="check-title">Formally proved</p>
+          <p id="proved-detail" class="check-detail"></p>
+          <p class="check-meta"><span>Proved in Lean when this app was built</span><a id="trust-proof" class="text" target="_blank" rel="noopener noreferrer" hidden>Attestation</a></p>
+        </div>
+      </li>
+      <li id="check-replayed" class="check wait" hidden>
+        <span class="mark"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><circle class="ring" cx="12" cy="12" r="9" /><path class="wait" d="M8 12h.01M12 12h.01M16 12h.01" /><path class="ok" d="m8 12.5 2.8 2.8L16.5 9.5" /><path class="bad" d="M12 7.5v5M12 16.2h.01" /></svg></span>
+        <div class="check-words">
+          <p class="check-title">Behaves as proved</p>
+          <p id="replayed-detail" class="check-detail">Replaying its examples</p>
+        </div>
+      </li>
+    </ol>
+    <a id="trust-details" class="trust-details" href="${e.identity}">Full details<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M5 12h14M13 6l6 6-6 6" /></svg></a>
+  </div>
   <div id="share-panel" class="share-panel" popover aria-labelledby="share-title">
     <p id="share-title" class="share-title">Share ${e.name}</p>
     <div id="share-image" class="share-image"></div>
@@ -76,7 +123,7 @@ const markup = (e) => `
 `;
 
 class PrismFrame extends HTMLElement {
-  static observedAttributes = ["name", "address", "live", "repo", "home", "purpose", "card", "identity", "verdict", "verdict-label", "fingerprint"];
+  static observedAttributes = ["name", "address", "live", "repo", "home", "purpose", "card", "identity", "verdict", "verdict-label", "fingerprint", "proof", "proof-url", "examples"];
 
   constructor() {
     super();
@@ -93,18 +140,18 @@ class PrismFrame extends HTMLElement {
     }
     this.render();
     this.watchTheme();
-    this.watchScroll();
+    this.watchHeight();
   }
 
   disconnectedCallback() {
+    this.heightWatch?.disconnect();
+    this.fullscreenWatch?.abort();
     this.themeWatch?.disconnect();
-    this.scrollWatch?.disconnect();
-    this.mark?.remove();
   }
 
   attributeChangedCallback(name, before, after) {
     if (!this.shadowRoot.firstChild || before === after) return;
-    if (name === "verdict" || name === "verdict-label" || name === "fingerprint") this.paintVerdict();
+    if (["verdict", "verdict-label", "fingerprint", "proof", "proof-url", "examples"].includes(name)) this.paintTrust();
     else this.render();
   }
 
@@ -141,23 +188,119 @@ class PrismFrame extends HTMLElement {
     this.data = m;
     this.shadowRoot.innerHTML = markup(e);
     if (!m.repo) this.$("github").hidden = true;
-    this.paintVerdict();
+    this.paintTrust();
     this.paintTheme();
+    this.trust();
     this.share();
     this.omnibox();
     this.$("theme").addEventListener("click", () => this.toggleTheme());
+    this.fullScreen();
   }
 
-  // The shield: the verdict the page reached on the holo, in its state's colour.
-  paintVerdict() {
-    const state = this.getAttribute("verdict") ?? "wait";
-    const label = this.getAttribute("verdict-label") ?? "Verifying the app in this browser";
+  // The shield and its panel: three checks, each from what the page found.
+  // Authentic: the holo's bytes match its fingerprint. Formally proved: the
+  // theorem those bytes were built from, proved in Lean when they were
+  // built, so it holds for this app only when they are authentic. Behaves as
+  // proved: every example the holo carries gives its proved answer here.
+  // The shield is the sum: green only when every check it has passed.
+  checks() {
+    const verdict = this.getAttribute("verdict") ?? "wait";
+    const label = this.getAttribute("verdict-label") ?? "";
+    const proof = this.getAttribute("proof") ?? "";
+    const examples = this.getAttribute("examples");
+    const authentic = ["good", "bad"].includes(verdict) ? verdict : "wait";
+    const failed = label && !/^not verified$/i.test(label) ? label : "Its bytes do not match its fingerprint";
+    const checks = {
+      authentic: {
+        state: authentic,
+        detail: { wait: "Checking every byte against its fingerprint", good: "Every byte matches its fingerprint", bad: failed }[authentic],
+      },
+    };
+    if (proof) checks.proved = { state: authentic, detail: proof };
+    if (examples !== null) {
+      const [passed, total] = examples.split("/").map(Number);
+      const counted = Number.isInteger(passed) && Number.isInteger(total) && total > 0;
+      let state = "wait";
+      let detail = "Replaying its examples in your browser";
+      if (authentic === "bad") [state, detail] = ["bad", "Not run: the app is not authentic"];
+      else if (examples === "error") [state, detail] = ["bad", "Its examples could not be replayed"];
+      else if (counted && authentic === "good" && passed === total) [state, detail] = ["good", `${total} of ${total} examples give their proved answers in your browser`];
+      else if (counted && authentic === "good") [state, detail] = ["bad", `${total - passed} of ${total} examples gave a wrong answer`];
+      checks.replayed = { state, detail };
+    }
+    const states = Object.values(checks).map((check) => check.state);
+    const state = states.includes("bad") ? "bad" : states.includes("wait") ? "wait" : "good";
+    return { state, checks };
+  }
+
+  paintTrust() {
+    const { state, checks } = this.checks();
     const fingerprint = this.getAttribute("fingerprint") ?? "";
-    const words = fingerprint ? `${label}, fingerprint ${fingerprint}` : label;
+    const title = { wait: "Verifying this app", good: "Verified app", bad: "Not verified" }[state];
+    const sub = {
+      wait: "Checking it in your browser",
+      good: checks.proved ? "Proved in Lean. Checked in your browser." : "Checked in your browser.",
+      bad: "A check failed. Do not trust its answers.",
+    }[state];
     const shield = this.$("trust");
-    shield.className = `chip chip-${["good", "bad"].includes(state) ? state : "wait"} trust`;
+    shield.classList.remove("wait", "good", "bad");
+    shield.classList.add(state);
+    const words = `${title}. ${sub}`;
     shield.setAttribute("aria-label", words);
     shield.title = words;
+    this.$("trust-badge").className = `trust-badge ${state}`;
+    this.$("trust-title").textContent = title;
+    this.$("trust-sub").textContent = sub;
+    for (const id of ["authentic", "proved", "replayed"]) {
+      const row = this.$(`check-${id}`);
+      const check = checks[id];
+      row.hidden = !check;
+      if (!check) continue;
+      row.className = `check ${check.state}`;
+      this.$(`${id}-detail`).textContent = check.detail;
+    }
+    this.$("authentic-print").hidden = !fingerprint;
+    this.$("trust-print").textContent = fingerprint ? `blake3:${fingerprint.slice(0, 8)}…${fingerprint.slice(-4)}` : "";
+    this.$("trust-print").title = fingerprint;
+    const url = this.getAttribute("proof-url") ?? "";
+    const link = this.$("trust-proof");
+    link.hidden = !/^https:\/\//.test(url);
+    if (!link.hidden) link.href = url;
+  }
+
+  // The panel opens under the shield, as a browser's page information does,
+  // its left edge near the shield's and never closer than 16 px to either
+  // side of the window. Without popovers the shield goes to the details.
+  trust() {
+    const frame = this;
+    const button = frame.$("trust");
+    const panel = frame.$("trust-panel");
+    if (typeof panel.showPopover !== "function") {
+      button.removeAttribute("popovertarget");
+      button.addEventListener("click", () => (location.hash = frame.data.identity));
+      return;
+    }
+    panel.addEventListener("beforetoggle", (event) => {
+      if (event.newState !== "open") return;
+      const bar = frame.shadowRoot.querySelector(".bar").getBoundingClientRect();
+      const edge = button.getBoundingClientRect();
+      const view = document.documentElement.clientWidth;
+      const width = Math.min(22 * parseFloat(getComputedStyle(document.documentElement).fontSize), view - 32);
+      const left = Math.max(16, Math.min(edge.left + edge.width / 2 - 24, view - width - 16));
+      panel.style.setProperty("--trust-top", `${Math.round(bar.bottom + 6)}px`);
+      panel.style.setProperty("--trust-left", `${Math.round(left)}px`);
+    });
+    frame.$("trust-copy").addEventListener("click", async () => {
+      const copy = frame.$("trust-copy");
+      try {
+        await navigator.clipboard.writeText(frame.getAttribute("fingerprint") ?? "");
+        copy.textContent = "Copied";
+      } catch {
+        copy.textContent = "Select it";
+      }
+      setTimeout(() => (copy.textContent = "Copy"), 1600);
+    });
+    frame.$("trust-details").addEventListener("click", () => panel.hidePopover());
   }
 
   // The theme lives on <html>, where the page's own bootstrap set it before
@@ -175,6 +318,36 @@ class PrismFrame extends HTMLElement {
     button.setAttribute("aria-label", label);
     button.title = label;
   }
+  // Full screen: the whole page, where the browser allows it; the button
+  // hides where it does not (an iPhone's Safari). Escape, or the button,
+  // leaves it, and the icon follows either way.
+  fullScreen() {
+    const button = this.$("fullscreen");
+    const root = document.documentElement;
+    const enter = root.requestFullscreen ?? root.webkitRequestFullscreen;
+    const leave = document.exitFullscreen ?? document.webkitExitFullscreen;
+    const current = () => document.fullscreenElement ?? document.webkitFullscreenElement ?? null;
+    if (!(document.fullscreenEnabled ?? document.webkitFullscreenEnabled) || !enter || !leave) return;
+    button.hidden = false;
+    const paint = () => {
+      const on = Boolean(current());
+      this.toggleAttribute("fullscreen", on);
+      const label = on ? "Exit full screen" : "Enter full screen";
+      button.setAttribute("aria-label", label);
+      button.title = on ? "Exit full screen" : "Full screen";
+    };
+    button.addEventListener("click", () => {
+      const done = current() ? leave.call(document) : enter.call(root);
+      done?.catch?.(() => {});
+    });
+    this.fullscreenWatch?.abort();
+    this.fullscreenWatch = new AbortController();
+    for (const type of ["fullscreenchange", "webkitfullscreenchange"]) {
+      document.addEventListener(type, paint, { signal: this.fullscreenWatch.signal });
+    }
+    paint();
+  }
+
   toggleTheme() {
     const root = document.documentElement;
     root.classList.toggle("dark");
@@ -185,16 +358,15 @@ class PrismFrame extends HTMLElement {
     }
   }
 
-  // The spectrum lights once the page scrolls under the bar: a one-pixel mark
-  // at the very top of the page, watched, not a scroll handler.
-  watchScroll() {
-    if (!("IntersectionObserver" in window) || this.mark) return;
-    this.mark = document.createElement("div");
-    this.mark.setAttribute("aria-hidden", "true");
-    Object.assign(this.mark.style, { position: "absolute", top: "0", left: "0", width: "1px", height: "1px", pointerEvents: "none" });
-    document.body.prepend(this.mark);
-    this.scrollWatch = new IntersectionObserver(([entry]) => this.toggleAttribute("scrolled", !entry.isIntersecting));
-    this.scrollWatch.observe(this.mark);
+  // The window's top edge is the bar's bottom edge: the height the page
+  // reserves, until the bar wraps at large text and grows.
+  watchHeight() {
+    if (!("ResizeObserver" in window)) return;
+    this.heightWatch = new ResizeObserver(([entry]) => {
+      const height = entry.borderBoxSize?.[0]?.blockSize ?? entry.target.getBoundingClientRect().height;
+      this.style.setProperty("--frame-height", `${height}px`);
+    });
+    this.heightWatch.observe(this);
   }
 
   share() {
@@ -314,6 +486,18 @@ class PrismFrame extends HTMLElement {
     let active = 0;
 
     const short = (hex) => (hex.length > 12 ? `${hex.slice(0, 8)}…${hex.slice(-4)}` : hex);
+    // This app's icon is the page's own; a registry entry's is the one it
+    // names, or its live page's, where Prism apps keep icons/icon-192.png.
+    const selfIcon = document.querySelector('link[rel="icon"]')?.href ?? "";
+    const iconOf = (entry) => {
+      try {
+        if (typeof entry.icon === "string") return new URL(entry.icon, search).href;
+        if (typeof entry.live === "string") return new URL("icons/icon-192.png", new URL(entry.live)).href;
+      } catch {
+        // No usable link: the tile stands in.
+      }
+      return "";
+    };
     const fold = (text) => text.toLowerCase().replace(/[^a-z0-9]/g, "");
     const load = () =>
       (loading ??= fetch(new URL("registry/index.json", search), { cache: "no-cache" })
@@ -347,8 +531,7 @@ class PrismFrame extends HTMLElement {
       const hashed = (digest) => hashy && Boolean(digest) && digest.startsWith(hex);
       const out = [];
       if (named(name) || named(slug) || hashed(here.fingerprint)) {
-        const print = here.fingerprint ? ` · blake3:${short(here.fingerprint)}` : "";
-        out.push({ kind: "self", title: name, sub: `holo://${slug}${print} · this app`, match: query });
+        out.push({ kind: "self", title: name, sub: `holo://${slug}`, tag: "This app", icon: selfIcon, print: here.fingerprint, match: query });
       }
       // One row per app when matched by name, as Chrome shows a site once: its
       // holo first, then its model, then its image. A hash names one entry, so
@@ -372,7 +555,10 @@ class PrismFrame extends HTMLElement {
         const row = {
           kind,
           title: entry.module ?? "Untitled",
-          sub: `${holo ? `blake3:${short(entry.blake3)}` : `sha256:${short(entry.sha256)}`} · ${kind}`,
+          sub: holo ? `blake3:${short(entry.blake3)}` : `sha256:${short(entry.sha256)}`,
+          tag: { holo: "App", model: "Model", image: "Image" }[kind],
+          icon: iconOf(entry),
+          print: entry.blake3 ?? entry.sha256 ?? "",
           target: holo ? `blake3:${entry.blake3}` : entry.sha256,
           match: byName ? query : "",
         };
@@ -390,20 +576,45 @@ class PrismFrame extends HTMLElement {
       // An address Holo Search must look up gets its own row; one the registry
       // already knows is that app's row.
       if (query && address(query) && !exact && !known) {
-        top.unshift({ kind: "open", title: `Open ${label(query)}`, sub: "Fetched and verified in Holo Search", target: query });
+        top.unshift({ kind: "open", title: `Open ${label(query)}`, sub: "Verified in Holo Search", target: query });
       } else if (query && !exact && !known) {
-        top.push({ kind: "search", title: query, sub: "Search Prism apps in Holo Search", target: query });
+        top.push({ kind: "search", title: query, sub: "Search Prism apps", target: query });
       }
       return top;
     }
 
     const icons = {
-      self: '<path d="M12 3 4 6v6c0 4.6 3.4 8.4 8 9 4.6-.6 8-4.4 8-9V6z" /><path d="m8.5 12 2.5 2.5 4.5-5" />',
-      holo: '<path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z" /><path d="M4 7.5 12 12l8-4.5M12 12v9" />',
-      model: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M9 13h6M9 17h4" />',
-      image: '<path d="m12 3 9 5-9 5-9-5z" /><path d="m3 13 9 5 9-5" />',
       open: '<path d="M5 12h14M13 6l6 6-6 6" />',
       search: '<circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.2-4.2" />',
+    };
+    // A tile: the name's first letter on a hue taken from the fingerprint, so
+    // an app keeps its colour wherever it is listed.
+    const tile = (row) => {
+      const span = document.createElement("span");
+      span.className = "opt-tile";
+      span.textContent = (row.title.match(/[\p{L}\p{N}]/u)?.[0] ?? "?").toUpperCase();
+      const seed = /^[0-9a-f]{4}/i.test(row.print) ? parseInt(row.print.slice(0, 4), 16) : [...row.title].reduce((sum, c) => sum * 31 + c.codePointAt(0), 7);
+      span.style.setProperty("--tile-hue", String(Math.abs(seed) % 360));
+      return span;
+    };
+    const iconFor = (row) => {
+      const box = document.createElement("span");
+      box.className = "opt-icon";
+      if (icons[row.kind]) {
+        box.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">${icons[row.kind]}</svg>`;
+        return box;
+      }
+      if (!row.icon) {
+        box.append(tile(row));
+        return box;
+      }
+      const image = new Image(24, 24);
+      image.alt = "";
+      image.decoding = "async";
+      image.addEventListener("error", () => image.replaceWith(tile(row)), { once: true });
+      image.src = row.icon;
+      box.append(image);
+      return box;
     };
 
     // The title with what was typed in plain weight and the rest in bold, as
@@ -431,16 +642,17 @@ class PrismFrame extends HTMLElement {
         li.className = `opt opt-${row.kind}`;
         li.setAttribute("role", "option");
         li.setAttribute("aria-selected", String(i === active));
-        const icon = document.createElement("span");
-        icon.className = "opt-icon";
-        icon.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">${icons[row.kind]}</svg>`;
-        const text = document.createElement("span");
-        text.className = "opt-text";
         const sub = document.createElement("span");
         sub.className = "opt-sub";
         sub.textContent = row.sub;
-        text.append(title(row.title, row.match), sub);
-        li.append(icon, text);
+        li.append(iconFor(row), title(row.title, row.match), sub);
+        if (row.tag) {
+          const tag = document.createElement("span");
+          tag.className = "opt-tag";
+          tag.textContent = row.tag;
+          li.append(tag);
+        }
+        li.setAttribute("aria-label", [row.title, row.sub, row.tag].filter(Boolean).join(", "));
         li.addEventListener("pointerdown", (event) => event.preventDefault());
         li.addEventListener("pointermove", () => select(i));
         li.addEventListener("click", () => choose(row));

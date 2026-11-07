@@ -16,8 +16,10 @@
   --margin: 1rem;
   --column: 45rem;
   --control: 2.25rem;
-  --bar-control: var(--control);
+  --bar-control: 2rem;
   --touch: 3rem;
+  /* A bar button's hit box: its circle on a fine pointer, 48 px on a coarse one. */
+  --hit: var(--bar-control);
   --radius-control: calc(var(--radius) - 2px);
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
@@ -32,7 +34,25 @@
   --spectrum-blue: #4f81f8;
   --spectrum-violet: #ae6ff6;
   --spectrum-pink: #f368c5;
-  --spectrum-glow: 0 0 18px #ffffff29, 0 2px 14px #ffffff14;
+  --spectrum: linear-gradient(100deg,
+    var(--spectrum-red) 0%, var(--spectrum-orange) 7%, var(--spectrum-amber) 14%, var(--spectrum-yellow) 19%,
+    var(--spectrum-green) 25%, var(--spectrum-cyan) 31%, var(--spectrum-blue) 38%, var(--spectrum-violet) 45%,
+    var(--spectrum-pink) 48%, var(--spectrum-red) 50%, var(--spectrum-orange) 57%, var(--spectrum-amber) 64%,
+    var(--spectrum-yellow) 69%, var(--spectrum-green) 75%, var(--spectrum-cyan) 81%, var(--spectrum-blue) 88%,
+    var(--spectrum-violet) 95%, var(--spectrum-pink) 98%, var(--spectrum-red) 100%);
+
+  /* The chrome: the bar and the margin around the app are the brand's chrome
+   * surface; the app shows through a rounded window inset into it. The bar
+   * is exactly the height the page reserves for it, so the window's top
+   * edge is the bar's bottom edge. */
+  --chrome: var(--sidebar, var(--muted));
+  /* The address: on the light chrome a white field, on the dark one barely
+   * off the chrome, its hairline drawing it. */
+  --field: var(--card);
+  --field-border: var(--border);
+  --gutter: 0.5rem;
+  --window-radius: 0.75rem;
+  --frame-height: calc(var(--safe-top) + var(--bar-control) + 0.875rem);
 
   display: block;
   position: sticky;
@@ -46,7 +66,9 @@
 }
 @media (min-width: 600px) { :host { --margin: 1.5rem; } }
 @media (min-width: 840px) { :host { --column: 80rem; } }
-@media (pointer: coarse) { :host { --bar-control: var(--touch); } }
+/* Touch: the bar looks the same, and every control in it takes a 48 px tap. */
+@media (pointer: coarse) { :host { --hit: var(--touch); } }
+:host([dark]) { --field: color-mix(in oklab, var(--chrome), var(--foreground) 3%); }
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -96,110 +118,175 @@ button.primary:hover { background: var(--primary-hover); border-color: var(--pri
 .chip-wait { color: var(--muted-foreground); }
 .chip-good { color: var(--success); }
 .chip-bad { color: var(--destructive); }
-.dot { flex: none; border-radius: 50%; background: var(--brand); }
 
-/* The bar: the host is sticky, the bar paints, its contents share the page's column. */
+/* The bar: the host is sticky, the bar paints the chrome edge to edge. */
 .bar {
   position: relative;
   padding-top: var(--safe-top);
-  background: var(--background);
-  border-bottom: var(--border-width) solid var(--border);
+  background: var(--chrome);
+  container: bar / inline-size;
 }
 
-/* The spectrum: once the page scrolls under the bar, a 2 px line in the full
- * colour spectrum lights its lower edge, as on uor.foundation, and drifts
- * across it every 18 seconds. Its colours are the UOR Foundation's header
- * spectrum, which the brand kit does not carry. It only drifts while it
- * shows, and never under reduced motion. */
-.bar::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: calc(-1 * var(--border-width));
-  height: 2px;
-  background-image: linear-gradient(100deg,
-    var(--spectrum-red) 0%, var(--spectrum-orange) 7%, var(--spectrum-amber) 14%, var(--spectrum-yellow) 19%,
-    var(--spectrum-green) 25%, var(--spectrum-cyan) 31%, var(--spectrum-blue) 38%, var(--spectrum-violet) 45%,
-    var(--spectrum-pink) 48%, var(--spectrum-red) 50%, var(--spectrum-orange) 57%, var(--spectrum-amber) 64%,
-    var(--spectrum-yellow) 69%, var(--spectrum-green) 75%, var(--spectrum-cyan) 81%, var(--spectrum-blue) 88%,
-    var(--spectrum-violet) 95%, var(--spectrum-pink) 98%, var(--spectrum-red) 100%);
-  background-size: 200% 100%;
-  box-shadow: var(--spectrum-glow);
-  opacity: 0;
-  transition: opacity 500ms cubic-bezier(0.4, 0, 0.2, 1);
+/* The window: the app is seen through a rounded opening in the chrome, a
+ * small margin from every edge, as a desktop shows an app's window. It is
+ * one fixed layer whose shadow paints the chrome around the opening, with a
+ * hairline just inside its edge; it takes no clicks and moves nothing, so
+ * the page keeps its own layout and scroll, and content scrolls away under
+ * the window's edges. */
+.canvas {
+  position: fixed;
+  top: var(--frame-height);
+  left: calc(var(--gutter) + var(--safe-left));
+  right: calc(var(--gutter) + var(--safe-right));
+  bottom: max(var(--gutter), env(safe-area-inset-bottom, 0px));
+  border-radius: var(--window-radius);
+  box-shadow: inset 0 0 0 var(--border-width) var(--border), 0 0 0 100vmax var(--chrome);
   pointer-events: none;
 }
-:host([scrolled]) .bar::after { opacity: 1; animation: spectrum-drift 18s linear infinite; }
+
 @keyframes spectrum-drift { to { background-position: 200% 0; } }
 
-/* One line; at 200 percent text it wraps rather than overflow. */
+/* The bar's three parts, as a browser lays them out: home on the left, the
+ * address filling the width between, the app's controls on the right; all
+ * of it spans the chrome, edge to edge, its controls in line with the
+ * window's edges. One line; at 200 percent text it wraps rather than
+ * overflow, and the window moves down with it. */
 .inner {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
-  width: min(100% - 2 * var(--margin) - var(--safe-left) - var(--safe-right), var(--column));
-  margin: 0 auto;
-  padding: var(--space-2) 0;
+  /* 8 px of chrome above the controls, 6 px below them to the window's edge. */
+  padding: 0.5rem calc(var(--gutter) + var(--safe-right)) 0.375rem calc(var(--gutter) + var(--safe-left));
 }
+.start, .end { flex: none; display: flex; align-items: center; gap: var(--space-2); }
+.end { justify-content: flex-end; }
 
-/* Icons: 20 px line drawings in the text colour of whatever holds them. */
+/* Icons: 20 px line drawings, a fine even stroke, in the text colour of
+ * whatever holds them. */
 svg {
   flex: none;
   width: 1.25rem;
   height: 1.25rem;
   fill: none;
   stroke: currentColor;
-  stroke-width: 2;
+  stroke-width: 1.75;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 /* Brand marks are filled shapes, not line drawings. */
 svg.gh, svg.fill { fill: currentColor; stroke: none; }
 
+/* The bar's buttons, as Lovable and Claude draw them: a bare 16 px line
+ * icon in a quiet grey that brightens on hover over a soft square tint.
+ * The tint is drawn under the icon, so on a touch screen the button's hit
+ * box grows to 48 px around it and the bar keeps its height. */
 .ghost.icon {
+  position: relative;
+  isolation: isolate;
   flex: none;
   justify-content: center;
-  width: var(--bar-control);
-  min-height: var(--bar-control);
+  height: var(--hit);
+  min-height: var(--hit);
+  margin-block: calc((var(--bar-control) - var(--hit)) / 2);
   padding: 0;
+  border: 0;
+  transition: color var(--duration) var(--ease);
 }
+.ghost.icon {
+  width: var(--hit);
+  margin-inline: calc((var(--bar-control) - var(--hit)) / 2);
+  color: var(--muted-foreground);
+}
+.ghost.icon, .ghost.icon:hover, .ghost.icon:active { background: none; }
+.ghost.icon::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  border: var(--border-width) solid transparent;
+  transition: background var(--duration) var(--ease), transform var(--duration) var(--ease);
+}
+.ghost.icon::before { inset: calc((var(--hit) - var(--bar-control)) / 2); border-radius: var(--radius-control); }
+.ghost.icon svg { width: 1rem; height: 1rem; stroke-width: 1.6; }
+.ghost.icon svg.gh { width: 0.9375rem; height: 0.9375rem; }
+.ghost.icon:hover { color: var(--foreground); }
+.ghost.icon:hover::before { background: color-mix(in oklab, var(--chrome), var(--foreground) 7%); }
+.ghost.icon:active::before { background: color-mix(in oklab, var(--chrome), var(--foreground) 11%); transform: scale(0.94); }
+.ghost.icon:focus-visible { outline: none; }
+.ghost.icon:focus-visible::before { outline: var(--ring-width) solid var(--ring); outline-offset: var(--ring-offset); }
+/* An icon inside the address, at its right end, as Chrome keeps its own
+ * there: a 24 px circle tints on hover. */
+.ghost.icon.inset {
+  width: var(--hit);
+  margin: calc((1.5rem - var(--hit)) / 2);
+  margin-inline-end: calc((1.5rem - var(--hit)) / 2 + 0.125rem);
+}
+.ghost.icon.inset::before { inset: calc((var(--hit) - 1.5rem) / 2); border-radius: 50%; }
+/* While the address is edited it steps aside for the text. */
+.inner.editing #share { display: none; }
+/* Full screen: the corners point out to enter, in to leave. */
+:host([fullscreen]) #fullscreen .expand, :host(:not([fullscreen])) #fullscreen .shrink { display: none; }
 
-/* The address: the app's holo:// name in a pill, read the way a browser's
- * address bar reads. The brand dot stands where the site icon goes, the
- * scheme is dimmed and the name is bright, as a browser shows the domain,
- * and the shield closes the pill on the right. It is also the omnibox: the
- * input lies over the styled address, invisible until focused, so clicking
- * anywhere on the pill edits it, and the suggestions open below. */
+/* The address: the app's holo:// name in a pill across the bar, read the
+ * way Chrome's address bar reads: the shield first, where Chrome shows
+ * the site's security, then the scheme dimmed and the name bright, as a
+ * browser shows the domain, and the share icon at the right end. It is
+ * also the omnibox: the input lies over the styled address, invisible until
+ * focused, so clicking anywhere on the pill edits it, and the suggestions
+ * open below. */
 .address {
   position: relative;
-  flex: 1 1 6rem;
+  flex: 1 1 10rem;
   min-width: 0;
   display: flex;
   align-items: center;
   gap: var(--space-2);
   min-height: var(--bar-control);
   margin: 0;
-  padding: 0 var(--space-1) 0 var(--space-3);
-  border: var(--border-width) solid transparent;
+  padding: 0 var(--space-1);
+  border: var(--border-width) solid var(--field-border);
   border-radius: 999px;
-  background: var(--muted);
+  background: var(--field);
   font-size: var(--text-14);
   white-space: nowrap;
   cursor: text;
   transition: background var(--duration) var(--ease), border-color var(--duration) var(--ease);
 }
-.address:hover { background: var(--accent); }
+.address:hover { background: color-mix(in oklab, var(--field), var(--foreground) 3%); }
 /* Editing: the script's editing class, so the bar stays right when the window
  * loses focus mid-edit; the focus rules give the same look before it runs. */
-.address:focus-within, .inner.editing .address { background: var(--background); border-color: var(--ring); }
-.address .dot { width: 0.625rem; height: 0.625rem; }
+.address:has(.omnibox:focus), .inner.editing .address { background: var(--background); border-color: transparent; }
+
+/* The spectrum: while the address is edited, a hairline in the full colour
+ * spectrum takes the place of the pill's own, one device pixel on a plain
+ * screen and one and a half CSS pixels on a sharp one, a little softened,
+ * and drifts round every 24 seconds: the UOR Foundation's header spectrum,
+ * which the brand kit does not carry. It never drifts under reduced motion. */
+.address::before {
+  content: "";
+  position: absolute;
+  inset: calc(-1 * var(--border-width));
+  border-radius: inherit;
+  background-image: var(--spectrum);
+  background-size: 200% 100%;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+/* The spectrum cut to the hairline by its padding. */
+.address::before {
+  padding: 1px;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+.address:has(.omnibox:focus)::before, .inner.editing .address::before { opacity: 0.85; animation: spectrum-drift 24s linear infinite; }
+@media (min-resolution: 2dppx) { .address::before { padding: 1.5px; } }
 .field { position: relative; flex: 1; min-width: 0; align-self: stretch; display: flex; align-items: center; }
 .url { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .scheme { color: var(--muted-foreground); }
 .host { color: var(--foreground); font-weight: 500; }
-.address:focus-within .url, .inner.editing .address .url { visibility: hidden; }
+.address:has(.omnibox:focus) .url, .inner.editing .address .url { visibility: hidden; }
 
 .address .omnibox {
   position: absolute;
@@ -246,56 +333,172 @@ svg.gh, svg.fill { fill: currentColor; stroke: none; }
   cursor: default;
 }
 :host([dark]) .omnibox-list { box-shadow: none; border-color: var(--border-strong); }
+/* A suggestion: one row, read left to right. The app's icon, its name, its
+ * address or short fingerprint, and on the right what it is. Every row is
+ * the same height; anything too long ends in an ellipsis. */
 .opt {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  min-height: var(--touch);
-  padding: var(--space-1) var(--space-3);
+  min-height: 2.5rem;
+  padding: 0 var(--space-3);
   border-radius: var(--radius-control);
+  font-size: var(--text-14);
+  white-space: nowrap;
   cursor: pointer;
 }
+@media (pointer: coarse) { .opt { min-height: var(--touch); } }
 .opt[aria-selected="true"] { background: var(--accent); }
 .opt-icon {
   flex: none;
   display: grid;
   place-items: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
-  background: var(--muted);
+  width: 1.5rem;
+  height: 1.5rem;
   color: var(--muted-foreground);
 }
+.opt-icon img { display: block; width: 1.5rem; height: 1.5rem; border-radius: 0.375rem; object-fit: cover; }
 .opt-icon svg { width: 1rem; height: 1rem; }
-.opt-self .opt-icon { color: var(--success); }
-.opt-text { flex: 1; min-width: 0; display: grid; line-height: 1.35; }
-.opt-title, .opt-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.opt-title { font-size: var(--text-14); color: var(--muted-foreground); }
+/* The tile: the name's first letter on the app's own hue. */
+.opt-tile {
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.375rem;
+  background: oklch(0.6 0.11 var(--tile-hue, 250));
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+}
+:host([dark]) .opt-tile { background: oklch(0.52 0.1 var(--tile-hue, 250)); }
+.opt-title { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--muted-foreground); }
 .opt-title b { font-weight: 600; color: var(--foreground); }
-.opt-sub { font-family: var(--font-mono); font-size: var(--text-14); color: var(--muted-foreground); }
+.opt-sub { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-mono); font-size: 0.8125rem; color: var(--muted-foreground); }
+.opt-tag { flex: none; font-size: 0.75rem; color: var(--muted-foreground); }
+.opt-self .opt-tag { color: var(--success); }
 .opt-note { padding: var(--space-2) var(--space-3); font-size: var(--text-14); color: var(--muted-foreground); }
 
-/* The shield, right of the name: a badge in its state's colour, with no
- * chip around it. Dots while the browser checks, a tick when the holo
- * verified, an exclamation mark when it did not or failed to load. Its label
- * says which in words. Every state is the same size, so nothing moves. */
-.chip.trust {
-  flex: none;
-  justify-content: center;
-  width: 1.75rem;
-  min-height: 1.75rem;
-  height: 1.75rem;
-  border-radius: 50%;
-  padding: 0;
-  background: transparent;
-  border-color: transparent;
+/* The shield, first in the address, where a browser shows a page's
+ * security: grey dots while the browser checks, a green tick once every
+ * check passed, a red exclamation mark when one failed. Its panel says
+ * which. Every state is the same size, so nothing moves. */
+.trust svg, .trust-badge svg { width: 1.0625rem; height: 1.0625rem; stroke-width: 1.6; }
+.trust .body, .trust-badge .body { fill: currentColor; fill-opacity: 0.16; }
+.trust .ok, .trust .bad, .trust-badge .ok, .trust-badge .bad { display: none; }
+.trust.good .ok, .trust.bad .bad, .trust-badge.good .ok, .trust-badge.bad .bad { display: inline; }
+.trust.good .wait, .trust.bad .wait, .trust-badge.good .wait, .trust-badge.bad .wait { display: none; }
+#trust.good, #trust.good:hover, .trust-badge.good { color: var(--success); }
+#trust.bad, #trust.bad:hover, .trust-badge.bad { color: var(--destructive); }
+#trust.wait, .trust-badge.wait { color: var(--muted-foreground); }
+
+/* The panel: what a browser's page information is to a page, for an app.
+ * A headline and one line under it, then the three checks, each with its
+ * mark, its name and what was found, then the page's full details. It
+ * opens under the shield (the script sets --trust-top and --trust-left),
+ * lifts in over one beat and closes on Escape or a click outside. */
+.trust-panel {
+  position: fixed;
+  inset: var(--trust-top, 3rem) auto auto var(--trust-left, 1rem);
+  width: min(22rem, 100vw - 2rem);
+  max-height: calc(100vh - var(--trust-top, 3rem) - 1rem);
+  margin: 0;
+  padding: var(--space-2);
+  overflow: auto;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--shadow-overlay);
+  font-size: var(--text-14);
+  line-height: 1.45;
+  transform-origin: top left;
+  transition: opacity var(--duration) var(--ease), transform var(--duration) var(--ease), overlay var(--duration) allow-discrete, display var(--duration) allow-discrete;
 }
-.trust svg { width: 1.25rem; height: 1.25rem; }
-.trust .body { fill: currentColor; fill-opacity: 0.16; }
-.chip.trust:hover { background: var(--accent); }
-.trust .ok, .trust .bad { display: none; }
-.chip-good .ok, .chip-bad .bad { display: inline; }
-.chip-good .wait, .chip-bad .wait { display: none; }
+.trust-panel:not(:popover-open) { opacity: 0; transform: translateY(-0.25rem) scale(0.98); }
+@starting-style {
+  .trust-panel:popover-open { opacity: 0; transform: translateY(-0.25rem) scale(0.98); }
+}
+:host([dark]) .trust-panel { box-shadow: none; border-color: var(--border-strong); }
+.trust-panel p { margin: 0; }
+
+.trust-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-2) var(--space-3);
+  border-bottom: var(--border-width) solid var(--border);
+}
+.trust-badge {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: color-mix(in oklab, currentColor 12%, transparent);
+}
+.trust-badge svg { width: 1.25rem; height: 1.25rem; }
+.trust-words { min-width: 0; }
+.trust-title { font-family: var(--font-display); font-size: var(--text-16); font-weight: 600; letter-spacing: var(--tracking-display); }
+.trust-sub { color: var(--muted-foreground); }
+
+/* The checks: a mark in its state's colour, the check's name, what it found. */
+.checks { margin: 0; padding: var(--space-2) 0; list-style: none; }
+.check { display: flex; gap: var(--space-3); padding: var(--space-2); }
+.check .mark { flex: none; display: grid; place-items: center; width: 1.25rem; height: 1.3125rem; }
+.check .mark svg { width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 1.75; }
+.check .ok, .check .bad { display: none; }
+.check.good .ok, .check.bad .bad { display: inline; }
+.check.good .wait, .check.bad .wait { display: none; }
+.check.good .mark { color: var(--success); }
+.check.bad .mark { color: var(--destructive); }
+.check.wait .mark { color: var(--muted-foreground); }
+.check-words { min-width: 0; display: grid; gap: 0.125rem; }
+.check-title { font-weight: 600; }
+.check-detail { color: var(--muted-foreground); overflow-wrap: anywhere; }
+#check-proved .check-detail { color: var(--foreground); }
+.check-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--space-2); color: var(--muted-foreground); font-size: 0.8125rem; }
+.check-meta code { font-family: var(--font-mono); font-size: 0.8125rem; color: var(--foreground); }
+
+/* Small text actions in the panel: Copy, Attestation. */
+.trust-panel .text {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--foreground);
+  font: inherit;
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+.trust-panel .text:hover { background: none; text-decoration-color: currentColor; }
+
+/* The page's full verification details, one row at the foot. */
+.trust-details {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 2.5rem;
+  padding: 0 var(--space-2);
+  border-top: var(--border-width) solid var(--border);
+  border-radius: 0 0 calc(var(--radius) - var(--space-2)) calc(var(--radius) - var(--space-2));
+  color: var(--foreground);
+  font-weight: 500;
+  text-decoration: none;
+}
+.trust-details:hover { background: var(--accent); }
+.trust-details svg { width: 1rem; height: 1rem; color: var(--muted-foreground); }
+
+@media (pointer: coarse) {
+  .trust-panel button.text { min-width: var(--touch); min-height: var(--touch); margin-block: calc((1lh - var(--touch)) / 2); display: inline-flex; align-items: center; justify-content: center; }
+  .trust-details { min-height: var(--touch); }
+}
 
 /* Share: the icon turns to a tick for a moment once the link is copied. */
 #share .done, #share.copied .share { display: none; }
@@ -415,27 +618,50 @@ svg.gh, svg.fill { fill: currentColor; stroke: none; }
  * name keep their room at 360 px. While the address is edited it takes the
  * whole bar, the way a phone's browser does, and the suggestions span it. */
 @media (max-width: 599px) {
-  .inner { column-gap: var(--space-1); }
-  #github, .address .dot { display: none; }
+  :host { --window-radius: 0.625rem; }
+  .inner { gap: var(--space-1); }
+  .start, .end { flex: none; gap: var(--space-1); }
+  .address { flex-basis: 8rem; }
+  #github { display: none; }
   .inner.editing > :not(.address) { display: none; }
-  .inner.editing .address .dot { display: inline-block; }
 }
 
-/* Compact height, a phone in landscape: the bar scrolls away with the page. */
-@media (max-height: 480px) { :host { position: static; } }
+/* Too narrow for one line, as on a phone at large text (container rems
+ * follow the page's text size, as media query rems do not): the buttons on
+ * top, the address the whole width below. */
+@container bar (width < 20rem) {
+  .inner { display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "start . end" "address address address"; }
+  .start { grid-area: start; }
+  .end { grid-area: end; }
+  .address { grid-area: address; }
+}
+
+/* Compact height, a phone in landscape: the bar scrolls away with the page,
+ * and the app has the whole screen, no window around it. */
+@media (max-height: 480px) {
+  :host { position: static; }
+  .canvas { display: none; }
+}
+
+@media print {
+  .canvas { display: none; }
+}
 
 /* Touch: every control is 48 px, whatever rule sized it above. */
 @media (pointer: coarse) {
-  button, .ghost { min-height: var(--touch); }
+  button:not(.icon), .ghost:not(.icon) { min-height: var(--touch); }
+  /* The address takes a 48 px tap, past its pill's edges. */
+  .address .omnibox { inset: calc((var(--bar-control) - var(--touch)) / 2 - var(--border-width)) 0; }
 }
 
 @media (forced-colors: active) {
   .bar, .chip, .address, .share-panel, .share-glyph, button { border-color: CanvasText; }
-  .dot { background: Highlight; }
-  .bar::after { display: none; }
+  .address::before { display: none; }
+  .address:has(.omnibox:focus) { border-color: Highlight; }
+  .canvas { box-shadow: inset 0 0 0 1px CanvasText, 0 0 0 100vmax Canvas; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; }
-  :host([scrolled]) .bar::after { animation: none; }
+  .address::before { animation: none !important; }
 }

@@ -77,13 +77,15 @@ async function frame() {
   }
 }
 
-// The shield in the frame: the verdict this page reached on the holo.
+// The shield in the frame: the verdict this page reached on the holo, and
+// the replay of its examples, "passed/total", "running" or "error".
 function verdict(state, label, fingerprint = "") {
   const element = $("frame");
   element.setAttribute("verdict", state);
   element.setAttribute("verdict-label", label);
   if (fingerprint) element.setAttribute("fingerprint", fingerprint);
 }
+const replayed = (examples) => $("frame").setAttribute("examples", examples);
 
 // Install the service worker once the page has loaded, so it never competes
 // with the first paint; when a new one is waiting, show one chip and reload
@@ -160,6 +162,13 @@ async function offThread(app) {
     waiting.delete(reply.id);
     if (reply.ok) settle.resolve(reply.value);
     else settle.reject(new Error(reply.error));
+  };
+  // A worker that fails to load or crashes answers nothing: every waiting
+  // call fails, so the page falls back to the instance it verified.
+  worker.onerror = (event) => {
+    event.preventDefault?.();
+    for (const settle of waiting.values()) settle.reject(new Error("the guest worker failed"));
+    waiting.clear();
   };
   const call = (kind, payload) => new Promise((resolve, reject) => {
     const id = next++;
@@ -275,11 +284,14 @@ async function main() {
     const button = $("replay");
     button.disabled = true;
     chip($("replayed"), "replaying", "wait");
+    replayed("running");
     try {
       const result = await runner.acceptance();
       chip($("replayed"), `${result.passed} of ${result.total} passed`, result.passed === result.total ? "good" : "bad");
+      replayed(`${result.passed}/${result.total}`);
     } catch (error) {
       chip($("replayed"), `failed: ${describe(error)}`, "bad");
+      replayed("error");
     } finally {
       button.disabled = false;
     }
