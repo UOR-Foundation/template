@@ -850,8 +850,8 @@ class PrismFrame extends Element {
           const stars = document.createElement("span");
           stars.className = "opt-stars";
           const paint = (n) => {
-            stars.hidden = !Number.isInteger(n);
-            if (stars.hidden) return;
+            stars.classList.toggle("unknown", !Number.isInteger(n));
+            if (!Number.isInteger(n)) return;
             stars.innerHTML = githubMark + starMark;
             stars.append(shortCount(n));
             stars.title = `${n} star${n === 1 ? "" : "s"} on GitHub`;
@@ -859,12 +859,6 @@ class PrismFrame extends Element {
           paint(Number.isInteger(row.stars) ? row.stars : null);
           li.append(stars);
           if (!Number.isInteger(row.stars) || row.kind !== "self") githubStars(row.repo).then((n) => { row.stars = n; paint(n); });
-        }
-        if (row.tag) {
-          const tag = document.createElement("span");
-          tag.className = "opt-tag";
-          tag.textContent = row.tag;
-          li.append(tag);
         }
         li.setAttribute("aria-label", [row.title, row.sub, row.repo && `by ${row.repo.split("/")[0]}`, row.tag].filter(Boolean).join(", "));
         li.addEventListener("pointerdown", (event) => event.preventDefault());
