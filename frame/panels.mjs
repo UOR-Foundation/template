@@ -1,10 +1,11 @@
-// The frame's theme panel and its immersive photos: the nine built-in
-// photos, any other found on Unsplash, each fetched once and kept, and the
-// panel that chooses among them. frame/publish.mjs publishes it beside the
-// frame, named by its SHA-256, and writes that hash into the frame, which
-// fetches it after the visitor's first move, checks it and imports it: the
-// page's first load carries none of it.
-const CSS = "/*THEME_CSS*/";
+// What the bar needs only once the visitor moves: every panel's styles
+// (frame/panels.css), the theme panel, and the immersive photos (the nine
+// built in, any other found on Unsplash, each fetched once and kept).
+// frame/publish.mjs publishes it beside the frame, named by its SHA-256,
+// and writes that hash into the frame, which fetches it after the visitor's
+// first move, checks it and imports it: the page's first load carries none
+// of it.
+const CSS = "/*PANELS_CSS*/";
 export const sheet = new CSSStyleSheet();
 sheet.replaceSync(CSS);
 
@@ -203,6 +204,7 @@ export function paint(frame, core) {
         });
     }
   }
+  for (const choice of frame.shadowRoot.querySelectorAll(".mode")) choice.setAttribute("aria-pressed", String(choice.dataset.mode === mode));
   for (const choice of frame.shadowRoot.querySelectorAll("button.photo-pick")) choice.setAttribute("aria-pressed", String(choice.dataset.photo === shown.id));
   const credit = frame.$("credit-name");
   if (!credit) return;
@@ -212,6 +214,9 @@ export function paint(frame, core) {
 
 // The panel's photos and search, wired to this render of the frame.
 export function panel(frame, core) {
+  for (const choice of frame.$("theme-panel").querySelectorAll(".mode")) {
+    choice.addEventListener("click", () => frame.setTheme(choice.dataset.mode));
+  }
   const grid = frame.$("photos");
   const note = frame.$("photos-note");
   const more = frame.$("photos-more");
@@ -335,3 +340,18 @@ export function panel(frame, core) {
   more.addEventListener("click", () => query && ask(query, page + 1));
   return { open: () => query || home() };
 }
+
+// The theme panel's contents, which the frame puts in its empty panel.
+export const THEME_PANEL = `
+    <p id="theme-title" class="theme-title">Theme</p>
+    <div class="modes" role="group" aria-labelledby="theme-title">
+      <button class="mode" type="button" aria-pressed="false" data-mode="immersive"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><rect x="2" y="3" width="12" height="10" rx="2" /><circle cx="5.75" cy="6.5" r="1" /><path d="m2.5 11.5 3.25-3 2.5 2 2-1.75 3.25 2.75" /></svg>Immersive</button>
+      <button class="mode" type="button" aria-pressed="false" data-mode="dark"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M13.5 9.6A5.6 5.6 0 1 1 6.4 2.5a4.5 4.5 0 0 0 7.1 7.1z" /></svg>Dark</button>
+      <button class="mode" type="button" aria-pressed="false" data-mode="light"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="2.75" /><path d="M8 1.5v1.25M8 13.25v1.25M1.5 8h1.25M13.25 8h1.25M3.4 3.4l.9.9M11.7 11.7l.9.9M3.4 12.6l.9-.9M11.7 4.3l.9-.9" /></svg>Light</button>
+    </div>
+    <label id="find" class="find" hidden><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="4.5" /><path d="m10.5 10.5 3 3" /></svg><input id="find-input" type="search" placeholder="Search Unsplash" aria-label="Search Unsplash for a background" aria-controls="photos" autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="search" /><span id="find-busy" class="find-busy" aria-hidden="true"></span></label>
+    <div id="photos" class="photos" role="group" aria-label="Immersive background" aria-busy="false"></div>
+    <p id="photos-note" class="photos-note" role="status" hidden></p>
+    <button id="photos-more" class="photos-more" type="button" hidden>More photos</button>
+    <p class="credit">Photo by <a id="credit-name" target="_blank" rel="noopener noreferrer"></a> on <a href="https://unsplash.com/?${UNSPLASH}" target="_blank" rel="noopener noreferrer">Unsplash</a></p>
+`;

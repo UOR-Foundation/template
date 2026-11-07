@@ -6,8 +6,9 @@
 // and writes the pointer every app follows:
 //
 //   <out>/<sha256>/prism-frame.mjs   immutable: the frame, by its content
-//   <out>/<sha256>/prism-theme.mjs   immutable: the theme panel and photos
-//                                    (frame/theme.mjs with frame/theme.css),
+//   <out>/<sha256>/prism-panels.mjs  immutable: every panel's styles, the
+//                                    theme panel and the photos
+//                                    (frame/panels.mjs, frame/panels.css),
 //                                    whose hash the frame carries
 //   <out>/current.json               the pointer: { spec, sha256, module, source }
 //   <out>/backdrops/<id>.jpg         the immersive photos, and <id>-thumb.jpg
@@ -44,25 +45,25 @@ const minified = async (source, what) => {
   return Buffer.from(result.code, "utf8");
 };
 
-// The theme module first: the frame carries its hash.
-const themeSource = await read("frame/theme.mjs");
-const themeBytes = await minified(bake(at(themeSource), '"/*THEME_CSS*/"', minify(await read("frame/theme.css")), "frame/theme.mjs"), "theme");
+// The panels module first: the frame carries its hash.
+const themeSource = await read("frame/panels.mjs");
+const themeBytes = await minified(bake(at(themeSource), '"/*PANELS_CSS*/"', minify(await read("frame/panels.css")), "frame/panels.mjs"), "panels");
 const themeSha = named(themeBytes);
 await mkdir(join(out, themeSha), { recursive: true });
-await writeFile(join(out, themeSha, "prism-theme.mjs"), themeBytes);
+await writeFile(join(out, themeSha, "prism-panels.mjs"), themeBytes);
 
 let module = at(await read("frame/frame.mjs"));
 module = bake(module, '"/*CSS*/"', minify(await read("frame/frame.css")), "frame/frame.mjs");
 module = bake(module, '"/*BRAND*/"', minify(await read("site/brand/hologram-warm.css")), "frame/frame.mjs");
-module = bake(module, '"/*THEME*/"', themeSha, "frame/frame.mjs");
+module = bake(module, '"/*PANELS*/"', themeSha, "frame/frame.mjs");
 const bytes = await minified(module, "frame");
 const sha256 = named(bytes);
 await mkdir(join(out, sha256), { recursive: true });
 await writeFile(join(out, sha256, "prism-frame.mjs"), bytes);
 // The immersive photos, beside the frame: every app page may fetch from the
 // frame's host (its connect-src names it), so the frame can draw them on a
-// page whose img-src allows only its own files and data:. A photo the theme
-// names and the repository lacks fails the publish.
+// page whose img-src allows only its own files and data:. A photo the panels
+// module names and the repository lacks fails the publish.
 await mkdir(join(out, "backdrops"), { recursive: true });
 let photos = 0;
 for (const [, id] of themeSource.matchAll(/\bid: "([\w-]+)",\s*\n\s*image: "https:\/\/images\.unsplash\.com\//g)) {
@@ -71,7 +72,7 @@ for (const [, id] of themeSource.matchAll(/\bid: "([\w-]+)",\s*\n\s*image: "http
   }
   photos++;
 }
-if (!photos) throw new Error("frame/theme.mjs names no built-in photo");
+if (!photos) throw new Error("frame/panels.mjs names no built-in photo");
 const pointer = { spec: "prism/frame/1", sha256, module: `${sha256}/prism-frame.mjs`, source: { repository: "UOR-Foundation/template", commit } };
 await writeFile(join(out, "current.json"), JSON.stringify(pointer, null, 2) + "\n");
-console.log(`frame: ${sha256} (${bytes.length} bytes), theme ${themeSha} (${themeBytes.length} bytes), ${photos} photos -> ${out}/current.json`);
+console.log(`frame: ${sha256} (${bytes.length} bytes), panels ${themeSha} (${themeBytes.length} bytes), ${photos} photos -> ${out}/current.json`);

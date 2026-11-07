@@ -87,10 +87,10 @@ def stamp(*parts):
 
 
 def palette(image):
-    # The mark is two colours and their antialiased edge: 32 colours keep it
+    # The mark is two colours and their antialiased edge: 8 colours keep it
     # identical to the eye and make each PNG about a sixth of its RGB size, so
     # the icon a page links stays inside its Lighthouse budget.
-    return image.convert("RGBA").quantize(32, method=Image.Quantize.FASTOCTREE)
+    return image.convert("RGBA").quantize(8, method=Image.Quantize.FASTOCTREE)
 
 
 def main(name):

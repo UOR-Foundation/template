@@ -106,7 +106,7 @@ const storedTheme = () => {
 // Where the frame is published, and its theme module beside it.
 const FRAME_HOST = "https://uor-foundation.github.io/template/frame/";
 // The visitor's first move (a pointer, a touch, a key, a scroll): what the
-// theme module and the photo wait for, so neither is part of the page's
+// panels module and the photo wait for, so neither is part of the page's
 // first load.
 let moved = null;
 const firstMove = () =>
@@ -118,18 +118,20 @@ const firstMove = () =>
     };
     for (const kind of kinds) addEventListener(kind, go, { capture: true, passive: true });
   }));
-// The theme panel and the immersive photos: frame/theme.mjs, published
-// beside the frame and named by its SHA-256, which publish.mjs writes here.
+// Every panel's styles, the theme panel and the immersive photos:
+// frame/panels.mjs, published beside the frame and named by its SHA-256,
+// which publish.mjs writes here.
 // It is fetched after the first move, checked against that hash as the page
 // checks the frame, and imported; a failure is tried again the next time.
-const THEME = "/*THEME*/";
-let themeModule = null;
-const loadTheme = () =>
-  (themeModule ??= (async () => {
-    if (!/^[0-9a-f]{64}$/.test(THEME)) throw new Error("this frame was published without its theme");
-    const bytes = await (await fetch(new URL(`${THEME}/prism-theme.mjs`, FRAME_HOST))).arrayBuffer();
+const PANELS = "/*PANELS*/";
+let panelsModule = null;
+let panelsSheet = null;
+const loadPanels = () =>
+  (panelsModule ??= (async () => {
+    if (!/^[0-9a-f]{64}$/.test(PANELS)) throw new Error("this frame was published without its panels");
+    const bytes = await (await fetch(new URL(`${PANELS}/prism-panels.mjs`, FRAME_HOST))).arrayBuffer();
     const hex = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), (b) => b.toString(16).padStart(2, "0")).join("");
-    if (hex !== THEME) throw new Error("the theme module is not the one this frame names");
+    if (hex !== PANELS) throw new Error("the panels module is not the one this frame names");
     const url = URL.createObjectURL(new Blob([bytes], { type: "text/javascript" }));
     try {
       return await import(url);
@@ -137,7 +139,7 @@ const loadTheme = () =>
       URL.revokeObjectURL(url);
     }
   })().catch((error) => {
-    themeModule = null;
+    panelsModule = null;
     throw error;
   }));
 const escape = (text) =>
@@ -229,19 +231,7 @@ const markup = (e) => `
       <li id="share-more-item" hidden><button id="share-more" class="share-target" type="button"><span class="share-glyph"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></svg></span>More</button></li>
     </ul>
   </div>
-  <div id="theme-panel" class="theme-panel" popover aria-labelledby="theme-title">
-    <p id="theme-title" class="theme-title">Theme</p>
-    <div class="modes" role="group" aria-labelledby="theme-title">
-      <button class="mode" type="button" aria-pressed="false" data-mode="immersive"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><rect x="2" y="3" width="12" height="10" rx="2" /><circle cx="5.75" cy="6.5" r="1" /><path d="m2.5 11.5 3.25-3 2.5 2 2-1.75 3.25 2.75" /></svg>Immersive</button>
-      <button class="mode" type="button" aria-pressed="false" data-mode="dark"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M13.5 9.6A5.6 5.6 0 1 1 6.4 2.5a4.5 4.5 0 0 0 7.1 7.1z" /></svg>Dark</button>
-      <button class="mode" type="button" aria-pressed="false" data-mode="light"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="2.75" /><path d="M8 1.5v1.25M8 13.25v1.25M1.5 8h1.25M13.25 8h1.25M3.4 3.4l.9.9M11.7 11.7l.9.9M3.4 12.6l.9-.9M11.7 4.3l.9-.9" /></svg>Light</button>
-    </div>
-    <label id="find" class="find" hidden><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="4.5" /><path d="m10.5 10.5 3 3" /></svg><input id="find-input" type="search" placeholder="Search Unsplash" aria-label="Search Unsplash for a background" aria-controls="photos" autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="search" /><span id="find-busy" class="find-busy" aria-hidden="true"></span></label>
-    <div id="photos" class="photos" role="group" aria-label="Immersive background" aria-busy="false"></div>
-    <p id="photos-note" class="photos-note" role="status" hidden></p>
-    <button id="photos-more" class="photos-more" type="button" hidden>More photos</button>
-    <p class="credit">Photo by <a id="credit-name" target="_blank" rel="noopener noreferrer"></a> on <a href="https://unsplash.com/?${UNSPLASH}" target="_blank" rel="noopener noreferrer">Unsplash</a></p>
-  </div>
+  <div id="theme-panel" class="theme-panel" popover aria-labelledby="theme-title"></div>
 `;
 
 // Speculation: the app a visitor shows they are about to open (home under
@@ -471,6 +461,9 @@ class PrismFrame extends Element {
     this.liveStars();
     this.paintTrust();
     this.paintTheme();
+    this.styled(this.$("trust-panel"));
+    this.styled(this.$("share-panel"));
+    this.$("omnibox").addEventListener("focus", () => loadPanels().then((panels) => this.adoptPanels(panels), () => {}), { once: true });
     this.trust();
     this.share();
     this.omnibox();
@@ -639,9 +632,26 @@ class PrismFrame extends Element {
     const found = [...recent, this.chosen].find((photo) => photo && photo.id === wanted);
     return found ? { id: found.id, color: found.color } : { id: FIRST_PHOTO, color: BUILT_IN[FIRST_PHOTO] };
   }
-  // The theme module, after the visitor's first move.
-  theme() {
-    return firstMove().then(loadTheme);
+  // The panels module, after the visitor's first move.
+  panels() {
+    return firstMove().then(loadPanels);
+  }
+  // Its styles, in this frame's root.
+  adoptPanels(panels) {
+    panelsSheet = panels.sheet;
+    if (!this.shadowRoot.adoptedStyleSheets.includes(panelsSheet)) this.shadowRoot.adoptedStyleSheets = [...this.shadowRoot.adoptedStyleSheets, panelsSheet];
+  }
+  // A panel opened before its styles came (a click that moved nothing, as
+  // some assistive technology sends) waits for them, then opens.
+  styled(panel) {
+    panel.addEventListener("beforetoggle", (event) => {
+      if (event.newState !== "open" || (panelsSheet && this.shadowRoot.adoptedStyleSheets.includes(panelsSheet))) return;
+      event.preventDefault();
+      loadPanels().then((panels) => {
+        this.adoptPanels(panels);
+        panel.showPopover();
+      }, () => {});
+    });
   }
   paintTheme() {
     const mode = this.mode();
@@ -656,9 +666,9 @@ class PrismFrame extends Element {
       root.style.removeProperty("--prism-backdrop");
       root.style.removeProperty("--prism-backdrop-color");
     }
-    // The photo, and the panel's photos and credit, come with the theme module.
-    // Once the module is here it paints at once; before, it waits for a move.
-    if (mode === "immersive" || this.themed) (themeModule ?? this.theme()).then((theme) => theme.paint(this, THEME_CORE), () => {});
+    // The photo, and the panel's photos and credit, come with the panels
+    // module: at once once it is here; before, after the visitor's first move.
+    if (mode === "immersive" || this.themed) (panelsModule ?? this.panels()).then((theme) => theme.paint(this, THEME_CORE), () => {});
     const button = this.$("theme");
     if (!button) return;
     const label = `Theme: ${mode[0].toUpperCase()}${mode.slice(1)}`;
@@ -698,33 +708,31 @@ class PrismFrame extends Element {
     const frame = this;
     const button = frame.$("theme");
     const panel = frame.$("theme-panel");
-    for (const choice of panel.querySelectorAll(".mode")) {
-      choice.addEventListener("click", () => frame.setTheme(choice.dataset.mode));
-    }
     if (typeof panel.showPopover !== "function") {
       button.removeAttribute("popovertarget");
       button.addEventListener("click", () => frame.setTheme(MODES[(MODES.indexOf(frame.mode()) + 1) % MODES.length]));
       return;
     }
-    // Its photos, search and styles arrive with the theme module; the panel
-    // waits for them rather than open unstyled.
+    // Its modes, photos, search and styles arrive with the panels module;
+    // the panel waits for them rather than open empty.
     let ui = null;
     const ready = (theme) => {
       if (ui) return;
-      if (!frame.shadowRoot.adoptedStyleSheets.includes(theme.sheet)) frame.shadowRoot.adoptedStyleSheets = [...frame.shadowRoot.adoptedStyleSheets, theme.sheet];
+      frame.adoptPanels(theme);
+      panel.innerHTML = theme.THEME_PANEL;
       frame.themed = true;
       ui = theme.panel(frame, THEME_CORE);
       theme.paint(frame, THEME_CORE);
     };
-    this.theme().then(ready, () => {});
-    for (const type of ["pointerenter", "focus"]) button.addEventListener(type, () => this.theme().catch(() => {}), { passive: true });
+    this.panels().then(ready, () => {});
+    for (const type of ["pointerenter", "focus"]) button.addEventListener(type, () => this.panels().catch(() => {}), { passive: true });
     panel.addEventListener("beforetoggle", (event) => {
       if (event.newState !== "open") return;
       // Opened before the module came (a click that moved nothing, as some
       // assistive technology sends): fetch it now, then open.
       if (!ui) {
         event.preventDefault();
-        loadTheme().then((theme) => {
+        loadPanels().then((theme) => {
           ready(theme);
           panel.showPopover();
         }, () => {});

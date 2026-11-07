@@ -111,7 +111,9 @@ the archive carries. Every instance gets the same page; an app edits one file.
   `site/index.html` and `site/manifest.webmanifest` from it; `bootstrap/icons.py`
   draws the icons (the Hologram logomark, the brand kit's 70 dots, on the warm
   ground, and `site/favicon.svg`, the mark as a vector that follows the
-  browser's colour scheme), every app's default until it draws its own.
+  browser's colour scheme, which the page carries inline as its favicon and
+  its stand-in's mark, so neither costs a request), every app's default
+  until it draws its own.
 - **One live frame.** The frame every Prism app opens in (the top bar and
   the window the app shows through) is one web component, `<prism-frame>`, in `frame/`. On
   every push to `main`, `try-page.yml` publishes it to this repository's
@@ -168,7 +170,11 @@ the archive carries. Every instance gets the same page; an app edits one file.
   once, and a new one arrives on the visitor's first move, its colour
   standing in until then.
   The frame draws all of it, so every Prism app and Holo Search has it with
-  no rebuild. Nine photos, space first, were chosen once and are published
+  no rebuild. What only a visitor's move needs (every panel's styles, the
+  theme panel and the photos) is a second module, `frame/panels.mjs` with
+  `frame/panels.css`, published beside the frame and named by its SHA-256,
+  which the frame carries: the frame fetches it after the first move,
+  checks it and imports it, and a panel opened before then waits for it. Nine photos, space first, were chosen once and are published
   beside the frame (`frame/backdrops/`); the panel shows them by default, and
   the frame fetches the one in use from its own
   host, which every app page's `connect-src` already allows, and shows it
