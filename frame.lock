@@ -7,7 +7,7 @@
     },
     {
       "path": "bootstrap/icons.py",
-      "sha256": "25c66c70f1392bf1e40b9b73fd99b547984611cfa39ad1ae301b91377883d931"
+      "sha256": "d2ecf0fa7a8e6b0e6f5c6fd32aebf41e6e3c6aeb8f16fc20492bd1b7409626df"
     },
     {
       "path": "bootstrap/og.py",
@@ -39,7 +39,7 @@
     },
     {
       "path": "site/page.template.html",
-      "sha256": "a432626044faae3b843fd9c28beb83cc3a8293725b2152b5407d8815fbc3035b"
+      "sha256": "057ca7cd210208b1c6431edbfb69570a0b86b2937013a37745da7a85a9976bc0"
     },
     {
       "path": "site/prism-page.css",

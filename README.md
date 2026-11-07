@@ -109,8 +109,9 @@ the archive carries. Every instance gets the same page; an app edits one file.
   labels, the claim, the proposition as it reads in the model, the theorems,
   the attestations, and the trusted set. `bootstrap/page.mjs` renders
   `site/index.html` and `site/manifest.webmanifest` from it; `bootstrap/icons.py`
-  draws the icons from its name (the warm ground, the app's initial, the brand
-  dot, no logo).
+  draws the icons (the Hologram logomark, the brand kit's 70 dots, on the warm
+  ground, and `site/favicon.svg`, the mark as a vector that follows the
+  browser's colour scheme), every app's default until it draws its own.
 - **One live frame.** The frame every Prism app opens in (the top bar and
   the window the app shows through) is one web component, `<prism-frame>`, in `frame/`. On
   every push to `main`, `try-page.yml` publishes it to this repository's
