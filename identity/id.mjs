@@ -69,13 +69,60 @@ addEventListener("message", (event) => {
   child.close();
 });
 
+// The passkey this device last signed in with: a hint, not a secret (a
+// credential ID names a key, it proves nothing). With it the browser asks
+// for that one passkey and skips its chooser. It is never taken as proof
+// that the device has no other: a remembered passkey that does not answer
+// is forgotten and the next tap asks for any, so a missing hint can never
+// send someone with an account to Create account. Inside an app's panel the
+// browser keeps this per app; in the sign-in window, for every app.
+const HINT = "prism-identity/last-credential";
+let remembered = null;
+try {
+  const saved = localStorage.getItem(HINT);
+  remembered = /^[\w-]{16,}$/.test(saved ?? "") ? saved : null;
+} catch {
+  // No storage (a private window, blocked site data): every sign-in asks for any passkey.
+}
+function remember(credential) {
+  remembered = credential;
+  try {
+    if (credential) localStorage.setItem(HINT, credential);
+    else localStorage.removeItem(HINT);
+  } catch {
+    // Not kept; the next sign-in shows the chooser.
+  }
+}
+
+// The device's own authenticator, by name, so the visitor knows what is
+// about to ask. Named only where one is set up; elsewhere the browser
+// offers a phone or a security key, and the page names nothing.
+const DEVICE = (() => {
+  const ua = navigator.userAgent;
+  if (/iPhone|iPad|iPod/.test(ua)) return "Face ID or Touch ID";
+  if (/Android/.test(ua)) return "your screen lock";
+  if (/Windows NT/.test(ua)) return "Windows Hello";
+  if (/Macintosh/.test(ua)) return "Touch ID";
+  return null;
+})();
+let device = null;
+if (DEVICE && window.PublicKeyCredential?.isUserVerifyingPlatformAuthenticatorAvailable) {
+  PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().then((available) => {
+    device = available ? DEVICE : null;
+    if (request) paint();
+  }, () => {});
+}
+
 // One button. Sign in asks the device for its Prism passkey; a device with
 // none (the browser will not say so before asking) turns the same button
-// into Create account. Adding a device is the same button, relabelled.
+// into Create account. Adding a device is the same button, relabelled; a
+// device that signed in before reads Continue.
 let fresh = false;
 function paint() {
-  const label = request.mode === "add" ? "Add device" : fresh ? "Create account" : "Sign in";
+  const label = request.mode === "add" ? "Add device" : fresh ? "Create account" : remembered ? "Continue" : "Sign in";
   $("go-label").textContent = label;
+  $("secured").textContent = device ? `Secured by ${device}` : "";
+  $("secured").hidden = !device || request.mode === "add";
   $("fresh").hidden = !fresh || request.mode === "add";
   $("go").disabled = false;
   size();
@@ -88,6 +135,8 @@ new ResizeObserver(size).observe(document.body);
 
 function busy(on) {
   $("card").classList.toggle("busy", on);
+  if (on && device) $("go-label").textContent = `Waiting for ${device}…`;
+  else if (!on) paint();
   if (!alone && app) send({ type: "busy", on });
   if (on) $("error").hidden = true;
 }
@@ -143,7 +192,9 @@ async function sign(message, allow) {
 async function session(allow = []) {
   const { nonce, sessionKey, expires } = request;
   const signed = await sign(`prism/identity/session/1\n${app}\n${nonce}\n${sessionKey}\n${expires}`, allow);
-  send({ type: "session", assertion: signed, records: await chain(signed.credential) });
+  const records = await chain(signed.credential);
+  remember(signed.credential);
+  send({ type: "session", assertion: signed, records });
 }
 
 // A new passkey. A first one starts an account; another joins the account
@@ -219,6 +270,13 @@ async function run(task) {
     // which. Either way, offer a new account, one tap away, and keep sign-in
     // a tap away too. Nothing else to read.
     if (error?.name === "NotAllowedError" || error?.name === "AbortError") {
+      // The remembered passkey did not answer (removed, or the prompt was
+      // closed): forget it, and the next tap asks for any passkey.
+      if (request.mode === "signin" && !fresh && remembered) {
+        remember(null);
+        paint();
+        return;
+      }
       if (request.mode === "signin" && !fresh) {
         fresh = true;
         paint();
@@ -233,7 +291,7 @@ async function run(task) {
   }
 }
 
-$("go").addEventListener("click", () => run(() => (request.mode === "add" || fresh ? create() : session())));
+$("go").addEventListener("click", () => run(() => (request.mode === "add" || fresh ? create() : session(remembered ? [remembered] : []))));
 $("again").addEventListener("click", () => {
   fresh = false;
   paint();

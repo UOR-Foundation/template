@@ -140,6 +140,10 @@ describe("the flow in Chromium, with a virtual passkey", () => {
   let browser;
   let page;
   let running;
+  let cdp;
+  let authenticator;
+  // A Windows browser, whichever system runs the tests, so the page names its authenticator.
+  const WINDOWS = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36";
 
   before(async () => {
     running = await start({ idPort: 8792, appPort: 8793 });
@@ -147,12 +151,12 @@ describe("the flow in Chromium, with a virtual passkey", () => {
     // One renderer for the page and its sign-in iframe, so one virtual
     // authenticator serves both.
     browser = await chromium.launch({ args: ["--disable-site-isolation-trials", "--disable-features=IsolateOrigins,site-per-process"] });
-    page = await browser.newPage();
-    const cdp = await page.context().newCDPSession(page);
+    page = await browser.newPage({ userAgent: WINDOWS });
+    cdp = await page.context().newCDPSession(page);
     await cdp.send("WebAuthn.enable");
-    await cdp.send("WebAuthn.addVirtualAuthenticator", {
+    ({ authenticatorId: authenticator } = await cdp.send("WebAuthn.addVirtualAuthenticator", {
       options: { protocol: "ctap2", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
-    });
+    }));
     await page.goto(running.app);
   });
 
@@ -173,6 +177,8 @@ describe("the flow in Chromium, with a virtual passkey", () => {
 
   test("creating an account signs in, verified in the page", async () => {
     await page.locator("#account").click();
+    // The device's own authenticator, named before it asks.
+    await ceremony().locator("#secured", { hasText: "Secured by Windows Hello" }).waitFor({ timeout: 10000 });
     // One button: a device with no passkey turns Sign in into Create account.
     await ceremony().locator("#go:enabled").click();
     await ceremony().locator("#go-label", { hasText: "Create account" }).waitFor({ timeout: 10000 });
@@ -208,7 +214,8 @@ describe("the flow in Chromium, with a virtual passkey", () => {
     await page.locator("#account:not(.signed-in)").waitFor({ timeout: 10000 });
     assert.equal(await signIn(page), null);
     await page.locator("#account").click();
-    await ceremony().locator("#go-label", { hasText: "Sign in" }).waitFor({ timeout: 10000 });
+    // This device signed in before: the page asks for that passkey only, no chooser.
+    await ceremony().locator("#go-label", { hasText: "Continue" }).waitFor({ timeout: 10000 });
     await ceremony().locator("#go:enabled").click();
     await page.locator("#account.signed-in").waitFor({ timeout: 10000 });
     assert.equal((await signIn(page)).id, before);
@@ -245,5 +252,20 @@ describe("the flow in Chromium, with a virtual passkey", () => {
         }),
     );
     assert.equal(extractable, false);
+  });
+
+  test("a remembered passkey that is gone asks for any passkey, never straight to a new account", async () => {
+    await page.locator("#account").click();
+    await page.locator("#account-out").click();
+    await page.locator("#account:not(.signed-in)").waitFor({ timeout: 10000 });
+    await cdp.send("WebAuthn.clearCredentials", { authenticatorId: authenticator });
+    await page.locator("#account").click();
+    await ceremony().locator("#go-label", { hasText: "Continue" }).waitFor({ timeout: 10000 });
+    await ceremony().locator("#go:enabled").click();
+    // The remembered passkey did not answer: forget it and offer Sign in, which
+    // looks for any passkey. Only that failing says this device has none.
+    await ceremony().locator("#go-label", { hasText: /^Sign in$/ }).waitFor({ timeout: 10000 });
+    await ceremony().locator("#go:enabled").click();
+    await ceremony().locator("#go-label", { hasText: "Create account" }).waitFor({ timeout: 10000 });
   });
 });

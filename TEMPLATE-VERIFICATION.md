@@ -257,3 +257,16 @@ locked SDK. `just app` runs only `prismpm verify`: it begins with the same
 build `prismpm build` performs, so running both built the holo twice. In the
 first green run, `prismpm build` took 82 seconds and `prismpm verify` 6
 minutes 14 seconds.
+
+## Prism accounts: the remembered passkey
+
+The sign-in page (`identity/id.mjs`) remembers which passkey this device last
+signed in with, so the browser asks for that one and skips its chooser, and
+it names the device's authenticator ("Secured by Windows Hello"). The hint
+must never decide that a device has no passkey: if it could, someone with an
+account whose remembered passkey was removed would be sent to Create account
+and end up with a second account.
+
+| Gate | Planted defect | Result |
+| --- | --- | --- |
+| `npm run test:identity`, "a remembered passkey that is gone asks for any passkey, never straight to a new account" | the branch that forgets a remembered passkey which did not answer, removed from `run()` | rejected: `locator.waitFor: Timeout 10000ms exceeded` waiting for `#go-label` to read `Sign in`; restored, 20 of 20 pass |
