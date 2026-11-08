@@ -94,9 +94,9 @@ function remember(credential) {
   }
 }
 
-// The device's own authenticator, by name, so the visitor knows what is
-// about to ask. Named only where one is set up; elsewhere the browser
-// offers a phone or a security key, and the page names nothing.
+// The device's own authenticator, by name, on the button itself, so the
+// visitor knows what is about to ask. Named only where one is set up;
+// elsewhere the browser offers a phone or a security key: "a passkey".
 const DEVICE = (() => {
   const ua = navigator.userAgent;
   if (/iPhone|iPad|iPod/.test(ua)) return "Face ID or Touch ID";
@@ -113,16 +113,14 @@ if (DEVICE && window.PublicKeyCredential?.isUserVerifyingPlatformAuthenticatorAv
   }, () => {});
 }
 
-// One button. Sign in asks the device for its Prism passkey; a device with
-// none (the browser will not say so before asking) turns the same button
-// into Create account. Adding a device is the same button, relabelled; a
-// device that signed in before reads Continue.
+// One button. Continue asks the device for its Prism passkey (the one it
+// last used, when it remembers one); a device with none (the browser will
+// not say so before asking) turns the same button into Create account.
+// Adding a device is the same button, relabelled.
 let fresh = false;
 function paint() {
-  const label = request.mode === "add" ? "Add device" : fresh ? "Create account" : remembered ? "Continue" : "Sign in";
+  const label = request.mode === "add" ? "Add device" : fresh ? "Create account" : `Continue with ${device ?? "a passkey"}`;
   $("go-label").textContent = label;
-  $("secured").textContent = device ? `Secured by ${device}` : "";
-  $("secured").hidden = !device || request.mode === "add";
   $("fresh").hidden = !fresh || request.mode === "add";
   $("go").disabled = false;
   size();

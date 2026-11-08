@@ -447,15 +447,16 @@ export async function verifySession(session, origins, now = Date.now()) {
 
 
 const ACCOUNT_PANEL = `
-<p id="account-title" class="account-title">Prism account</p>
-<p id="account-sub" class="account-sub">One account for every app. No password.</p>
+<button class="account-close" type="button" popovertarget="account-panel" popovertargetaction="hide" aria-label="Close"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18" /></svg></button>
+<h2 id="account-title" class="account-title">Sign in</h2>
+<p id="account-sub" class="account-sub">One account for every Prism app. No password.</p>
 <div id="account-in" class="account-in" hidden>
   <p class="account-id"><code id="account-id"></code><button id="account-copy" class="text" type="button">Copy</button></p>
   <button id="account-add" class="row" type="button">Add device</button>
   <button id="account-out" class="row" type="button">Sign out</button>
 </div>
 <div id="account-ceremony" class="account-ceremony"></div>
-<button id="account-window" class="primary" type="button" hidden>Sign in</button>
+<button id="account-window" class="primary" type="button" hidden>Continue</button>
 `;
 
 // The account panel (prism/identity/1, identity/PROTOCOL.md): the sign-in
@@ -490,7 +491,8 @@ export function accounts(frame, core) {
     const saved = accountChannel.session;
     core.paint();
     frame.$("account-in").hidden = !saved;
-    frame.$("account-sub").textContent = saved ? "Signed in on this device." : "One account for every app. No password.";
+    frame.$("account-title").textContent = saved ? "Prism account" : "Sign in";
+    frame.$("account-sub").textContent = saved ? "Signed in on this device." : "One account for every Prism app. No password.";
     if (saved) {
       frame.$("account-id").textContent = `${saved.account.slice(0, 8)}…${saved.account.slice(-4)}`;
       frame.$("account-id").title = saved.account;
@@ -513,7 +515,10 @@ export function accounts(frame, core) {
     if (ceremony?.mode === mode) return;
     close();
     paint();
-    if (mode === "add") frame.$("account-sub").textContent = "Add your phone or another computer.";
+    if (mode === "add") {
+      frame.$("account-title").textContent = "Add a device";
+      frame.$("account-sub").textContent = "Your phone or another computer joins this account.";
+    }
     const saved = accountChannel.session;
     ceremony = {
       mode,
@@ -628,19 +633,13 @@ export function accounts(frame, core) {
   // sign-in for someone already signed in.
   const reach = () => loadSession().then(() => !accountChannel.session && begin("signin"));
 
-  // The panel opens under the icon, its right edge on the icon's.
+  // The dialog opens centred over the app (panels.css); opening it asks.
   panel.addEventListener("beforetoggle", (event) => {
-    if (event.newState !== "open") {
-      if (ceremony?.mode === "add") close();
-      return;
+    if (event.newState === "open") {
+      paint();
+      return void reach();
     }
-    reach();
-    const bar = frame.shadowRoot.querySelector(".bar").getBoundingClientRect();
-    const edge = button.getBoundingClientRect();
-    const view = document.documentElement.clientWidth;
-    const width = Math.min(20 * parseFloat(getComputedStyle(document.documentElement).fontSize), view - 32);
-    panel.style.setProperty("--account-top", `${Math.round(bar.bottom + 8)}px`);
-    panel.style.setProperty("--account-right", `${Math.round(Math.max(16, Math.min(view - edge.right, view - width - 16)))}px`);
+    if (ceremony?.mode === "add") close();
   });
 
   frame.$("account-add").addEventListener("click", () => begin("add"));
