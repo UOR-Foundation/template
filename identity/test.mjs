@@ -189,8 +189,13 @@ describe("the flow in Chromium, with a virtual passkey", () => {
 
   test("creating an account signs in, verified in the page", async () => {
     await page.locator("#account").click();
-    // The device's own authenticator, named before it asks.
-    await ceremony().locator("#secured", { hasText: "Secured by Windows Hello" }).waitFor({ timeout: 10000 });
+    // A centred dialog titled for what it does, its one button naming the
+    // device's own authenticator.
+    assert.equal(await page.locator("#account-title").textContent(), "Sign in");
+    await ceremony().locator("#go-label", { hasText: "Continue with Windows Hello" }).waitFor({ timeout: 10000 });
+    const box = await page.locator("#account-panel").boundingBox();
+    const view = page.viewportSize();
+    assert.ok(Math.abs(box.x + box.width / 2 - view.width / 2) <= 1, "the dialog is centred");
     // One button: a device with no passkey turns Sign in into Create account.
     await ceremony().locator("#go:enabled").click();
     await ceremony().locator("#go-label", { hasText: "Create account" }).waitFor({ timeout: 10000 });
@@ -227,7 +232,7 @@ describe("the flow in Chromium, with a virtual passkey", () => {
     assert.equal(await signIn(page), null);
     await page.locator("#account").click();
     // This device signed in before: the page asks for that passkey only, no chooser.
-    await ceremony().locator("#go-label", { hasText: "Continue" }).waitFor({ timeout: 10000 });
+    await ceremony().locator("#go-label", { hasText: "Continue with Windows Hello" }).waitFor({ timeout: 10000 });
     await ceremony().locator("#go:enabled").click();
     await page.locator("#account.signed-in").waitFor({ timeout: 10000 });
     assert.equal((await signIn(page)).id, before);
@@ -272,11 +277,12 @@ describe("the flow in Chromium, with a virtual passkey", () => {
     await page.locator("#account:not(.signed-in)").waitFor({ timeout: 10000 });
     await cdp.send("WebAuthn.clearCredentials", { authenticatorId: authenticator });
     await page.locator("#account").click();
-    await ceremony().locator("#go-label", { hasText: "Continue" }).waitFor({ timeout: 10000 });
+    await ceremony().locator("#go-label", { hasText: "Continue with Windows Hello" }).waitFor({ timeout: 10000 });
     await ceremony().locator("#go:enabled").click();
-    // The remembered passkey did not answer: forget it and offer Sign in, which
-    // looks for any passkey. Only that failing says this device has none.
-    await ceremony().locator("#go-label", { hasText: /^Sign in$/ }).waitFor({ timeout: 10000 });
+    // The remembered passkey did not answer: forget it and keep Continue,
+    // which next looks for any passkey. Only that failing says this device has none.
+    await ceremony().locator("#card:not(.busy)").waitFor({ timeout: 10000 });
+    assert.equal(await ceremony().locator("#go-label").textContent(), "Continue with Windows Hello");
     await ceremony().locator("#go:enabled").click();
     await ceremony().locator("#go-label", { hasText: "Create account" }).waitFor({ timeout: 10000 });
   });
