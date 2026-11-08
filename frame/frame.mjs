@@ -862,27 +862,39 @@ class PrismFrame extends Element {
       button.setAttribute("aria-label", label);
       button.title = label;
     };
-    // Reaching for the icon is intent enough: no wait for a first move.
-    const ready = () =>
-      (this.accountReady ??= loadPanels().then(
-        (panels) => {
+    // Reaching for the icon is intent enough: no wait for a first move. An
+    // app sets the frame's attributes as it loads, and each redraws the bar,
+    // so this render's panel may be gone by the time the module arrives: it
+    // then wires nothing, and the panel now drawn wires itself.
+    const current = () => this.$("account-panel") === panel;
+    const ready = () => {
+      if (!this.accountReady) {
+        const mine = loadPanels().then((panels) => {
+          if (!current()) throw new Error("the bar was redrawn");
           this.adoptPanels(panels);
           const accounts = panels.accounts(this, { ...ACCOUNT_CORE, paint });
           wired = true;
           return accounts;
-        },
-        (error) => {
-          this.accountReady = null;
-          throw error;
-        },
-      ));
+        });
+        mine.catch(() => {
+          if (this.accountReady === mine) this.accountReady = null;
+        });
+        this.accountReady = mine;
+      }
+      return this.accountReady;
+    };
     const reach = () => ready().then((accounts) => accounts.reach(), () => {});
     for (const type of ["pointerenter", "focus", "touchstart"]) button.addEventListener(type, reach, { passive: true });
-    // A panel opened before its part of the panels module came waits for it.
+    // A panel opened before its part of the panels module came waits for it,
+    // then opens: this one, or the one drawn since, so no click is lost.
     panel.addEventListener("beforetoggle", (event) => {
       if (event.newState !== "open" || wired) return;
       event.preventDefault();
-      ready().then(() => panel.showPopover(), () => {});
+      const open = () => {
+        const shown = this.$("account-panel");
+        if (!shown.matches(":popover-open")) shown.showPopover();
+      };
+      ready().then(open, () => current() || open());
     });
     paint();
     loadSession().then(paint);

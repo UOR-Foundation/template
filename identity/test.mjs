@@ -175,6 +175,18 @@ describe("the flow in Chromium, with a virtual passkey", () => {
     assert.equal(await signIn(page), null);
   });
 
+  test("a click the bar is redrawn under still opens the panel", async () => {
+    // An app sets the frame's attributes as it loads, and each redraws the
+    // bar; a click whose panel was still loading must open the new one.
+    await page.locator("prism-frame").evaluate((frame) => {
+      frame.shadowRoot.querySelector("#account").click();
+      frame.setAttribute("purpose", "Redrawn while the panel loads.");
+    });
+    await page.locator("#account-panel:popover-open").waitFor({ timeout: 10000 });
+    await page.keyboard.press("Escape");
+    await page.locator("#account-panel:not(:popover-open)").waitFor({ timeout: 10000 });
+  });
+
   test("creating an account signs in, verified in the page", async () => {
     await page.locator("#account").click();
     // The device's own authenticator, named before it asks.
