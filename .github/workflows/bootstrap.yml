@@ -35,6 +35,14 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Reserve disk for the locked SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ${RUNNER_ENVIRONMENT:-} == github-hosted && ${RUNNER_OS:-} == Linux ]]; then
+            sudo rm -rf -- /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+          fi
+          df -h / /var/lib/docker
       - name: Run the template gate through the locked SDK
         shell: bash
         run: |
