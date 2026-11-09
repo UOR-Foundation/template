@@ -3,7 +3,7 @@
   "files": [
     {
       "path": "bootstrap/frame-sync.mjs",
-      "sha256": "431f3e6227eaa6da472f0e3acecafcda80fda219097ad5b48fee04a3560369f4"
+      "sha256": "c7df2d026b14ec0783a068a3fcb87a1eaabf2ea7f55ac6b61cb96b96e21e7957"
     },
     {
       "path": "bootstrap/icons.py",

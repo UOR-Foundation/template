@@ -304,3 +304,23 @@ shrank once the script set its width (CLS 0.009 on Luhn check, fixed by
 setting the first width in the hashed stylesheet), and `app.mjs` crossed the
 unminified-JavaScript allowance (2,458 bytes against 2,048, fixed by moving
 the spec into `site/spec.mjs`, loaded on first open, and shortening comments).
+
+## A newer frame may add a file
+
+`frame-sync.mjs --pin` judged a target commit's lock by this checkout's own
+frame list, so the first frame to add files (`site/spec.css`, `site/spec.mjs`)
+could not be pinned by any app that had an older script. The target is now
+judged by its own frame: its `frame-sync.mjs`, matched to its lock, names the
+files, read as text and never run, and each must sit under `bootstrap/` or
+`site/` (or be `lighthouserc.json`). `--check` is unchanged. Run against real
+commits and against mirrors served with `PRISM_TEMPLATE_RAW`:
+
+| Case | Result |
+| --- | --- |
+| the old logic with the old fourteen-file list pins `128d80d` | refused: `frame.lock at 128d80d… is not a prism/frame-lock/1 lock of this frame` (the defect) |
+| the new logic with the old list pins `128d80d` | pinned; `--check` then passes, 16 files |
+| the new logic pins back to `76bdeb0` | pinned; `site/spec.css` and `site/spec.mjs` reported as no longer part of the frame |
+| a mirror serves `site/app.mjs` with one line added | refused: its digest against the lock's; nothing written |
+| a mirror's lock names a file its frame does not | refused: the lock's list against the frame's; nothing written |
+| a mirror's frame and lock both add `.github/workflows/x.yml` | refused: `names files outside the page`; nothing written |
+| an untouched mirror | pinned |
