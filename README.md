@@ -101,13 +101,41 @@ repository needs a paid plan; the artifact and the summary need none.
 ## Publish the app page
 
 `site/` is the standard Prism app page: a lean, installable PWA that loads the
-holo `just app` builds, verifies it in the visitor's browser, shows what is
-proved and what is trusted, and lets them send requests and replay the examples
-the archive carries. Every instance gets the same page; an app edits one file.
+holo `just app` builds, verifies it in the visitor's browser and puts the app
+first. Every instance gets the same page; an app edits one file.
+
+- **The workspace.** The page is a stage the height of the screen and never
+  scrolls. A header row holds the app's name, one line under it, and View
+  spec on the right. Below it, from 840 px, two panes: the app's surface on
+  the left at full height, and a rail on the right with the result, the
+  actions (a few of the holo's own examples, or the app's controls) and a
+  history of what the visitor did, each entry one click from running again.
+  An app with an input gets a display: what you type is the largest thing on
+  screen, shrinking to fit as it grows, and the answer appears as you type,
+  in the success colour when `app.json` calls it positive. Under 840 px the
+  page is in focus mode: the surface takes the screen and one bar under it
+  holds the result, then the actions, within thumb reach.
+- **The spec, one click away.** View spec (or `.`, or a `#spec` link, or
+  the shield's full details) opens a panel beside the window: the window
+  and the bar narrow by its width (the page sets `--prism-aside` on
+  `<html>`, which the frame reads) and nothing in the app moves or scales; on
+  a phone the spec takes the screen. It reads in the order a newcomer asks:
+  the promise and the three facts behind it (proved for every input,
+  tested by the examples it carries, sealed to bytes in and bytes out), each
+  theorem as it reads with its method and the rules it names (opened in
+  place, read from the LexLean source under `app/src`), then the package:
+  what goes in and out, every example replayed here, the fingerprint and the
+  build chain. `page.mjs` renders it at build to `site/spec.html`, from
+  the holo and its source; `site/spec.mjs` and `site/spec.css` load the
+  first time it opens, so a visitor who only uses the app never loads them.
 
 - **`site/app.json`** is the only file an app writes: its name, purpose and
-  labels, the claim, the proposition as it reads in the model, the theorems,
-  the attestations, and the trusted set. `bootstrap/page.mjs` renders
+  labels, the promise (`{ "headline", "detail" }`: one plain sentence a
+  newcomer reads first, no code names, and the rule in everyday words), the
+  claim, the proposition as it reads in the model, the theorems, the
+  attestations, and the trusted set. Without a promise, the first plain
+  sentence of the proposition stands in; `tagline` overrides the line under
+  the name, which is otherwise the purpose's first sentence. `bootstrap/page.mjs` renders
   `site/index.html` and `site/manifest.webmanifest` from it; `bootstrap/icons.py`
   draws the icons (the Hologram logomark, the brand kit's 70 dots, on the warm
   ground, and `site/favicon.svg`, the mark as a vector that follows the
@@ -156,14 +184,15 @@ the archive carries. Every instance gets the same page; an app edits one file.
   screen. Its icons are bare 16 px line drawings with a
   soft square tint on hover; on a touch screen each takes a 48 px tap
   beyond what it draws, so the bar is the same height everywhere. Under
-  600 px GitHub steps out (the footer still links the repository); at large
+  600 px GitHub steps out (the spec still links the repository); at large
   text the bar wraps and the window moves down with it. It is the live
   frame above: no app carries a copy of it.
-- **Three themes: immersive, dark and light.** Immersive is every new
-  visitor's theme; a choice of dark or light is remembered. The theme button
+- **Three themes: dark, immersive and light.** Plain dark, the brand's warm
+  ground, is every new visitor's theme; a choice of immersive or light is
+  remembered. The theme button
   shows the one in use (photo, moon or sun) and opens a panel to change it.
   Immersive is the dark ground with an Unsplash photo behind the app under
-  a scrim, the cards frosted over it. The photo fills the app's window and
+  a scrim, the rail frosted over it. The photo fills the app's window and
   stops at its edges and corners; the chrome around it never changes. A
   photo is never fetched with the page, which keeps every app inside its
   Lighthouse budget: one shown before comes from the browser's cache at
@@ -193,8 +222,8 @@ the archive carries. Every instance gets the same page; an app edits one file.
   its attestation) and **Behaves as proved** (every example the holo
   carries gives its proved answer here). Grey dots while it checks, green
   only when every check passed, red with the failing check named when one
-  did not. Nothing is written by hand: `page.mjs` passes the proposition's
-  plain statement and the proof attestation from `app.json`, `app.mjs`
+  did not. Nothing is written by hand: `page.mjs` passes the promise's
+  headline and the proof attestation from `app.json`, `app.mjs`
   passes the fingerprint check and the replay as they finish, and the
   frame draws the rest.
 - **The bar holds still.** Until the frame's module arrives, the page shows
@@ -288,9 +317,20 @@ the archive carries. Every instance gets the same page; an app edits one file.
   pinning this page for the first time redraws both once. And
   `frame-sync.mjs --lock` runs only in this repository, so no app can bless
   its own copy of the page.
-- **Any screen.** Material 3 window size classes: one column under 600 px,
-  two panes from 840; 48 px touch targets on coarse pointers; safe areas;
-  forced colours and reduced motion respected.
+- **Any screen.** Material 3 window size classes: focus mode under 840 px,
+  the workspace's two panes from 840; 16 px margins under 600 px and 24 px
+  from it; 48 px touch targets on coarse pointers; safe areas; forced colours
+  and reduced motion respected. `bootstrap/screens.mjs` holds every class
+  in every theme to it, with the spec open and closed, and fails a page that
+  scrolls.
+- **An app's own surface.** An app that needs more than an input (a chess
+  board) adds `site/card.html`, `site/card.css` and `site/card.mjs`. Each part
+  of `card.html` names the workspace slot it fills with `data-slot`:
+  `surface` (the stage, as large a square as fits), `result`, `actions` and
+  `history` (the rail, `data-label` naming the last two), and `evidence`
+  (the spec). A small script `page.mjs` hashes into the page moves each
+  part into place before first paint, so nothing shifts; `card.mjs` is
+  started with the verified app and finds its parts by id, as before.
 - **Installable and offline.** A manifest with maskable icons and a service
   worker that caches every response as it passes, so the app loads, verifies
   the holo and answers requests with the network off after one visit. A new

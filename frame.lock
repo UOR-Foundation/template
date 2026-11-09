@@ -3,7 +3,7 @@
   "files": [
     {
       "path": "bootstrap/frame-sync.mjs",
-      "sha256": "0c72dce47beb0faea9c24b535e3ec6d6013a9fc8de21f92b61c8e00ec277280a"
+      "sha256": "431f3e6227eaa6da472f0e3acecafcda80fda219097ad5b48fee04a3560369f4"
     },
     {
       "path": "bootstrap/icons.py",
@@ -15,7 +15,7 @@
     },
     {
       "path": "bootstrap/page.mjs",
-      "sha256": "2a6bf39f0c709c3e5e4e67bad17ad6821f4273aab4c71c958112eda8888d3db3"
+      "sha256": "d7be5909c0419ea566da7482b0d2f283e0151417d31fb5fb2463398ce301554c"
     },
     {
       "path": "bootstrap/precache.mjs",
@@ -27,7 +27,7 @@
     },
     {
       "path": "bootstrap/screens.mjs",
-      "sha256": "b318ca8fb52e34a4203dd4b45b5ace6b472a105783b7a7ad64648f24eee3e405"
+      "sha256": "c9787ebf5ad8e8b649034ec3e43f8812ba51777ba59eb11f1f51ca084a395b67"
     },
     {
       "path": "lighthouserc.json",
@@ -35,7 +35,7 @@
     },
     {
       "path": "site/app.mjs",
-      "sha256": "1c77dd800ace96f920da9452e99065fd30286f704102bc916e28c4783c66d5d3"
+      "sha256": "7a54aecef87c300cbff8d6d578e146d7f508dbe5ea73e5775edcd4cd36a3363a"
     },
     {
       "path": "site/guest-worker.mjs",
@@ -43,11 +43,19 @@
     },
     {
       "path": "site/page.template.html",
-      "sha256": "3175a4320c087c8416cd23d97884bdff6ee8e7797e174caa06e17204c3375fa3"
+      "sha256": "d7df0bc4d5190ca38ee768bdbd54cbc665ede811608de846068c8a92bd02c14d"
     },
     {
       "path": "site/prism-page.css",
-      "sha256": "2db850d7646d4e2055a97a3742881569e2f3e603ac1620a8ad3eb1f347e87d05"
+      "sha256": "e74dc6dbe7f1394fdf1f7c663578ea4fbb4836f301b87f82d57a7c5dc6066e1c"
+    },
+    {
+      "path": "site/spec.css",
+      "sha256": "a74d0a4e5329f9ab60e5e8ef5f0964ac0af5d1c17912539ae1880fb3862dd383"
+    },
+    {
+      "path": "site/spec.mjs",
+      "sha256": "9f3fa8197085693da6423a27ea228f9180523702c479f19e64fdf27c1d1054bf"
     },
     {
       "path": "site/sw.js",
@@ -55,7 +63,7 @@
     },
     {
       "path": "site/theme.js",
-      "sha256": "5d73dc3e6c2ba9e0dce3fbf0504adf686c3b8d294a7a0fee5c732c6be785adb4"
+      "sha256": "dedc458660aa62df983ab84dbf370ac365578289699aa6cf8f1476c97db2ce92"
     }
   ]
 }

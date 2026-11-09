@@ -102,8 +102,8 @@ const BACKDROPS = [
 // other comes through the worker. Each is fetched once per page, and only
 // once it is to be shown.
 //
-// Never with the page, though: immersive is every new visitor's theme, and
-// an app's Lighthouse budget allows two third-party requests, which the
+// Never with the page, though: a visitor who chose immersive gets it on every
+// load, and an app's Lighthouse budget allows two third-party requests, which the
 // frame's pointer and module take. A photo shown before comes from this
 // origin's cache at once, with no request; a new one waits for the
 // visitor's first move (a pointer, a touch, a key, a scroll), as the stars

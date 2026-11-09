@@ -272,3 +272,35 @@ and end up with a second account.
 | `npm run test:identity`, "a remembered passkey that is gone asks for any passkey, never straight to a new account" | the branch that forgets a remembered passkey which did not answer, removed from `run()` | rejected: `locator.waitFor: Timeout 10000ms exceeded` waiting for `#go-label` to read `Sign in`; restored, 20 of 20 pass |
 | `npm run test:identity`, "a click the bar is redrawn under still opens the panel" | the frame before this fix, which opened the panel it was clicked on even after the bar was redrawn (found on holo-search: a first click right after load did nothing) | rejected: `not ok 2`, waiting for `#account-panel:popover-open`; fixed, 21 of 21 pass |
 | same test, after the account panel became a centred dialog and the button reads "Continue with Windows Hello" | the same branch removed again | rejected: the button read `Create account` where `Continue with Windows Hello` was required; restored, 21 of 21 pass |
+
+## The workspace page
+
+The standard page became the workspace: a header row, the app's surface
+beside a rail for its result, actions and history, and a spec that opens
+beside the window (the frame's window and bar narrow by `--prism-aside`)
+and loads only when opened. Plain dark replaced immersive as the default
+theme. The page gates were run on three apps built with these files, as
+`frame-sync.mjs --pin` gives them (Leap year, Luhn check, Legal chess, each
+with its own holo and LexLean source):
+
+| Gate | Result |
+| --- | --- |
+| `node bootstrap/screens.mjs site screens`, six size classes in three themes, the spec open and closed | every class passes in every theme, all three apps |
+| `lhci autorun`, three runs each | 100 in all four categories, CLS 0, LCP about 1.21 s; 105 KiB (Leap year, Luhn) and 122,701 of 122,880 bytes (Legal chess, whose live page was already within 1 KiB of the budget) |
+| `npm run test:identity`, `npm run test:try` | 21 of 21, 1 of 1 |
+
+The screens gate's new check, that the workspace fits the screen, was first
+written as "the page does not scroll". A planted defect showed it could not
+fail: the page hides its overflow, so a workspace taller than the screen is
+cut off rather than scrolled.
+
+| Gate | Planted defect | Result |
+| --- | --- | --- |
+| `screens.mjs`, the workspace fits the screen (scroll only) | `main` made 4 rem taller than the screen | passed: the defect went unseen |
+| same, checking that `main` ends inside the screen and holds its content | the same 4 rem | rejected in all 18 cases: `the workspace does not fit the screen: the page would scroll or cut it off`; restored, the three apps pass |
+
+Lighthouse found two more before the change was done: the display's type
+shrank once the script set its width (CLS 0.009 on Luhn check, fixed by
+setting the first width in the hashed stylesheet), and `app.mjs` crossed the
+unminified-JavaScript allowance (2,458 bytes against 2,048, fixed by moving
+the spec into `site/spec.mjs`, loaded on first open, and shortening comments).
