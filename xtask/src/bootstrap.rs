@@ -654,6 +654,23 @@ mod tests {
     };
 
     #[test]
+    fn hosted_sdk_disk_is_prepared_before_image_pull() {
+        let bootstrap = include_str!("../../.github/workflows/bootstrap.yml");
+        let preparation = bootstrap
+            .find("name: Reserve disk for the locked SDK")
+            .expect("prepare hosted runner storage before pulling the large SDK");
+        let pull = bootstrap.find("docker run --rm").expect("SDK invocation");
+        assert!(preparation < pull);
+        let script = &bootstrap[preparation..pull];
+        assert!(script.contains("${RUNNER_ENVIRONMENT:-} == github-hosted"));
+        assert!(script.contains("${RUNNER_OS:-} == Linux"));
+        assert!(script.contains("sudo rm -rf -- /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL"));
+        assert!(script.contains("df -h / /var/lib/docker"));
+        assert!(!script.contains("rm -rf -- /var/lib/docker"));
+        assert!(!script.contains("rm -rf -- \"$HOME\""));
+    }
+
+    #[test]
     fn dropped_native_coverage_plant_is_rejected() {
         let bootstrap = include_str!("../../.github/workflows/bootstrap.yml");
         assert!(native_coverage_is_complete(bootstrap));
