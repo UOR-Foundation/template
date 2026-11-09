@@ -96,6 +96,18 @@ jobs:
         with:
           subject-path: ${{ steps.holo.outputs.path }}
           show-summary: false
+      - name: Draw the social image and the icons for this app.json
+        # page.mjs refuses an og.png or icon not drawn for this app.json. Drawing
+        # them here, with Pillow pinned by hash, means a new app needs neither
+        # Python nor Pillow on its author's machine; the committed images only
+        # serve a local preview.
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/draw"
+          "$RUNNER_TEMP/draw/bin/pip" install --quiet --no-deps --only-binary :all: --require-hashes -r bootstrap/draw-requirements.txt
+          "$RUNNER_TEMP/draw/bin/python" -I bootstrap/og.py
+          "$RUNNER_TEMP/draw/bin/python" -I bootstrap/icons.py
       - name: Assemble the page
         shell: bash
         env:
