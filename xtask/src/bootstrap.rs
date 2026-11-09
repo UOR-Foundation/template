@@ -836,6 +836,19 @@ mod tests {
     }
 
     #[test]
+    fn holo_cache_refuses_every_unbound_holo() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap();
+        let result = std::process::Command::new("node")
+            .args(["--test", "ci/kappa-cache.test.mjs"])
+            .current_dir(root)
+            .status()
+            .expect("the locked SDK supplies Node");
+        assert!(result.success(), "holo cache negative tests failed");
+    }
+
+    #[test]
     fn native_platform_inventory_rejects_swaps_missing_platforms_and_legacy_drift() {
         let bytes = |architecture: &str| {
             serde_json::to_vec(&serde_json::json!({"artifacts":[{
