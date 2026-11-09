@@ -319,8 +319,11 @@ first. Every instance gets the same page; an app edits one file.
   renderer recomputes the stamp from `app.json`, so a card or icon drawn for
   another app, left stale by an edit, or drawn by an older script never
   ships: run `python -I bootstrap/og.py` and `python -I bootstrap/icons.py`
-  (after `node bootstrap/brand-sync.mjs --sync`, for the icons' font). An app
-  pinning this page for the first time redraws both once. And
+  (after `node bootstrap/brand-sync.mjs --sync`, for the icons' font).
+  `pages.yml` draws both before it renders, with Pillow pinned by hash in
+  `bootstrap/draw-requirements.txt`, so publishing needs neither Python nor
+  Pillow on the author's machine; drawing locally only refreshes the
+  preview. An app pinning this page for the first time redraws both once. And
   `frame-sync.mjs --lock` runs only in this repository, so no app can bless
   its own copy of the page.
 - **Any screen.** Material 3 window size classes: focus mode under 840 px,
