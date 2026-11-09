@@ -164,7 +164,13 @@ first. Every instance gets the same page; an app edits one file.
   in `pages.yml` before the build, and an app takes a newer page with
   `--pin <template commit>`, which reads the template's `frame.lock` at that
   commit, fetches every file, refuses any whose bytes differ and records the
-  pin. In the template, change these files and run `--lock`.
+  pin. Which files a frame has is the target's to say: its `frame-sync.mjs`,
+  matched to its lock, names them (inside `bootstrap/` and `site/` only), so
+  a newer frame can add a file; one the target dropped is left in place and
+  reported. A `frame-sync.mjs` older than this rule refuses a lock with files
+  it does not know; fetch the target's script once, then pin:
+  `curl -fo bootstrap/frame-sync.mjs https://raw.githubusercontent.com/UOR-Foundation/template/<commit>/bootstrap/frame-sync.mjs`.
+  In the template, change these files and run `--lock`.
 - **The brand is wired, not copied.** `brand.lock` pins
   [Hologram-Technologies/hologram-brand-kit](https://github.com/Hologram-Technologies/hologram-brand-kit)
   at one commit and records the SHA-256 of every file the page takes from it:
