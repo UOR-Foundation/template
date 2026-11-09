@@ -135,12 +135,16 @@ button.primary:hover { background: var(--primary-hover); border-color: var(--pri
  * one fixed layer whose shadow paints the chrome around the opening, with a
  * hairline just inside its edge; it takes no clicks and moves nothing, so
  * the page keeps its own layout and scroll, and content scrolls away under
- * the window's edges. */
+ * the window's edges.
+ * A page may open a panel beside the window, on the chrome, by setting
+ * --prism-aside on <html> to the panel's width: the window and the bar both
+ * end that far from the right edge, so the app narrows and the panel sits
+ * next to it, never over it. The page animates it (it is registered there). */
 .canvas {
   position: fixed;
   top: var(--frame-height);
   left: calc(var(--gutter) + var(--safe-left));
-  right: calc(var(--gutter) + var(--safe-right));
+  right: calc(var(--gutter) + var(--safe-right) + var(--prism-aside, 0px));
   bottom: max(var(--gutter), env(safe-area-inset-bottom, 0px));
   border-radius: var(--window-radius);
   box-shadow: inset 0 0 0 var(--border-width) var(--border), 0 0 0 100vmax var(--chrome);
@@ -160,7 +164,7 @@ button.primary:hover { background: var(--primary-hover); border-color: var(--pri
   align-items: center;
   gap: var(--space-2);
   /* 8 px of chrome above the controls, 6 px below them to the window's edge. */
-  padding: 0.5rem calc(var(--gutter) + var(--safe-right)) 0.375rem calc(var(--gutter) + var(--safe-left));
+  padding: 0.5rem calc(var(--gutter) + var(--safe-right) + var(--prism-aside, 0px)) 0.375rem calc(var(--gutter) + var(--safe-left));
 }
 .start, .end { flex: none; display: flex; align-items: center; gap: var(--space-2); }
 .end { justify-content: flex-end; }

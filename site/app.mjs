@@ -1,10 +1,5 @@
-// The standard Prism app page: loads app.holo with the vendored prism-code
-// runtime, verifies it, lets a visitor send requests, and replays the
-// examples the archive carries. Everything the page says about the app is
-// rendered into index.html by bootstrap/page.mjs from app.json before any
-// script runs; this module adds only what the holo itself tells it. The
-// service worker caches every response as it passes, so the page works
-// offline after one visit.
+// The Prism app page: verifies app.holo, answers as you type, replays its
+// examples. page.mjs renders the text; this adds what the browser checks.
 
 const $ = (id) => document.getElementById(id);
 const encoder = new TextEncoder();
@@ -15,8 +10,7 @@ const data = JSON.parse($("app-data").textContent);
 const hex = (bytes) =>
   "hex:" + Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 
-// Text when the bytes are valid UTF-8 with no control characters but tab and
-// newline; hex otherwise, so a binary request is still readable and reusable.
+// Text when plain UTF-8, else hex, so binary stays readable and reusable.
 function show(bytes) {
   try {
     const text = decoder.decode(bytes);
@@ -39,14 +33,9 @@ function chip(element, text, state) {
   element.className = `chip chip-${state}`;
 }
 
-// The frame. The top bar is not part of this page: it is the canonical
-// <prism-frame>, which UOR-Foundation/template publishes on every push to main.
-// This page reads the frame host's pointer, fetches the module it names,
-// checks the bytes against the pointer's SHA-256, and only then runs them, so
-// a change to the frame reaches this app on its next load and nothing else
-// can stand in for it. ?frame=<sha256> opens the page with one exact frame.
-// Until the frame arrives, its height is reserved and the app's holo://
-// address stands in; offline, the service worker serves the last one.
+// The canonical <prism-frame>, run only if its bytes match the pointer's
+// SHA-256, so a template change reaches every app and nothing stands in for
+// it. ?frame=<sha256> pins one; offline, the service worker serves the last.
 async function frame() {
   if (customElements.get("prism-frame")) return;
   const host = new URL(data.frame);
@@ -77,8 +66,7 @@ async function frame() {
   }
 }
 
-// The shield in the frame: the verdict this page reached on the holo, and
-// the replay of its examples, "passed/total", "running" or "error".
+// The frame's shield: the verdict, and the replay ("passed/total").
 function verdict(state, label, fingerprint = "") {
   const element = $("frame");
   element.setAttribute("verdict", state);
@@ -87,9 +75,7 @@ function verdict(state, label, fingerprint = "") {
 }
 const replayed = (examples) => $("frame").setAttribute("examples", examples);
 
-// Install the service worker once the page has loaded, so it never competes
-// with the first paint; when a new one is waiting, show one chip and reload
-// only when the visitor asks. Never silently.
+// The service worker, after load; an update reloads only when asked.
 function offline() {
   const paint = () => ($("offline").hidden = navigator.onLine);
   paint();
@@ -97,8 +83,7 @@ function offline() {
   addEventListener("offline", paint);
   if (!("serviceWorker" in navigator)) return;
   const register = () => navigator.serviceWorker.register("./sw.js").then((registration) => {
-    // Reload only when the visitor asked for the update: the first worker
-    // claims the page without one, so a first visit is one navigation.
+    // The first worker claims the page without a reload.
     let asked = false;
     const offer = (worker) => {
       if (!navigator.serviceWorker.controller) return;
@@ -127,25 +112,19 @@ function offline() {
   else addEventListener("load", register, { once: true });
 }
 
-// Every answer is coloured by what app.json says it means: a positive answer
-// green, a negative answer or the refusal red, anything else neutral. A
-// runtime error is red too. An entry ending in "*" matches a prefix.
+// An answer's meaning, from app.json ("*" ends a prefix).
 const matches = (text, list) => (list ?? []).some((e) => (e.endsWith("*") ? text.startsWith(e.slice(0, -1)) : text === e));
 function answerState(text) {
-  if (matches(text, data.answers.positive)) return "good";
-  if (text === data.answers.refusal || matches(text, data.answers.negative)) return "bad";
-  return "wait";
+  if (matches(text, data.answers?.positive)) return "good";
+  if (text === data.answers?.refusal) return "refuse";
+  if (matches(text, data.answers?.negative)) return "bad";
+  return "";
 }
 
-// The frame, the runtime and the holo are fetched after the page's text has
-// painted: everything above the fold is in the HTML already, and nothing they
-// add is needed to read the page, so the first paint waits for nothing. That
-// is the first contentful paint, not the first frame: the brand's fonts are
-// font-display: optional, so the first frame can paint the ground with no
-// text, and a request started then lands inside the paint as Lighthouse
-// simulates it on a phone (the frame's host is a new connection, and the
-// runtime a chain of modules), which kept every app's LCP over its 1.5 s
-// budget. A tab opened in the background paints nothing, so a timer stands in.
+// The frame, runtime and holo wait for the first contentful paint (the fonts
+// are optional, so the first frame may have no text): fetched earlier, they
+// pushed every app's LCP past 1.5 s on a simulated phone. A background tab
+// never paints, so a timer stands in.
 const afterFirstFrame = () => new Promise((resolve) => {
   const after = () => requestAnimationFrame(() => setTimeout(resolve, 0));
   setTimeout(resolve, 1000);
@@ -162,10 +141,8 @@ const afterFirstFrame = () => new Promise((resolve) => {
   }
 });
 
-// The guest runs in a worker, so a slow request or the replay of the
-// examples never blocks the page. The worker receives the guest bytes of the
-// archive verified on this page and runs them with the runtime's own guest
-// loop. Without workers, the verified instance runs here.
+// The verified guest runs in a worker, so nothing blocks the page; without
+// workers it runs here.
 async function offThread(app) {
   if (typeof Worker !== "function") return app;
   const { resolveArchive } = await import("./vendor/prism-code/src/index.mjs");
@@ -179,8 +156,7 @@ async function offThread(app) {
     if (reply.ok) settle.resolve(reply.value);
     else settle.reject(new Error(reply.error));
   };
-  // A worker that fails to load or crashes answers nothing: every waiting
-  // call fails, so the page falls back to the instance it verified.
+  // A crashed worker fails every call; the page falls back to the instance.
   worker.onerror = (event) => {
     event.preventDefault?.();
     for (const settle of waiting.values()) settle.reject(new Error("the guest worker failed"));
@@ -203,9 +179,7 @@ async function offThread(app) {
   };
 }
 
-// The app's own card (site/card.mjs, when the app has one) starts with the
-// same verified instance the identity shows, or with null and the reason
-// when there is none, so it can say why it stays off.
+// The app's own card.mjs gets the verified instance, or null and the reason.
 async function card(runner, reason) {
   if (!data.card) return;
   try {
@@ -216,11 +190,111 @@ async function card(runner, reason) {
   }
 }
 
+// The spec opens beside the window (the frame reads --prism-aside); #spec,
+// "." and Escape open and close it. Its content (spec.mjs) loads on first open.
+const checked = { fingerprint: "", result: null };
+let specModule = null;
+function spec() {
+  const root = document.documentElement;
+  const aside = $("spec");
+  const link = $("open-spec");
+  let loading = null;
+  const set = (open, focus = true) => {
+    root.classList.toggle("spec-open", open);
+    aside.inert = !open;
+    link.setAttribute("aria-expanded", String(open));
+    if (open && location.hash !== "#spec") history.replaceState(null, "", "#spec");
+    if (!open && location.hash === "#spec") history.replaceState(null, "", location.pathname + location.search);
+    if (focus) (open ? aside : link).focus({ preventScroll: true });
+    loading ??= open ? import("./spec.mjs").then(async (module) => {
+      await module.mount($("spec-body"), checked);
+      specModule = module;
+    }).catch((error) => {
+      loading = null;
+      $("spec-body").textContent = `The spec could not load: ${describe(error)}`;
+    }) : null;
+  };
+  link.addEventListener("click", (event) => { event.preventDefault(); set(true); });
+  $("close-spec").addEventListener("click", () => set(false));
+  addEventListener("hashchange", () => set(location.hash === "#spec"));
+  addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && root.classList.contains("spec-open")) set(false);
+    const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName ?? "");
+    if (event.key === "." && !typing && !event.metaKey && !event.ctrlKey && !event.altKey) set(!root.classList.contains("spec-open"));
+  });
+  if (location.hash === "#spec") set(true, false);
+}
+const report = (result) => {
+  checked.result = result;
+  specModule?.apply(checked);
+};
+
+// Answer as the visitor types; keep a request once they pause, press Enter or pick one.
+function workspace(runner) {
+  const input = $("input");
+  if (!input) return;
+  const out = $("out");
+  const hist = $("hist");
+  const size = () => input.style.setProperty("--chars", String(Math.max((input.value || input.placeholder).length, 4)));
+  let seq = 0;
+  let settle = 0;
+  let last = "";
+  const remember = (text, response) => {
+    if (!text || text === last) return;
+    last = text;
+    const row = document.createElement("li");
+    const again = document.createElement("button");
+    again.type = "button";
+    again.className = "again";
+    const req = document.createElement("span");
+    req.textContent = text.length > 22 ? `${text.slice(0, 20)}…` : text;
+    const tag = document.createElement("span");
+    tag.className = `tag ${answerState(response)}`;
+    tag.textContent = response.length > 18 ? `${response.length} bytes` : response;
+    again.append(req, tag);
+    again.addEventListener("click", () => { input.value = text; answer(true); input.focus(); });
+    row.append(again);
+    hist.prepend(row);
+    while (hist.children.length > 30) hist.lastChild.remove();
+  };
+  async function answer(commit = false) {
+    const text = input.value;
+    const n = ++seq;
+    size();
+    clearTimeout(settle);
+    if (text === "") {
+      out.textContent = "—";
+      out.className = "idle";
+      return;
+    }
+    if (!runner) return;
+    let response;
+    try {
+      response = show(await runner.dispatch(parse(text)));
+    } catch (error) {
+      response = error?.message === "malformed hex" ? data.answers?.refusal ?? "invalid request" : `dispatch failed: ${describe(error)}`;
+    }
+    if (n !== seq) return;
+    const state = answerState(response);
+    out.textContent = state === "refuse" ? `Not a valid ${(data.inputLabel || "request").toLowerCase()}` : response.charAt(0).toUpperCase() + response.slice(1);
+    out.className = state;
+    if (commit) remember(text, response);
+    else settle = setTimeout(() => remember(text, response), 900);
+  }
+  input.addEventListener("input", () => answer());
+  input.addEventListener("keydown", (event) => { if (event.key === "Enter") answer(true); });
+  for (const button of $("tries").querySelectorAll("button[data-request]")) {
+    button.addEventListener("click", () => { input.value = button.dataset.request; answer(true); input.focus({ preventScroll: true }); });
+  }
+  size();
+  if (input.value) answer();
+}
+
 async function main() {
-  // The bar is already drawn (the page's stand-in, as the bar will be); the
-  // live frame takes it over once the text has painted.
+  // The stand-in bar is drawn; the live frame replaces it after first paint.
   afterFirstFrame().then(frame);
   offline();
+  spec();
 
   let app;
   try {
@@ -228,94 +302,36 @@ async function main() {
     const { load } = await import("./vendor/prism-code/src/browser.mjs");
     app = await load("./app.holo");
   } catch (error) {
-    chip($("verified"), `failed to load: ${describe(error)}`, "bad");
-    chip($("replayed"), "no app", "bad");
     verdict("bad", "The app failed to load");
+    replayed("error");
+    report({ error: `the app failed to load: ${describe(error)}` });
     await card(null, "no app");
     return;
   }
 
   const { identities } = app;
   const runner = await offThread(app);
-  chip($("verified"), identities.verified ? "verified" : "NOT verified", identities.verified ? "good" : "bad");
-  verdict(identities.verified ? "good" : "bad", identities.verified ? "Verified in this browser" : "NOT verified", identities.archiveFingerprint);
-  $("fingerprint").textContent = identities.archiveFingerprint;
-  $("limits").textContent = app.limits
-    ? `request ${app.limits.request} bytes, response ${app.limits.response} bytes, guest ${app.limits.guestAllocation} bytes`
-    : "unknown";
-  card(identities.verified ? runner : null, identities.verified ? "" : "not verified");
-
-  $("copy").addEventListener("click", async () => {
-    try {
-      await navigator.clipboard.writeText(identities.archiveFingerprint);
-      $("copy").textContent = "Copied";
-      setTimeout(() => ($("copy").textContent = "Copy"), 1500);
-    } catch {
-      $("copy").textContent = "Select it";
-    }
-  });
-
-  for (const vector of app.vectors) {
-    const row = document.createElement("tr");
-    const request = document.createElement("td");
-    const use = document.createElement("button");
-    use.type = "button";
-    use.className = "use";
-    const text = show(vector.request);
-    if (text.length > 48) {
-      const shown = `${text.slice(0, 24)} … ${text.slice(-8)}`;
-      use.textContent = shown;
-      const note = document.createElement("div");
-      note.className = "long";
-      note.textContent = `${vector.request.length} bytes`;
-      use.setAttribute("aria-label", `${shown}, ${vector.request.length} bytes`);
-      request.append(use, note);
-    } else {
-      use.textContent = text === "" ? "(empty)" : text;
-      request.append(use);
-    }
-    use.addEventListener("click", () => {
-      $("request").value = text;
-      $("request").focus();
-    });
-    const answer = document.createElement("td");
-    const state = document.createElement("span");
-    chip(state, show(vector.response), answerState(show(vector.response)));
-    answer.append(state);
-    row.append(request, answer);
-    $("examples").append(row);
+  const ok = identities.verified;
+  verdict(ok ? "good" : "bad", ok ? "Verified in this browser" : "NOT verified", identities.archiveFingerprint);
+  checked.fingerprint = identities.archiveFingerprint;
+  workspace(ok ? runner : null);
+  card(ok ? runner : null, ok ? "" : "not verified");
+  if (!ok) {
+    replayed("error");
+    report({ error: "not verified: nothing replays" });
+    return;
   }
 
-  $("form").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const raw = $("request").value;
-    $("echo").textContent = raw === "" ? "(empty)" : raw;
-    try {
-      const response = show(await runner.dispatch(parse(raw)));
-      chip($("response"), response, answerState(response));
-    } catch (error) {
-      chip($("response"), `dispatch failed: ${describe(error)}`, "bad");
-    }
-  });
-
-  async function replay() {
-    const button = $("replay");
-    button.disabled = true;
-    chip($("replayed"), "replaying", "wait");
-    replayed("running");
-    try {
-      const result = await runner.acceptance();
-      chip($("replayed"), `${result.passed} of ${result.total} passed`, result.passed === result.total ? "good" : "bad");
-      replayed(`${result.passed}/${result.total}`);
-    } catch (error) {
-      chip($("replayed"), `failed: ${describe(error)}`, "bad");
-      replayed("error");
-    } finally {
-      button.disabled = false;
-    }
+  // The replay feeds the shield and marks each example in the spec.
+  replayed("running");
+  try {
+    const result = await runner.acceptance();
+    replayed(`${result.passed}/${result.total}`);
+    report({ total: result.total, passed: result.passed, failed: (result.failed ?? []).map((f) => f.index) });
+  } catch (error) {
+    replayed("error");
+    report({ error: `failed: ${describe(error)}` });
   }
-  $("replay").addEventListener("click", replay);
-  await replay();
 }
 
 main();

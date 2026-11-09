@@ -33,9 +33,12 @@
 // The shield sums the three: green only when the bytes are authentic and
 // every example gives its proved answer; its panel shows each check, as a
 // browser shows a page's security.
-// The frame owns the theme: light, dark or immersive. It sets the dark and
-// immersive classes on <html> and remembers the choice as "prism-theme" (and
-// the photo as "prism-backdrop"), as the page's theme bootstrap reads.
+// The frame owns the theme: light, dark or immersive, plain dark by default.
+// It sets the dark and immersive classes on <html> and remembers the choice
+// as "prism-theme" (and the photo as "prism-backdrop"), as the page's theme
+// bootstrap reads.
+// The window and the bar end --prism-aside from the right edge (0 unless the
+// page sets it on <html>), so a page can open a panel beside its window.
 
 const CSS = "/*CSS*/";
 const BRAND = "/*BRAND*/";
@@ -464,11 +467,13 @@ class PrismFrame extends Element {
     if (!document.adoptedStyleSheets.includes(backdropSheet)) {
       document.adoptedStyleSheets = [...document.adoptedStyleSheets, backdropSheet];
     }
-    // Immersive is the default: a visitor who has chosen nothing gets it. A
-    // page built before immersive existed reads both as its own default; the
-    // frame corrects it, once, as it arrives.
+    // Plain dark is the default: a visitor who has chosen nothing gets the
+    // warm dark ground, and immersive is one choice away in the theme panel.
+    // A page built when immersive was the default sets it before first paint;
+    // the frame corrects it, once, as it arrives.
     const chosen = storedTheme().mode;
-    if (chosen !== "light" && chosen !== "dark") document.documentElement.classList.add("dark", "immersive");
+    if (chosen !== "light") document.documentElement.classList.add("dark");
+    if (chosen !== "immersive") document.documentElement.classList.remove("immersive");
     this.render();
     this.watchTheme();
     this.watchHeight();

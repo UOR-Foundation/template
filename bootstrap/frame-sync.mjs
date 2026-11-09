@@ -41,6 +41,8 @@ const FRAME = [
   "site/guest-worker.mjs",
   "site/page.template.html",
   "site/prism-page.css",
+  "site/spec.css",
+  "site/spec.mjs",
   "site/sw.js",
   "site/theme.js",
 ];
