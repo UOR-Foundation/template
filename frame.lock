@@ -15,7 +15,7 @@
     },
     {
       "path": "bootstrap/page.mjs",
-      "sha256": "d7be5909c0419ea566da7482b0d2f283e0151417d31fb5fb2463398ce301554c"
+      "sha256": "294f498e4a3aaa17afdcc55a30f3bff2f2008e85777a44b33222ab6697732930"
     },
     {
       "path": "bootstrap/precache.mjs",
