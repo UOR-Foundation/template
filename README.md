@@ -183,7 +183,7 @@ first. Every instance gets the same page; an app edits one file.
   46 px bar on the brand's chrome surface, and the app inside a rounded
   window inset 8 px from the screen's edges, as Lovable and Hologram OS show
   an app. The bar reads like Chrome's: home
-  ([holo-search](https://humuhumu33.github.io/holo-search/)), then the
+  ([holo-search](https://uor-foundation.github.io/holo-search/)), then the
   address across the bar, the shield first, then `holo://` and the app's
   name in lower case with hyphens (`holo://luhn-check`), and the share icon
   at its right end; then GitHub (the app's repository), the theme, and full
@@ -279,7 +279,7 @@ first. Every instance gets the same page; an app edits one file.
   like Chrome's. Focus it and it selects the address, a hairline in the UOR
   Foundation's colour spectrum runs round it, and it lists this app, every
   app in the Prism index (most stars first, each opening its own live page)
-  and every entry in [Holo Search](https://humuhumu33.github.io/holo-search/)'s
+  and every entry in [Holo Search](https://uor-foundation.github.io/holo-search/)'s
   registry, one row each: the app's icon (its live page's, else its initial
   on a hue taken from its fingerprint, as a browser shows a site with no
   icon), its name, its address or short hash, and on the right its GitHub

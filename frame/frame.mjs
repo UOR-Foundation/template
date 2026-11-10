@@ -42,7 +42,7 @@
 
 const CSS = "/*CSS*/";
 const BRAND = "/*BRAND*/";
-const HOME = "https://humuhumu33.github.io/holo-search/";
+const HOME = "https://uor-foundation.github.io/holo-search/";
 // The Prism registry: the canonical kappa registry. Its index lists every
 // Prism app by its self-verifying address; every address bar reads it.
 const REGISTRY = "https://registry.uor.foundation/";
