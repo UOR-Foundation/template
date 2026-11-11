@@ -6,14 +6,16 @@ on:
     branches: [main]
     tags: ['**']
   pull_request:
+  merge_group:
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# A newer push to a pull request cancels its older run. Every other run has a
-# group of its own, so a main or tag run is never cancelled, and never replaced
-# while queued, and every merged or released commit keeps its verdict.
+# A newer push to a pull request cancels its older run. Every other run (main,
+# a tag, a merge queue's) has a group of its own, so a main or tag run is never
+# cancelled, and never replaced while queued, and every merged or released
+# commit keeps its verdict.
 concurrency:
   group: ${{ github.event_name == 'pull_request' && format('bootstrap-pr-{0}', github.event.pull_request.number) || format('bootstrap-run-{0}', github.run_id) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -24,9 +26,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # A pull request runs the complete gate once, natively on amd64. Main and
-        # tags run it on both native architectures before anything is published.
-        runner: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-24.04"]' || '["ubuntu-24.04", "ubuntu-24.04-arm"]') }}
+        # A pull request, and a merge queue's run of it, run the complete gate
+        # once, natively on amd64. Main and tags run it on both native
+        # architectures before anything is published.
+        runner: ${{ fromJSON((github.event_name == 'pull_request' || github.event_name == 'merge_group') && '["ubuntu-24.04"]' || '["ubuntu-24.04", "ubuntu-24.04-arm"]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     steps:
@@ -35,6 +38,15 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      # Proving the application is the slowest part of the gate. A run keeps the
+      # proof here, keyed by every byte the proof reads; `just app` reuses it only
+      # on a pull request or a merge queue run, whose merge commit main proves
+      # again in full. Main and tags always prove.
+      - name: The proof of these exact proof inputs, kept by an earlier run
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: .prism-proof
+          key: prism-proof-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('app/**', 'prismpm.lock', 'Justfile', 'rust-toolchain.toml') }}
       - name: Run the template gate through the locked SDK
         shell: bash
         run: |
@@ -63,6 +75,7 @@ jobs:
             --env BUILDX_CONFIG=/tmp/prismpm-buildx \
             --env HOME=/tmp/prismpm-home \
             --env PRISMPM_EPHEMERAL_HOME=1 \
+            --env PRISM_PROOF_EVENT=${{ github.event_name }} \
             --env SDK_IMAGE="$image" \
             "$image" bash -c '
               set -euo pipefail

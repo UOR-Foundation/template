@@ -126,9 +126,9 @@ fn policy_boundary_is_canonical(universal: &[&str], project: &[&str], required: 
 /// replace a run: GitHub keeps one pending run per concurrency group, so a
 /// shared main group would silently drop the verdict of a queued commit.
 fn native_coverage_is_complete(bootstrap: &str) -> bool {
-    const TRIGGERS: &str = "on:\n  push:\n    branches: [main]\n    tags: ['**']\n  pull_request:\n  workflow_dispatch:\n\n";
+    const TRIGGERS: &str = "on:\n  push:\n    branches: [main]\n    tags: ['**']\n  pull_request:\n  merge_group:\n  workflow_dispatch:\n\n";
     const BOTH: &str = "[ubuntu-24.04, ubuntu-24.04-arm]";
-    const PULL_REQUEST_AMD64: &str = r#"${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-24.04"]' || '["ubuntu-24.04", "ubuntu-24.04-arm"]') }}"#;
+    const PULL_REQUEST_AMD64: &str = r#"${{ fromJSON((github.event_name == 'pull_request' || github.event_name == 'merge_group') && '["ubuntu-24.04"]' || '["ubuntu-24.04", "ubuntu-24.04-arm"]') }}"#;
     const GROUP: &str = "${{ github.event_name == 'pull_request' && format('bootstrap-pr-{0}', github.event.pull_request.number) || format('bootstrap-run-{0}', github.run_id) }}";
     const CANCEL: &str = "${{ github.event_name == 'pull_request' }}";
     let values = |key: &str| {
@@ -160,6 +160,55 @@ fn native_coverage_is_complete(bootstrap: &str) -> bool {
         && values("runs-on:") == ["${{ matrix.runner }}"]
         && ((groups.is_empty() && cancels.is_empty()) || (groups == [GROUP] && cancels == [CANCEL]))
         && !skips_runs
+}
+
+/// A pull request or a merge queue run may reuse the proof of byte-identical
+/// proof inputs, for the reason a pull request may run on amd64 alone: its
+/// merge commit is proved again, in full, on main. That is only sound while the
+/// cache key names every input the proof reads, the event reaches `just app`
+/// unchanged, and `just app` reuses for those two events and no other, so a
+/// main push, a tag and a local run always prove.
+fn proof_reuse_is_confined(bootstrap: &str, justfile: &str) -> bool {
+    const KEY: &str = "key: prism-proof-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('app/**', 'prismpm.lock', 'Justfile', 'rust-toolchain.toml') }}";
+    const EVENT: &str = r"--env PRISM_PROOF_EVENT=${{ github.event_name }} \";
+    const PATTERN: &str = "pull_request|merge_group)";
+    let lines: Vec<_> = bootstrap.lines().map(str::trim).collect();
+    let keys: Vec<_> = lines
+        .iter()
+        .copied()
+        .filter(|line| line.starts_with("key: prism-proof-"))
+        .collect();
+    let events: Vec<_> = lines
+        .iter()
+        .copied()
+        .filter(|line| line.contains("PRISM_PROOF_EVENT"))
+        .collect();
+    let Some(start) = justfile.find("\napp:\n") else {
+        return false;
+    };
+    let recipe: Vec<_> = justfile[start + 1..]
+        .lines()
+        .skip(1)
+        .take_while(|line| line.starts_with("    ") || line.is_empty())
+        .map(str::trim)
+        .collect();
+    let uses: Vec<_> = recipe
+        .iter()
+        .copied()
+        .filter(|line| line.contains("PRISM_PROOF_EVENT"))
+        .collect();
+    let patterns: Vec<_> = recipe
+        .iter()
+        .copied()
+        .filter(|line| line.ends_with(')') && !line.starts_with('(') && !line.contains(' '))
+        .collect();
+    keys == [KEY]
+        && events == [EVENT]
+        && lines.contains(&"path: .prism-proof")
+        && uses == [r#"case "${PRISM_PROOF_EVENT:-}" in"#]
+        && patterns == [PATTERN]
+        && recipe.contains(&"prismpm --project app verify | tee .prism-proof.log")
+        && justfile.matches("PRISM_PROOF_EVENT").count() == 2
 }
 
 fn workflow_history_is_complete(source: &str) -> bool {
@@ -550,6 +599,12 @@ pub fn audit(root: &Path) -> Result<(), Fail> {
                 .into(),
         );
     }
+    if !proof_reuse_is_confined(&bootstrap, &read(root, "Justfile")?) {
+        return Err(
+            "bootstrap.yml and the Justfile may reuse a proof only on a pull request or a merge queue run, keyed by every proof input"
+                .into(),
+        );
+    }
     if !native_coverage_is_complete(&bootstrap) {
         return Err(
             "bootstrap.yml must run the complete gate on both native architectures for every main push and tag, and never cancel or replace those runs"
@@ -648,9 +703,9 @@ mod tests {
     use super::{
         action_reference_is_pinned, content_matches, dependency_updates_are_confined,
         docker_credentials_are_confined, immutable_image, native_coverage_is_complete,
-        pipeline_lifecycle_is_complete, policy_boundary_is_canonical, sha256,
-        update_preserves_project_content, workflow_history_is_complete, PROJECT_CONTENT_PATHS,
-        UNIVERSAL_POLICY_PATHS,
+        pipeline_lifecycle_is_complete, policy_boundary_is_canonical, proof_reuse_is_confined,
+        sha256, update_preserves_project_content, workflow_history_is_complete,
+        PROJECT_CONTENT_PATHS, UNIVERSAL_POLICY_PATHS,
     };
 
     #[test]
@@ -695,7 +750,7 @@ mod tests {
         // Running both architectures on every event, without concurrency, is
         // stronger than the policy and stays admissible.
         let mut unconditional = bootstrap.replace(
-            r#"${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-24.04"]' || '["ubuntu-24.04", "ubuntu-24.04-arm"]') }}"#,
+            r#"${{ fromJSON((github.event_name == 'pull_request' || github.event_name == 'merge_group') && '["ubuntu-24.04"]' || '["ubuntu-24.04", "ubuntu-24.04-arm"]') }}"#,
             "[ubuntu-24.04, ubuntu-24.04-arm]",
         );
         let concurrency = unconditional
@@ -706,6 +761,61 @@ mod tests {
             .expect("the workflow has jobs");
         unconditional.replace_range(concurrency..jobs, "");
         assert!(native_coverage_is_complete(&unconditional));
+    }
+
+    #[test]
+    fn widened_proof_reuse_plant_is_rejected() {
+        let bootstrap = include_str!("../../.github/workflows/bootstrap.yml");
+        let justfile = include_str!("../../Justfile");
+        assert!(proof_reuse_is_confined(bootstrap, justfile));
+        let key = "hashFiles('app/**', 'prismpm.lock', 'Justfile', 'rust-toolchain.toml')";
+        let event = "            --env PRISM_PROOF_EVENT=${{ github.event_name }} \\\n";
+        assert!(bootstrap.contains(key) && bootstrap.contains(event));
+        let plants = [
+            // A main push would reuse a proof instead of proving.
+            (
+                bootstrap.to_string(),
+                justfile.replace("pull_request|merge_group)", "pull_request|merge_group|push)"),
+            ),
+            // Any event would reuse it.
+            (bootstrap.to_string(), justfile.replace("pull_request|merge_group)", "*)")),
+            // The recipe stops proving altogether.
+            (
+                bootstrap.to_string(),
+                justfile.replace("prismpm --project app verify | tee", "true | tee"),
+            ),
+            // The cache key forgets the recipe, so a weakened recipe keeps an old proof.
+            (
+                bootstrap.replace(key, "hashFiles('app/**', 'prismpm.lock', 'rust-toolchain.toml')"),
+                justfile.to_string(),
+            ),
+            // The cache key forgets the application, so a changed model reuses an old proof.
+            (
+                bootstrap.replace(key, "hashFiles('prismpm.lock', 'Justfile', 'rust-toolchain.toml')"),
+                justfile.to_string(),
+            ),
+            // The event never reaches the recipe, which then cannot tell main from a pull request.
+            (bootstrap.replace(event, ""), justfile.to_string()),
+            // A second, unconfined use of the event in the recipe.
+            (
+                bootstrap.to_string(),
+                justfile.replace(
+                    "    prismpm --project app verify | tee",
+                    "    [[ $PRISM_PROOF_EVENT == push ]] && exit 0\n    prismpm --project app verify | tee",
+                ),
+            ),
+        ];
+        for (plant_bootstrap, plant_justfile) in &plants {
+            assert!(
+                plant_bootstrap != bootstrap || plant_justfile != justfile,
+                "every plant must change an input"
+            );
+            assert!(!proof_reuse_is_confined(plant_bootstrap, plant_justfile));
+        }
+        // The merge queue trigger is part of the fixed trigger block: dropping it is refused.
+        assert!(!native_coverage_is_complete(
+            &bootstrap.replace("  merge_group:\n", "")
+        ));
     }
 
     #[test]

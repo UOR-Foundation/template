@@ -31,6 +31,7 @@ or test is added without the other two.
 | `contract_tc_01` | `Conformant` drops the `bootstrap` conjunct, or `dispatch` answers on `true` instead of `conformant` | both rejected |
 | `prismpm verify` | an acceptance vector set without the exact guest-allocation boundary | rejected (PP2009) |
 | `audit-bootstrap` | a floating/copied action, mutable SDK tag, changed universal file, narrowed boundary, shallow/credential-retaining checkout, copied project renderer, omitted standards lock, acceptance bypass, deploy-job signing privilege, incomplete release lifecycle, or a bootstrap that drops a native architecture from main or tags, cancels or replaces a main run, or skips runs by path, condition or matrix exclusion | all rejected |
+| `audit-bootstrap` (`proof_reuse_is_confined`) | proof reuse widened to `push` or to any event, a recipe that stops proving, a cache key without the `Justfile` or without `app/**`, the event line removed from the gate, a second use of the event in the recipe, and the `merge_group` trigger dropped | all rejected |
 
 `audit-deferral` reads every crate and `xtask`, including itself. Its token
 construction therefore cannot exempt the very gate in which a deferral could
@@ -86,6 +87,41 @@ evaluated both expressions and started exactly one job,
 `acceptance / ubuntu-24.04`. That job then stopped before the gate, as every
 template run does, because the template commits no `prismpm.lock`. The main,
 tag and cancellation behavior have not yet run on a hosted runner.
+
+## A pull request reuses main's proof of byte-identical inputs
+
+Proving the application (`prismpm --project app verify`, Lean and leanchecker)
+is most of a pull request's gate: in UOR-Foundation/foundry it took 16 of 20
+minutes, on every pull request, including the many that change no proof input.
+The reasoning of the section above applies to it unchanged: a pull request's
+merge commit is proved again, in full, on main.
+
+`bootstrap.yml` now keeps the proof in `.prism-proof`, through `actions/cache`,
+keyed by every byte the proof reads: `app/**`, `prismpm.lock`, the `Justfile`
+and `rust-toolchain.toml`, per runner OS and architecture. It passes the event
+to the gate as `PRISM_PROOF_EVENT`. `just app` reuses a kept proof only when the
+event is `pull_request` or `merge_group`, and says so with the attestation it
+reuses. A main push, a tag and every local run prove in full and keep their
+proof. GitHub scopes caches by ref: a pull request can write only its own
+scope, and reads main's. A pull request could already change the `Justfile`
+to skip the proof on itself, so reuse gives a pull request no power it lacked.
+Main's verdict, which is what a release rests on, never reuses anything.
+
+`merge_group` joins the fixed trigger block, so a merge queue can require this
+gate. A merge queue run gets the pull request's amd64 matrix and its own
+concurrency group, and is never cancelled.
+
+`proof_reuse_is_confined`, part of `audit-bootstrap`, keeps the saving sound. It
+requires the exact cache key, the exact event line, and a `Justfile` `app`
+recipe whose only use of the event is one `case` with the single pattern
+`pull_request|merge_group)`, and which still runs `prismpm --project app verify`.
+`native_coverage_is_complete` requires `merge_group` in the triggers and the new
+matrix. The new test, `widened_proof_reuse_plant_is_rejected`, rejects every
+planted defect: reuse widened to `push`; reuse for any event; a recipe that
+stops proving; the `Justfile` or `app/**` dropped from the key; the event line
+removed; a second use of the event in the recipe; and `merge_group` dropped
+from the triggers. All 19 `xtask` tests passed in the locked SDK image, with
+formatting checked.
 
 ## Platform-indexed SDK bootstrap
 
