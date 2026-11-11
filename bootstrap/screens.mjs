@@ -82,6 +82,9 @@ for (const c of classes) {
     } catch {
       fail(where, "the canonical frame never loaded");
     }
+    // The holo verifies on a visitor's first start (app.mjs firstIntent); a
+    // key that types nothing is that start.
+    await page.keyboard.press("Shift");
     try {
       // The shield's replay, "passed/total", once every example has held.
       await page.waitForFunction(() => /^(\d+)\/\1$/.test(document.getElementById("frame")?.getAttribute("examples") ?? ""), null, { timeout: 20000 });

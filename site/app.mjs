@@ -141,6 +141,23 @@ const afterFirstFrame = () => new Promise((resolve) => {
   }
 });
 
+// The holo downloads and verifies on the visitor's first touch, key, scroll
+// or focus, not on load: a holo carries its own brand closure (fonts, icons),
+// a few hundred kilobytes that hashing would hold the main thread for, so
+// fetched eagerly it broke the page's size and blocking-time budget. Opening
+// the spec, or arriving with a request already typed, counts as a start.
+const firstIntent = () => new Promise((resolve) => {
+  const events = ["pointerdown", "keydown", "touchstart", "wheel", "focusin"];
+  const start = () => {
+    for (const name of events) removeEventListener(name, start, true);
+    removeEventListener("hashchange", start);
+    resolve();
+  };
+  if (location.hash || $("input")?.value) return start();
+  for (const name of events) addEventListener(name, start, { capture: true, passive: true });
+  addEventListener("hashchange", start);
+});
+
 // The verified guest runs in a worker, so nothing blocks the page; without
 // workers it runs here.
 async function offThread(app) {
@@ -299,6 +316,9 @@ async function main() {
   let app;
   try {
     await afterFirstFrame();
+    verdict("wait", "Verifies when you start");
+    await firstIntent();
+    verdict("wait", "Verifying in this browser");
     const { load } = await import("./vendor/prism-code/src/browser.mjs");
     app = await load("./app.holo");
   } catch (error) {
