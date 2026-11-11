@@ -21,8 +21,13 @@ export async function compileGuest(wasmBytes) {
   if (declaredImports.length !== 0) {
     fail('core.imports', `guest declares ${declaredImports.length} imports; the Core-Wasm contract allows none`, declaredImports);
   }
-  const exportNames = WebAssembly.Module.exports(module).map((e) => e.name).sort();
-  const expected = [...REQUIRED_EXPORTS].sort();
+  const exports = WebAssembly.Module.exports(module);
+  const exportNames = exports.map((e) => e.name).sort();
+  // A target/2 guest (SPEC.md, application V2) also exports its immutable
+  // __stack_low and __stack_high linker globals, both or neither.
+  const stack = exports.filter((e) => e.name === '__stack_low' || e.name === '__stack_high');
+  const v2 = stack.length === 2 && stack.every((e) => e.kind === 'global');
+  const expected = [...REQUIRED_EXPORTS, ...(v2 ? ['__stack_high', '__stack_low'] : [])].sort();
   if (exportNames.length !== expected.length || exportNames.some((n, i) => n !== expected[i])) {
     fail('core.exports', `guest exports ${JSON.stringify(exportNames)}, expected ${JSON.stringify(expected)}`);
   }
