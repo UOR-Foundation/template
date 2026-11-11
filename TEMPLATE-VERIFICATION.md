@@ -249,7 +249,7 @@ digest), each path in the drift report, and a `dispatch` decided by
 that `prismpm verify` runs before it checks the resulting holo, so the proof, the code
 and the observed behaviour ship as one artifact.
 
-Locally, with LexLean 0.3.0 (the SDK's compiler), `lexlean check` and
+Locally, with LexLean 0.4.0 (the SDK's compiler), `lexlean check` and
 `lexlean verify` passed, verifying three modules; both planted defects in the
 table above made `contract_tc_01` fail with a message naming the defect. The
 holo build and verify run in the pull request's bootstrap job inside the
