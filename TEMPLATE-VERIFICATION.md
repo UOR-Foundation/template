@@ -31,7 +31,8 @@ or test is added without the other two.
 | `contract_tc_01` | `Conformant` drops the `bootstrap` conjunct, or `dispatch` answers on `true` instead of `conformant` | both rejected |
 | `prismpm verify` | an acceptance vector set without the exact guest-allocation boundary | rejected (PP2009) |
 | `audit-bootstrap` | a floating/copied action, mutable SDK tag, changed universal file, narrowed boundary, shallow/credential-retaining checkout, copied project renderer, omitted standards lock, acceptance bypass, deploy-job signing privilege, incomplete release lifecycle, or a bootstrap that drops a native architecture from main or tags, cancels or replaces a main run, or skips runs by path, condition or matrix exclusion | all rejected |
-| `audit-bootstrap` (`proof_reuse_is_confined`) | proof reuse widened to `push` or to any event, a recipe that stops proving, a cache key without the `Justfile` or without `app/**`, the event line removed from the gate, a second use of the event in the recipe, and the `merge_group` trigger dropped | all rejected |
+| `audit-bootstrap` (`proof_reuse_is_confined`) | a cache key that omits any one of its eight proof inputs, the SDK digest named by a constant, the Lean toolchain read from another file, the ref spliced into the script or dropped, the event line removed, reuse on a tag or on any event, reuse without the read-time check, a stale kept proof surviving a full proof, a recipe that stops proving or keeps a proof without its inputs, a second use of the event, an early exit, and the `merge_group` trigger dropped | all rejected |
+| `xtask proof-reuse` (`binds`) | an attestation ID that does not resolve, a manifest, LexLean attestation or acceptance changed after sealing, a verdict that is not verified, an acceptance of another attestation, a changed model or meaning, another Lean, Lake, architecture or SDK image, a changed Lake workspace file, a modified input, inputs recorded for another attestation, and a Lake path outside `app/` | all proved again |
 
 `audit-deferral` reads every crate and `xtask`, including itself. Its token
 construction therefore cannot exempt the very gate in which a deferral could
@@ -122,6 +123,96 @@ stops proving; the `Justfile` or `app/**` dropped from the key; the event line
 removed; a second use of the event in the recipe; and `merge_group` dropped
 from the triggers. All 19 `xtask` tests passed in the locked SDK image, with
 formatting checked.
+
+## Main reuses its own proof of identical inputs, checked on read
+
+The section above kept main proving in full. Main then re-proved inputs it had
+already proved: in UOR-Foundation/foundry run 43197127999, a main push, `just
+app` took 420 s of a 624 s gate on amd64 and 630 s of an 818 s gate on arm64.
+Repeating a deterministic proof of the same inputs adds time, not evidence.
+What made reuse unsafe on main was that nothing checked a kept proof when it
+was read back. This change adds that check and then lets main reuse.
+
+The cache key now names every proof input: the runner OS and architecture, the
+SDK image digest and the Lean toolchain by value (a step reads them from
+`prismpm.lock` and `app/lean-toolchain`), and the hash of `app/**`,
+`prismpm.lock`, the `Justfile` and `rust-toolchain.toml`. The key is not
+trusted; it only finds a candidate. `xtask proof-reuse` reuses the candidate
+only when all of these hold:
+
+1. The attestation ID resolves. `prismpm verify` defines it as the SHA-256 of
+   the manifest it publishes under `app/.prism/verified/<id>/`; the kept
+   manifest must hash to the kept ID.
+2. The manifest binds the evidence. Its `lexlean_attestation_sha256` and
+   `acceptance_sha256` must equal the hashes of the kept LexLean attestation
+   and application acceptance, both must say `verified`, and the acceptance
+   must name that LexLean attestation and the manifest's build.
+3. The attestation binds this checkout and this image. Its source and semantic
+   IDs must equal what `lexlean check` computes from `app/` now (0.3 s). Its
+   Lean and Lake executable hashes must equal the executables in this image.
+   Its architecture must be this one. Its Lake workspace files must hash the
+   same in `app/`.
+4. The rest of the inputs are identical. `proof-keep` records, beside the ID,
+   the SDK image the run is in, the `prismpm` and `lexlean` versions, the
+   SHA-256 of every tracked file under `app/` and of `prismpm.lock`, the
+   `Justfile` and `rust-toolchain.toml`, and any modified or untracked input.
+   The record must be byte-identical to what this run computes.
+
+Any failure, including no kept proof, proves in full and prints the reason.
+`proof-keep` keeps every proof and reads it back through the same check, so a
+proof that would not be reusable fails the run that made it.
+
+`just app` now reuses on a pull request, a merge queue run and a push to
+`main`. A tag, a manual run and every local run prove in full. The event and
+its ref reach the recipe as `PRISM_PROOF_EVENT=<event>:<ref>` through the step
+environment, never spliced into the script, so a tag push
+(`push:refs/tags/...`) cannot match `push:refs/heads/main`.
+
+Who could have written a proof that main reuses: GitHub scopes caches by ref,
+and a run on `main` reads only main's scope. Only runs on `refs/heads/main`
+write it, and each of them proved in full before keeping. So main reuses only
+its own earlier proof of the same inputs. The read-time check makes a stale,
+partial or mismatched entry prove again; it does not authenticate an entry. A
+forged entry needs code running on `main`, which could already change what
+`main` runs. Releases are unaffected: tags still prove in full on both
+architectures.
+
+`proof_reuse_is_confined` holds the workflow and the recipe to this shape: the
+exact key, the exact step that names the SDK digest and the Lean toolchain, the
+event through the environment, and the recipe's reuse and proof line for line,
+with one exit. `widened_proof_reuse_plant_is_rejected` rejects 21 planted
+defects, among them a key that omits each of its eight inputs in turn.
+`a_kept_proof_that_does_not_bind_these_inputs_is_proved_again` rejects 16
+planted defects of the read-time check, one per binding, and
+`a_lake_file_outside_the_application_is_never_read` rejects four escaping Lake
+paths. All 22 `xtask` tests passed in the locked SDK image, with formatting and
+all-target Clippy at `-D warnings`.
+
+Run in the locked SDK image (`cd3b47d7`, amd64, WSL, on a machine shared with
+other proofs at load average 15 to 21):
+
+| Case | Result | Time |
+|---|---|---|
+| local run, nothing kept | proved, kept and read back, attestation `1e2f3136…` (the same ID an earlier independent proof produced) | 1047 s |
+| main push, kept proof of these inputs | reused `1e2f3136…` | `just app` 1.7 s |
+| pull request | reused | |
+| merge queue run | reused | |
+| tag push (`push:refs/tags/v9.9.9`) | went to the full proof | |
+| manual run on main, local run | went to the full proof | |
+| one byte appended to the kept manifest | proved in full: the manifest's address differs | |
+| kept ID `ffff…` | proved in full: the manifest's address differs | |
+| committed change to a model source | proved in full | |
+| committed change to `rust-toolchain.toml` | proved in full: the proof inputs differ | |
+| untracked file in `app/` | proved in full: the proof inputs differ | |
+| another `SDK_IMAGE` | proved in full: the proof inputs differ | |
+| `bootstrap.yml` key without the SDK digest, `template.lock` relocked to it | `audit-bootstrap` failed: `bootstrap.yml and the Justfile may reuse a proof only on a pull request, a merge queue run or a main push, keyed by every proof input and checked on read`; restored, it passed | |
+
+The tag push first ran `prismpm verify` in full; under that load the Hologram
+oracle's cargo build was killed (PP5301, SIGTERM), so the tag, manual and local
+cases were then repeated with `prismpm` replaced by a stub that reports it was
+called. The full proof itself passed in the first case.
+
+The whole `just vv`, run as a main push (`PRISM_PROOF_EVENT=push:refs/heads/main`) on these exact commits, passed in 157 s: every other part of the gate ran in full, and `app` reused `1e2f3136…`.
 
 ## Platform-indexed SDK bootstrap
 
