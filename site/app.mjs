@@ -247,7 +247,11 @@ const report = (result) => {
 };
 
 // Answer as the visitor types; keep a request once they pause, press Enter or pick one.
-function workspace(runner) {
+// The controls are live from first paint: verification starts on the first
+// touch, so the touch that starts it (a typed key, a picked example) must not
+// be lost. Until the holo is verified the answer says so, then the request
+// runs on the verified guest; an unverified holo answers nothing.
+function workspace(ready) {
   const input = $("input");
   if (!input) return;
   const out = $("out");
@@ -256,6 +260,8 @@ function workspace(runner) {
   let seq = 0;
   let settle = 0;
   let last = "";
+  let settled;
+  ready.then((runner) => { settled = runner; }, () => { settled = null; });
   const remember = (text, response) => {
     if (!text || text === last) return;
     last = text;
@@ -284,7 +290,18 @@ function workspace(runner) {
       out.className = "idle";
       return;
     }
-    if (!runner) return;
+    let runner = settled;
+    if (runner === undefined) {
+      out.textContent = "Verifying the app in this browser…";
+      out.className = "idle";
+      runner = await ready;
+      if (n !== seq) return;
+    }
+    if (!runner) {
+      out.textContent = "—";
+      out.className = "idle";
+      return;
+    }
     let response;
     try {
       response = show(await runner.dispatch(parse(text)));
@@ -313,6 +330,10 @@ async function main() {
   offline();
   spec();
 
+  let ready;
+  const verified = new Promise((resolve) => { ready = resolve; });
+  workspace(verified);
+
   let app;
   try {
     await afterFirstFrame();
@@ -325,6 +346,7 @@ async function main() {
     verdict("bad", "The app failed to load");
     replayed("error");
     report({ error: `the app failed to load: ${describe(error)}` });
+    ready(null);
     await card(null, "no app");
     return;
   }
@@ -334,7 +356,7 @@ async function main() {
   const ok = identities.verified;
   verdict(ok ? "good" : "bad", ok ? "Verified in this browser" : "NOT verified", identities.archiveFingerprint);
   checked.fingerprint = identities.archiveFingerprint;
-  workspace(ok ? runner : null);
+  ready(ok ? runner : null);
   card(ok ? runner : null, ok ? "" : "not verified");
   if (!ok) {
     replayed("error");
