@@ -163,7 +163,30 @@ pub struct Authorities {
     pub authority: Vec<AuthorityRow>,
 }
 
-/// A cited authority. Never re-derived, vendored, or gated on.
+/// The one rule for a cited authority and its artifact. `model/authorities.toml`
+/// states it in its header and `CONFORMANCE.md` is generated from this constant;
+/// there is no second wording to drift from it (R1).
+pub const AUTHORITY_RULE: &str = "An authority is cited, never re-derived, and never gated on: \
+what it states is not claimed as established here, so the claim that reproduces it stays \
+`some-true`, and that is all \"gated on\" excludes. Its artifact (a standard's text, a corpus) \
+may be committed when its row names the path in `artifact` and records in `checksum` a SHA-256 \
+over the committed bytes, which `cargo xtask check-model` recomputes; a conformance test may \
+then use a committed corpus as its oracle, as evidence for a `build` claim. With nothing \
+committed, `checksum` is `none` and `checksum_reason` says why.";
+
+/// A cited authority.
+///
+/// An authority is cited, never re-derived, and never gated on: what it states
+/// is not claimed as established here, so the claim that reproduces it stays
+/// `some-true`, and that is all "gated on" excludes. Its artifact (a standard's
+/// text, a corpus) may be committed when its row names the path in `artifact`
+/// and records in `checksum` a SHA-256 over the committed bytes, which `cargo
+/// xtask check-model` recomputes; a conformance test may then use a committed
+/// corpus as its oracle, as evidence for a `build` claim. With nothing
+/// committed, `checksum` is `none` and `checksum_reason` says why.
+///
+/// This is [`AUTHORITY_RULE`], word for word; a test holds the two and the header
+/// of `model/authorities.toml` to the same text.
 #[derive(Debug, Clone, Deserialize)]
 pub struct AuthorityRow {
     /// Stable identifier, e.g. `CL-MM01`.
@@ -172,11 +195,18 @@ pub struct AuthorityRow {
     pub name: String,
     /// What a third party needs to find the source.
     pub citation: String,
-    /// A checksum over the committed artifact, or `none`.
+    /// A SHA-256 over the committed [`Self::artifact`], as 64 lowercase hex
+    /// digits, or `none`. A file's is the SHA-256 of its bytes; a directory's is
+    /// the SHA-256 of its manifest, one `<sha256 of file>  <path>` line per file
+    /// in byte order of the paths.
     pub checksum: String,
     /// Why there is no checksum, when there is none.
     #[serde(default)]
     pub checksum_reason: String,
+    /// The committed file or directory the checksum is over, as a path relative
+    /// to the repository root. Absent when nothing of the authority is committed.
+    #[serde(default)]
+    pub artifact: Option<String>,
     /// What the authority says.
     pub statement: String,
     /// The conformance IDs that are evidence this library realizes it.
