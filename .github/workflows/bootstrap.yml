@@ -39,16 +39,31 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       # Proving the application is the slowest part of the gate. A run keeps the
-      # proof here, keyed by every byte the proof reads; `just app` reuses it only
-      # on a pull request or a merge queue run, whose merge commit main proves
-      # again in full. Main and tags always prove.
+      # proof here, keyed by every proof input: the runner, the SDK image digest
+      # and the Lean toolchain by value, and every byte the proof reads. The key
+      # only finds a candidate. `just app` reuses it on a pull request, a merge
+      # queue run or a main push only after `xtask proof-reuse` has checked that
+      # its attestation resolves and binds these exact inputs. Tags prove in full.
+      - name: Name the SDK image digest and the Lean toolchain the proof runs on
+        id: proof-inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdk=$(sed -n 's/.*"sdk_image":"[^"@]*@sha256:\([0-9a-f]\{64\}\)".*/\1/p' prismpm.lock)
+          lean=$(sed -n 's/^leanprover\/lean4:\(v[0-9A-Za-z.-]*\)$/\1/p' app/lean-toolchain)
+          test -n "$sdk"
+          test -n "$lean"
+          printf 'sdk=%s\nlean=%s\n' "$sdk" "$lean" >>"$GITHUB_OUTPUT"
       - name: The proof of these exact proof inputs, kept by an earlier run
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: .prism-proof
-          key: prism-proof-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('app/**', 'prismpm.lock', 'Justfile', 'rust-toolchain.toml') }}
+          key: prism-proof-${{ runner.os }}-${{ runner.arch }}-sdk-${{ steps.proof-inputs.outputs.sdk }}-lean-${{ steps.proof-inputs.outputs.lean }}-${{ hashFiles('app/**', 'prismpm.lock', 'Justfile', 'rust-toolchain.toml') }}
       - name: Run the template gate through the locked SDK
         shell: bash
+        # A ref is passed through the environment, never spliced into the script.
+        env:
+          PRISM_PROOF_EVENT: ${{ github.event_name }}:${{ github.ref }}
         run: |
           set -euo pipefail
           image=$(sed -n 's/.*"sdk_image":"\([^"]*\)".*/\1/p' prismpm.lock)
@@ -75,7 +90,7 @@ jobs:
             --env BUILDX_CONFIG=/tmp/prismpm-buildx \
             --env HOME=/tmp/prismpm-home \
             --env PRISMPM_EPHEMERAL_HOME=1 \
-            --env PRISM_PROOF_EVENT=${{ github.event_name }} \
+            --env PRISM_PROOF_EVENT \
             --env SDK_IMAGE="$image" \
             "$image" bash -c '
               set -euo pipefail
