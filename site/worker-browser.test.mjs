@@ -36,6 +36,10 @@ test.after(async () => { await browser.close(); server.close(); await rm(directo
 
 test("the production page verifies and replays in a real worker without main-thread fallback", async () => {
   const page = await browser.newPage();
+  const session = await page.context().newCDPSession(page);
+  const documentScripts = [];
+  session.on("Debugger.scriptParsed", ({ url }) => documentScripts.push(url));
+  await session.send("Debugger.enable");
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(url);
@@ -43,10 +47,10 @@ test("the production page verifies and replays in a real worker without main-thr
   assert.equal(await page.getAttribute("#frame", "verdict"), "good");
   assert.deepEqual(errors, []);
   assert.ok(page.workers().some((worker) => worker.url().endsWith("/guest-worker.mjs")));
-  const mainImports = await page.evaluate(() => performance.getEntriesByType("resource").map((entry) => entry.name).filter((name) => /\/(?:vendor\/prism-code|worker-runtime)\//.test(name)));
+  const mainImports = documentScripts.filter((name) => /\/(?:vendor\/prism-code|worker-runtime)\//.test(name));
   assert.deepEqual(mainImports, [], "runtime parsing and verification must stay off the document");
-  await page.fill("#input", "add 20 22");
-  await page.waitForFunction(() => document.getElementById("out")?.textContent === "42");
+  await page.fill("#input", "hex:3109616464093230093232");
+  await page.waitForFunction(() => document.getElementById("out")?.textContent === "1\tok\t42");
   await page.close();
 });
 
@@ -83,7 +87,22 @@ test("a fully cached page verifies in a worker and answers after network loss", 
   await page.reload();
   await page.waitForFunction(() => document.getElementById("frame")?.getAttribute("examples") === "22/22");
   assert.ok(page.workers().some((worker) => worker.url().endsWith("/guest-worker.mjs")));
-  await page.fill("#input", "add 20 22");
-  await page.waitForFunction(() => document.getElementById("out")?.textContent === "42");
+  await page.fill("#input", "hex:3109616464093230093232");
+  await page.waitForFunction(() => document.getElementById("out")?.textContent === "1\tok\t42");
   await context.close();
+});
+
+// Positive instrumentation control: if workers cannot start, the real verified
+// fallback compiles runtime scripts in this page target and must be detected.
+test("document execution instrumentation detects the real no-worker fallback", async () => {
+  const page = await browser.newPage();
+  await page.addInitScript(() => { globalThis.Worker = undefined; });
+  const session = await page.context().newCDPSession(page);
+  const documentScripts = [];
+  session.on("Debugger.scriptParsed", ({ url }) => documentScripts.push(url));
+  await session.send("Debugger.enable");
+  await page.goto(url);
+  await page.waitForFunction(() => document.getElementById("frame")?.getAttribute("examples") === "22/22");
+  assert.ok(documentScripts.some((name) => /\/vendor\/prism-code\//.test(name)), "the main-thread control must be visible to the worker-only assertion");
+  await page.close();
 });
