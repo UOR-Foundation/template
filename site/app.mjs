@@ -246,22 +246,67 @@ const report = (result) => {
   specModule?.apply(checked);
 };
 
-// Answer as the visitor types; keep a request once they pause, press Enter or pick one.
+// The form: a visitor types a request and presses the button or Enter, or
+// taps an example; the answer shows under it, line by line, with its state.
 // The controls are live from first paint: verification starts on the first
 // touch, so the touch that starts it (a typed key, a picked example) must not
 // be lost. Until the holo is verified the answer says so, then the request
-// runs on the verified guest; an unverified holo answers nothing.
+// runs on the verified guest; an unverified holo answers nothing, and says so.
+const STATES = { good: "Answer", bad: "Refused", refuse: "Not understood", wait: "Verifying", error: "Error" };
 function workspace(ready) {
   const input = $("input");
-  if (!input) return;
+  const form = $("ask");
+  if (!input || !form) return;
   const out = $("out");
+  const tag = $("state");
   const hist = $("hist");
-  const size = () => input.style.setProperty("--chars", String(Math.max((input.value || input.placeholder).length, 4)));
   let seq = 0;
-  let settle = 0;
+  let shown = 0;
   let last = "";
   let settled;
   ready.then((runner) => { settled = runner; }, () => { settled = null; });
+  const links = data.answerLinks ?? {};
+  // One line of the answer: "key value" shows the key quietly and the value
+  // plainly; a key app.json links (answerLinks, "{}" takes the value) links.
+  const line = (text) => {
+    const row = document.createElement("li");
+    const at = text.indexOf(" ");
+    if (at <= 0) { row.textContent = text; return row; }
+    const key = text.slice(0, at);
+    const value = text.slice(at + 1);
+    const k = document.createElement("span");
+    k.className = "key";
+    k.textContent = key.charAt(0).toUpperCase() + key.slice(1);
+    let v;
+    if (links[key] && /^[\w.:-]+$/.test(value)) {
+      v = document.createElement("a");
+      v.href = links[key].split("{}").join(encodeURIComponent(value));
+    } else {
+      v = document.createElement("span");
+    }
+    v.className = "val";
+    v.textContent = value;
+    row.append(k, v);
+    return row;
+  };
+  const say = (state, text, lines) => {
+    out.className = state;
+    if (lines) {
+      const list = document.createElement("ul");
+      list.className = "lines";
+      list.append(...lines.map(line));
+      out.replaceChildren(list);
+    } else {
+      out.textContent = text;
+    }
+    // Each answer is counted, so a test (and assistive tech) can tell a new
+    // answer from the one before.
+    if (state !== "idle" && state !== "wait") out.dataset.answers = String(++shown);
+    tag.hidden = state === "idle";
+    tag.className = `tag ${state}`;
+    tag.textContent = STATES[state] ?? "";
+    form.setAttribute("aria-busy", String(state === "wait"));
+  };
   const remember = (text, response) => {
     if (!text || text === last) return;
     last = text;
@@ -271,57 +316,60 @@ function workspace(ready) {
     again.className = "again";
     const req = document.createElement("span");
     req.textContent = text.length > 22 ? `${text.slice(0, 20)}…` : text;
-    const tag = document.createElement("span");
-    tag.className = `tag ${answerState(response)}`;
-    tag.textContent = response.length > 18 ? `${response.length} bytes` : response;
-    again.append(req, tag);
-    again.addEventListener("click", () => { input.value = text; answer(true); input.focus(); });
+    const t = document.createElement("span");
+    t.className = `tag ${answerState(response)}`;
+    t.textContent = STATES[answerState(response)] ?? "Answer";
+    again.append(req, t);
+    again.addEventListener("click", () => { input.value = text; answer(); });
     row.append(again);
     hist.prepend(row);
     while (hist.children.length > 30) hist.lastChild.remove();
   };
-  async function answer(commit = false) {
+  async function answer() {
     const text = input.value;
     const n = ++seq;
-    size();
-    clearTimeout(settle);
-    if (text === "") {
-      out.textContent = "—";
-      out.className = "idle";
+    if (text.trim() === "") {
+      say("refuse", `Type a ${(data.inputLabel || "request").toLowerCase()} first, or pick an example.`);
+      input.focus({ preventScroll: true });
       return;
     }
     let runner = settled;
     if (runner === undefined) {
-      out.textContent = "Verifying the app in this browser…";
-      out.className = "idle";
+      say("wait", "Checking this app in your browser before it answers. This takes a moment, once.");
       runner = await ready;
       if (n !== seq) return;
     }
     if (!runner) {
-      out.textContent = "—";
-      out.className = "idle";
+      say("error", "This app could not be verified in your browser, so it will not answer. Reload the page to try again.");
       return;
     }
     let response;
     try {
       response = show(await runner.dispatch(parse(text)));
     } catch (error) {
-      response = error?.message === "malformed hex" ? data.answers?.refusal ?? "invalid request" : `dispatch failed: ${describe(error)}`;
+      if (n !== seq) return;
+      if (error?.message === "malformed hex") response = data.answers?.refusal ?? "invalid request";
+      else {
+        say("error", `The app could not run this request: ${describe(error)}`);
+        return;
+      }
     }
     if (n !== seq) return;
     const state = answerState(response);
-    out.textContent = state === "refuse" ? `Not a valid ${(data.inputLabel || "request").toLowerCase()}` : response.charAt(0).toUpperCase() + response.slice(1);
-    out.className = state;
-    if (commit) remember(text, response);
-    else settle = setTimeout(() => remember(text, response), 900);
+    if (state === "refuse") say("refuse", `That is not a valid ${(data.inputLabel || "request").toLowerCase()}. Try one of the examples.`);
+    else {
+      const lines = response.split("\n").map((x) => x.trim()).filter(Boolean);
+      say(state, response, lines.length ? lines : [response]);
+    }
+    remember(text, response);
   }
-  input.addEventListener("input", () => answer());
-  input.addEventListener("keydown", (event) => { if (event.key === "Enter") answer(true); });
+  form.addEventListener("submit", (event) => { event.preventDefault(); answer(); });
+  // A new request clears the old answer, so nothing on screen answers
+  // something other than what is typed.
+  input.addEventListener("input", () => { seq++; if (out.className !== "idle") say("idle", data.idle ?? ""); });
   for (const button of $("tries").querySelectorAll("button[data-request]")) {
-    button.addEventListener("click", () => { input.value = button.dataset.request; answer(true); input.focus({ preventScroll: true }); });
+    button.addEventListener("click", () => { input.value = button.dataset.request; answer(); });
   }
-  size();
-  if (input.value) answer();
 }
 
 async function main() {

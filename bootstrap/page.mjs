@@ -36,10 +36,7 @@ const cardModule = await access(join(site, "card.mjs")).then(() => true, () => f
 // brand/hologram-warm.css and brand/fonts.css, both pinned by brand.lock.
 // Comments and indentation out: the stylesheet travels inside every page.
 const minify = (text) => text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]+/gm, "").replace(/\n{2,}/g, "\n").trim();
-// The display sizes its type to what it holds; its first size is set here,
-// from the placeholder, so the type does not shrink when the script arrives.
-const startChars = `#input{--chars:${Math.max(String(meta.placeholder ?? "").length, 4)}}`;
-const css = minify([await read("brand/hologram-warm.css"), await read("brand/fonts.css"), await read("prism-page.css"), card.html ? "" : startChars, card.css]
+const css = minify([await read("brand/hologram-warm.css"), await read("brand/fonts.css"), await read("prism-page.css"), card.css]
   .join("\n")
   .replace(/url\("\.\.\/fonts\//g, 'url("./fonts/'));
 const theme = (await read("theme.js")).trim();
@@ -316,18 +313,47 @@ const promise = (() => {
 })();
 
 // The surface: an app with its own (card.html) fills it from the slot script;
-// any other gets the display, its input as the largest thing on screen.
-const surface = card.html ? "" : `          <label class="display" for="input"><span class="k">${escape(meta.inputLabel ?? "Request")}</span><input id="input" autocomplete="off" spellcheck="false" enterkeyhint="go" inputmode="${escape(meta.inputMode ?? "numeric")}" placeholder="${escape(meta.placeholder ?? "")}" /><span class="rule" aria-hidden="true"></span></label>`;
-// Try: a few of the holo's own short examples, at most two per answer.
+// any other gets a form a visitor can read at a glance: what to type, a button
+// that runs it (Enter does too), examples that run on a tap, and the answer
+// under them, with a state for every moment (nothing yet, verifying, an answer,
+// a refusal, an error). The words come from app.json: inputLabel, submitLabel,
+// outputLabel, placeholder, hint.
+const submitLabel = meta.submitLabel ?? "Run";
+const outputLabel = meta.outputLabel ?? "Answer";
+const inputLabel = meta.inputLabel ?? "Request";
+const lower = (s) => s.charAt(0).toLowerCase() + s.slice(1);
+const idleText = `Type a ${lower(inputLabel)} and press ${submitLabel}, or pick an example.`;
+const hint = meta.hint ?? `Press Enter or ${submitLabel}. It runs in your browser, on the app this page verifies.`;
+// Try: a few of the holo's own short examples, at most two per answer, in
+// words a visitor could type (raw hex requests stay in the spec).
 const tries = card.html ? "" : (() => {
   const seen = new Map();
   return vectors.filter((v) => {
     const k = kind(v.res);
-    if (k === "refuse" || v.req === "" || v.req.length > 24 || (seen.get(k) ?? 0) >= 2) return false;
+    if (k === "refuse" || v.req === "" || v.req.length > 24 || v.req.startsWith("hex:") || (seen.get(k) ?? 0) >= 2) return false;
     seen.set(k, (seen.get(k) ?? 0) + 1);
     return true;
   }).map((v) => `<button type="button" data-request="${escape(v.req)}">${escape(v.req)}</button>`).join("");
 })();
+const surface = card.html ? "" : `          <div class="ask">
+            <form id="ask" class="ask-form" novalidate>
+              <label class="k" for="input">${escape(inputLabel)}</label>
+              <div class="ask-row"><input id="input" name="request" autocomplete="off" spellcheck="false" enterkeyhint="go" inputmode="${escape(meta.inputMode ?? "numeric")}" placeholder="${escape(meta.placeholder ?? "")}" aria-describedby="hint" /><button id="go" class="primary" type="submit">${escape(submitLabel)}</button></div>
+              <p class="hint" id="hint">${escape(hint)}</p>
+            </form>
+            <div class="actions"${tries ? "" : " hidden"}><p class="k" id="actions-k">Examples</p><div class="tries" id="tries">${tries}</div></div>
+            <section class="answer" id="result" aria-labelledby="answer-k">
+              <div class="answer-head"><h2 class="k" id="answer-k">${escape(outputLabel)}</h2><span id="state" class="tag" hidden></span></div>
+              <output id="out" for="input" class="idle" aria-live="polite">${escape(idleText)}</output>
+            </section>
+          </div>`;
+// The rail: for an app with its own surface, its result and controls; for any
+// other, what the app does in full, beside the form.
+const about = sentences(meta.purpose).filter((x) => x !== tagline).join(" ");
+const rail = card.html
+  ? `          <div class="result" id="result" aria-live="polite"><output id="out" class="idle">—</output></div>
+          <div class="actions"><p class="k" id="actions-k">Controls</p><div class="tries" id="tries"></div></div>`
+  : about ? `          <div class="about"><p class="k">What it does</p><p class="about-text">${escape(about)}</p></div>` : "";
 // The slot script: before first paint, it moves the parts of the app's own
 // surface into the workspace (data-slot names the place; the ids are the
 // first card's, read when an app has not marked its parts yet), so nothing
@@ -445,8 +471,7 @@ const fill = {
   ICON_DOC: ICON.doc,
   ICON_X: ICON.x,
   SURFACE: surface,
-  ACTIONS_LABEL: card.html ? "Controls" : "Try",
-  TRIES: tries,
+  RAIL: rail,
   CARD: cardBlock,
   VERSION: escape(model.cargo_version ? `v${model.cargo_version}` : ""),
   REPO: escape(meta.repository),
@@ -455,7 +480,7 @@ const fill = {
   IMPORTMAP: importmap,
   SPECULATION_RULES: speculationRules,
   FRAME_CONNECT: frameConnect,
-  APP_DATA: JSON.stringify({ answers: meta.answers, frame: frameHost.href, card: cardModule, inputLabel: meta.inputLabel ?? "" }).replace(/</g, "\\u003c"),
+  APP_DATA: JSON.stringify({ answers: meta.answers, frame: frameHost.href, card: cardModule, inputLabel, idle: idleText, answerLinks: meta.answerLinks ?? {} }).replace(/</g, "\\u003c"),
   CSP_SCRIPT_HASHES: [theme, importmap, speculationRules, ...(cardBlock ? [SLOT_SCRIPT] : [])].map(sha).join(" "),
   CSP_STYLE_HASHES: sha(css),
 };

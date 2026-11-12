@@ -335,28 +335,47 @@ h1 {
 }
 .k { margin: 0 0 var(--space-2); font-size: var(--text-14); color: var(--muted-foreground); }
 
-/* The input as a display: what you type is the largest thing on screen, and
- * it shrinks to fit however long it gets (app.mjs counts the characters). */
-.display { display: block; width: min(100%, 40rem); container-type: inline-size; cursor: text; }
-.display .k { margin-bottom: var(--space-1); }
-.display input {
-  display: block;
-  width: 100%;
-  padding: 0;
-  border: 0;
-  outline: 0;
-  background: none;
+/* The form: a label, a field and the button that runs it, a line on how,
+ * the examples, then the answer, which takes the rest of the stage and
+ * scrolls inside itself, so the page never moves when an answer arrives. */
+.stage:has(.ask) { place-items: stretch center; }
+.ask { width: min(100%, 44rem); min-height: 0; display: flex; flex-direction: column; gap: var(--space-6); }
+.ask-form { display: flex; flex-direction: column; gap: var(--space-2); }
+.ask-form .k { margin: 0; font-size: var(--text-16); font-weight: 500; color: var(--foreground); }
+.ask-row { display: flex; gap: var(--space-2); }
+.ask-row input {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--touch);
+  padding: 0 var(--space-4);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--card);
   color: var(--foreground);
-  caret-color: var(--foreground);
   font-family: var(--font-mono);
-  font-weight: 400;
-  font-size: min(7rem, 16vh, 100cqw * 1.5 / var(--chars, 4));
-  line-height: 1.15;
-  letter-spacing: -0.05em;
+  font-size: var(--text-18);
 }
-.display input::placeholder { color: color-mix(in oklab, var(--muted-foreground) 45%, transparent); }
-.display .rule { display: block; height: 2px; margin-top: var(--space-2); border-radius: 2px; background: linear-gradient(90deg, var(--foreground), transparent); opacity: 0.2; transition: opacity var(--duration) var(--ease); }
-.display:focus-within .rule { opacity: 0.5; }
+.ask-row input:focus-visible { border-color: var(--ring); }
+.ask-row input::placeholder { color: var(--muted-foreground); }
+.ask-row button { flex: none; min-height: var(--touch); padding: 0 var(--space-6); font-size: var(--text-16); }
+.hint { margin: 0; font-size: var(--text-14); color: var(--muted-foreground); }
+.ask .actions .k { margin-bottom: var(--space-2); }
+.answer { flex: 1; min-height: 6rem; display: flex; flex-direction: column; padding: var(--space-4); border: var(--border-width) solid var(--border); border-radius: var(--radius); background: var(--card); }
+.answer-head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-3); }
+.answer-head .k { margin: 0; font-family: var(--font-sans); font-weight: 500; }
+.answer output { flex: 1; min-height: 0; display: block; overflow-y: auto; scrollbar-width: thin; font-size: var(--text-18); line-height: 1.5; overflow-wrap: anywhere; }
+.answer output.idle, .answer output.wait { color: var(--muted-foreground); font-size: var(--text-16); }
+.answer output.refuse, .answer output.error { font-size: var(--text-16); }
+.answer .lines { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-2); }
+.answer .lines li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--space-3); }
+.answer .key { min-width: 5rem; font-size: var(--text-14); color: var(--muted-foreground); }
+.answer .val { font-family: var(--font-mono); color: var(--foreground); }
+.answer a.val { color: var(--foreground); text-decoration: underline; text-underline-offset: 0.2em; }
+.answer output.good .lines li:first-child .val { color: var(--success); }
+.tag.wait { background: var(--muted); color: var(--muted-foreground); }
+.tag.bad, .tag.refuse { background: var(--muted); color: var(--foreground); }
+.tag.error { background: var(--muted); color: var(--destructive); }
+.about-text { margin: 0; font-size: var(--text-14); line-height: 1.6; color: var(--muted-foreground); }
 
 /* Rail: the result, the actions, the history. */
 .result { flex: none; min-height: 4.25rem; display: flex; align-items: flex-start; }
@@ -381,7 +400,7 @@ h1 {
   padding: 0 var(--space-3);
   border-radius: 999px;
   background: transparent;
-  color: var(--muted-foreground);
+  color: var(--foreground);
   font-family: var(--font-mono);
   font-weight: 400;
 }
@@ -483,7 +502,11 @@ button.spec-x:hover { background: var(--accent); color: var(--foreground); }
     border-top: var(--border-width) solid var(--border);
     background: color-mix(in oklab, var(--background), var(--foreground) 2%);
   }
-  .rail .k, .history { display: none; }
+  .rail .k, .history, .about { display: none; }
+  .ws:has(.ask) { grid-template-rows: minmax(0, 1fr); }
+  .ws:has(.ask) .rail { display: none; }
+  .ask { gap: var(--space-4); }
+  .ask-row button { padding: 0 var(--space-4); }
   .result, .has-card .result { min-height: 2.5rem; align-items: center; }
   .result output { font-size: 2.25rem; }
   .result output.refuse { font-size: var(--text-16); }
@@ -497,6 +520,10 @@ button.spec-x:hover { background: var(--accent); color: var(--foreground); }
   .lede { display: none; }
   .head { padding-top: var(--space-2); }
   .stage { padding-block: var(--space-2); }
+  .ask { gap: var(--space-2); }
+  .hint, .ask-form .k { display: none; }
+  .answer { min-height: 4.5rem; padding: var(--space-2) var(--space-3); }
+  .answer-head { margin-bottom: var(--space-1); }
 }
 
 /* Immersive: the rail and the spec are frosted glass over the photo. */
