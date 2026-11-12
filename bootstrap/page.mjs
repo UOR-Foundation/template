@@ -325,13 +325,16 @@ const lower = (s) => s.charAt(0).toLowerCase() + s.slice(1);
 const idleText = `Type a ${lower(inputLabel)} and press ${submitLabel}, or pick an example.`;
 const hint = meta.hint ?? `Press Enter or ${submitLabel}. It runs in your browser, on the app this page verifies.`;
 // Try: a few of the holo's own short examples, at most two per answer, in
-// words a visitor could type (raw hex requests stay in the spec).
+// words a visitor could type in one line (raw hex requests and requests with
+// line breaks stay in the spec).
 const tries = card.html ? "" : (() => {
   const seen = new Map();
+  const asked = new Set();
   return vectors.filter((v) => {
     const k = kind(v.res);
-    if (k === "refuse" || v.req === "" || v.req.length > 24 || v.req.startsWith("hex:") || (seen.get(k) ?? 0) >= 2) return false;
+    if (k === "refuse" || v.req === "" || v.req.length > 24 || v.req.startsWith("hex:") || /[\u0000-\u001f]/.test(v.req) || asked.has(v.req) || (seen.get(k) ?? 0) >= 2) return false;
     seen.set(k, (seen.get(k) ?? 0) + 1);
+    asked.add(v.req);
     return true;
   }).map((v) => `<button type="button" data-request="${escape(v.req)}">${escape(v.req)}</button>`).join("");
 })();
