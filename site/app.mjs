@@ -33,9 +33,7 @@ function chip(element, text, state) {
   element.className = `chip chip-${state}`;
 }
 
-// The canonical <prism-frame>, run only if its bytes match the pointer's
-// SHA-256, so a template change reaches every app and nothing stands in for
-// it. ?frame=<sha256> pins one; offline, the service worker serves the last.
+// The canonical <prism-frame>, run only if it matches the pointer's SHA-256.
 async function frame() {
   if (customElements.get("prism-frame")) return;
   const host = new URL(data.frame);
@@ -121,10 +119,7 @@ function answerState(text) {
   return "";
 }
 
-// The frame, runtime and holo wait for the first contentful paint (the fonts
-// are optional, so the first frame may have no text): fetched earlier, they
-// pushed every app's LCP past 1.5 s on a simulated phone. A background tab
-// never paints, so a timer stands in.
+// Heavy work waits for first contentful paint (or a timer), to keep LCP low.
 const afterFirstFrame = () => new Promise((resolve) => {
   const after = () => requestAnimationFrame(() => setTimeout(resolve, 0));
   setTimeout(resolve, 1000);
@@ -141,11 +136,8 @@ const afterFirstFrame = () => new Promise((resolve) => {
   }
 });
 
-// The holo downloads and verifies on the visitor's first touch, key, scroll
-// or focus, not on load: a holo carries its own brand closure (fonts, icons),
-// a few hundred kilobytes that hashing would hold the main thread for, so
-// fetched eagerly it broke the page's size and blocking-time budget. Opening
-// the spec, or arriving with a request already typed, counts as a start.
+// The holo loads and verifies on the first touch, key, scroll or focus, not
+// on load, to keep the page within its size and blocking-time budget.
 const firstIntent = () => new Promise((resolve) => {
   const events = ["pointerdown", "keydown", "touchstart", "wheel", "focusin"];
   const start = () => {
@@ -246,12 +238,7 @@ const report = (result) => {
   specModule?.apply(checked);
 };
 
-// The form: a visitor types a request and presses the button or Enter, or
-// taps an example; the answer shows under it, line by line, with its state.
-// The controls are live from first paint: verification starts on the first
-// touch, so the touch that starts it (a typed key, a picked example) must not
-// be lost. Until the holo is verified the answer says so, then the request
-// runs on the verified guest; an unverified holo answers nothing, and says so.
+// The form, live from first paint; the answer shows under it with its state.
 const STATES = { good: "Answer", bad: "Refused", refuse: "Not understood", wait: "Verifying", error: "Error" };
 function workspace(ready) {
   const input = $("input");
@@ -266,8 +253,7 @@ function workspace(ready) {
   let settled;
   ready.then((runner) => { settled = runner; }, () => { settled = null; });
   const links = data.answerLinks ?? {};
-  // One line of the answer: "key value" shows the key quietly and the value
-  // plainly; a key app.json links (answerLinks, "{}" takes the value) links.
+  // "key value" lines; answerLinks link a value.
   const line = (text) => {
     const row = document.createElement("li");
     const at = text.indexOf(" ");
@@ -299,8 +285,7 @@ function workspace(ready) {
     } else {
       out.textContent = text;
     }
-    // Each answer is counted, so a test (and assistive tech) can tell a new
-    // answer from the one before.
+    // Counted, so a test can tell a new answer.
     if (state !== "idle" && state !== "wait") out.dataset.answers = String(++shown);
     tag.hidden = state === "idle";
     tag.className = `tag ${state}`;
@@ -364,8 +349,6 @@ function workspace(ready) {
     remember(text, response);
   }
   form.addEventListener("submit", (event) => { event.preventDefault(); answer(); });
-  // A new request clears the old answer, so nothing on screen answers
-  // something other than what is typed.
   input.addEventListener("input", () => { seq++; if (out.className !== "idle") say("idle", data.idle ?? ""); });
   for (const button of $("tries").querySelectorAll("button[data-request]")) {
     button.addEventListener("click", () => { input.value = button.dataset.request; answer(); });

@@ -35,7 +35,7 @@
     },
     {
       "path": "site/app.mjs",
-      "sha256": "1b48a22754315bacbf86d06532eeefd248488ccd54fd44d042e4c477695cdf61"
+      "sha256": "8ec5c53c8cde662a05592b1c9c2a36621fbff816c95849526b7fff88ba95e2b8"
     },
     {
       "path": "site/guest-worker.mjs",
