@@ -24,6 +24,12 @@ model does not sanction.
 | --- | --- | --- |
 | `TC-01` | `build` | The checker answers conformant exactly when every universal policy file's observed digest equals its locked digest |
 
+## frame
+
+| ID | Level | Statement |
+| --- | --- | --- |
+| `FR-01` | `build` | With a working worker, the page loads and verifies the archive only in that worker before using its identities or guest |
+
 ## Cited authorities
 
 Never re-derived, vendored, or gated on.

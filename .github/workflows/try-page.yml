@@ -34,6 +34,8 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Verify, answer add 20 22 and replay 22/22
         run: npm run test:try
+      - name: The frame verifies in a real module worker, refuses bad archives and works offline
+        run: node --test site/worker-browser.test.mjs
       - name: Prism accounts - every signature check refuses, and the passkey flow signs in
         run: npm run test:identity
       - name: Build the canonical frame every Prism app loads

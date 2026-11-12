@@ -11,8 +11,10 @@ import { access, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DEFAULT_REGISTRY } from "./register.mjs";
+import { prepareWorkerRuntime } from "./worker-runtime.mjs";
 
 const site = process.argv[2] ?? "site";
+await prepareWorkerRuntime(site);
 const read = (path) => readFile(join(site, path), "utf8");
 
 const escape = (text) =>
