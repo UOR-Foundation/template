@@ -2,7 +2,7 @@
 // cannot catch a bare node: import, because document import maps do not enter
 // workers. This assembles the production page with an existing locked fixture.
 import assert from "node:assert/strict";
-import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { extname, join, resolve } from "node:path";
@@ -105,4 +105,15 @@ test("document execution instrumentation detects the real no-worker fallback", a
   await page.waitForFunction(() => document.getElementById("frame")?.getAttribute("examples") === "22/22");
   assert.ok(documentScripts.some((name) => /\/vendor\/prism-code\//.test(name)), "the main-thread control must be visible to the worker-only assertion");
   await page.close();
+});
+
+test("a fresh no-holo scaffold renders from the authoritative runtime without staged vendor files", async () => {
+  const scaffold = await mkdtemp(join(tmpdir(), "frame-scaffold-"));
+  try {
+    await cp(join(root, "site"), scaffold, { recursive: true });
+    await assert.rejects(access(join(scaffold, "vendor")), { code: "ENOENT" });
+    execFileSync(process.execPath, [join(root, "bootstrap/page.mjs"), scaffold], { cwd: root, env, stdio: "inherit" });
+    assert.match(await readFile(join(scaffold, "index.html"), "utf8"), /Template contract/);
+    await access(join(scaffold, "worker-runtime/browser.mjs"));
+  } finally { await rm(scaffold, { recursive: true, force: true }); }
 });

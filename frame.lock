@@ -15,7 +15,7 @@
     },
     {
       "path": "bootstrap/page.mjs",
-      "sha256": "4adaeed646a29639c206b7866adc8beab5a4c78058f27fa4b6c050b834ffd0ef"
+      "sha256": "2df4ef057d37e778b04f67e4f63d862c7da6a77c301d0862b2bb8681fc8ec9d4"
     },
     {
       "path": "bootstrap/precache.mjs",
@@ -31,7 +31,7 @@
     },
     {
       "path": "bootstrap/worker-runtime.mjs",
-      "sha256": "bfe709826f6a27ab835b0d201c597109119b551de499a5c3ecdb36c23b66d626"
+      "sha256": "0f9fbb6ec4db48fb7f7c4b779a0494e95d5411e868b36e1e163e5173fcc34557"
     },
     {
       "path": "lighthouserc.json",

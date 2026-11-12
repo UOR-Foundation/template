@@ -14,7 +14,7 @@ let prepare;
 try { ({ prepareWorkerRuntime: prepare } = await import("../bootstrap/worker-runtime.mjs")); }
 catch (error) { if (error.code !== "ERR_MODULE_NOT_FOUND") throw error; }
 // The pre-implementation control links the actual unadapted production dependency graph.
-const output = prepare ? await prepare(temp) : join(temp, "vendor/prism-code/src");
+const output = prepare ? await prepare(temp, join(temp, "vendor")) : join(temp, "vendor/prism-code/src");
 async function linkGraph(entry) {
   const context = vm.createContext({ TextEncoder, TextDecoder, Uint8Array, WebAssembly, URL, crypto: globalThis.crypto });
   const cache = new Map();
@@ -53,7 +53,7 @@ test("unknown bare imports fail closed rather than falling back to page executio
   const file = join(temp, "vendor/prism-code/src/core.mjs");
   const before = await readFile(file, "utf8");
   await writeFile(file, before + '\nimport "unregistered-module";\n');
-  await assert.rejects(prepare(temp), /unregistered-module/);
+  await assert.rejects(prepare(temp, join(temp, "vendor")), /unregistered-module/);
   await writeFile(file, before);
 });
 test("a dependency leaving the locked runtime refuses assembly", async () => {
@@ -61,6 +61,14 @@ test("a dependency leaving the locked runtime refuses assembly", async () => {
   const file = join(temp, "vendor/prism-code/src/core.mjs");
   const before = await readFile(file, "utf8");
   await writeFile(file, before + '\nimport "../../../external.mjs";\n');
-  await assert.rejects(prepare(temp), /outside|unregistered/);
+  await assert.rejects(prepare(temp, join(temp, "vendor")), /outside|unregistered/);
   await writeFile(file, before);
+});
+test("packaging uses its explicit locked source even when the output has no vendor directory", async () => {
+  assert.equal(typeof prepare, "function");
+  const destination = join(temp, "fresh-scaffold");
+  const packaged = await prepare(destination, join(root, "try/vendor"));
+  const { module, files } = await linkGraph(join(packaged, "browser.mjs"));
+  assert.equal(typeof module.namespace.load, "function");
+  assert.equal(files.length, 11);
 });

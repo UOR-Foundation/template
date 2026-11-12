@@ -13,7 +13,7 @@ process.stdout.write(result.stdout ?? "");
 process.stderr.write(result.stderr ?? "");
 assert.ifError(result.error);
 assert.equal(result.status, 0, "FR-01 production frame regression failed");
-for (const [name, count] of Object.entries({ tests: 18, pass: 18, fail: 0, cancelled: 0, skipped: 0, todo: 0 })) {
+for (const [name, count] of Object.entries({ tests: 19, pass: 19, fail: 0, cancelled: 0, skipped: 0, todo: 0 })) {
   const values = [...result.stdout.matchAll(new RegExp(`^# ${name} (\\d+)$`, "gm"))];
   assert.equal(values.length, 1, `FR-01 requires one ${name} summary`);
   assert.equal(Number(values[0][1]), count, `FR-01 incomplete ${name} count`);

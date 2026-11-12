@@ -537,3 +537,12 @@ malformed archives, and offline reload. It runs in the existing browser workflow
 Local Chromium cannot launch in this executor (`socket() failed: Operation not
 permitted`), so browser results and the downstream Lighthouse improvement remain
 unqualified until hosted CI passes. Thresholds and CSP are unchanged.
+
+Independent review caught a local-render regression: reading `site/vendor`
+assumed production staging and stopped the documented no-holo scaffold render.
+The packager now requires an explicit input root; page assembly names its locked
+`../try/vendor`, while mutation fixtures name their isolated input directories.
+The added source-root control failed before the correction with ENOENT on the
+unstaged vendor directory. Nineteen Node controls pass after correction. A real
+no-holo/no-vendor scaffold render is also included in the browser lane. Production
+packaging remains unconditional; no gate or capability is skipped.

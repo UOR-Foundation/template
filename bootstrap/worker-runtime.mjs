@@ -9,14 +9,14 @@ const MODULES = ["browser.mjs", "index.mjs", "archive.mjs", "view.mjs", "core.mj
 const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const refusal = (message) => Object.assign(new Error(`frame.worker.bundle: ${message}`), { code: "frame.worker.bundle" });
 
-export async function prepareWorkerRuntime(site) {
+export async function prepareWorkerRuntime(site, vendor) {
   const output = join(site, "worker-runtime");
   const files = [];
   // Validate the whole graph before writing anything. Unknown imports are a
   // dependency change to review, never permission to fall back to the UI thread.
   for (const path of MODULES) {
     const source = `prism-code/src/${path}`;
-    const before = await readFile(join(site, "vendor", source), "utf8");
+    const before = await readFile(join(vendor, source), "utf8");
     let after = before;
     if (path === "canonical/index.js") {
       const alias = "from 'node:crypto'";
@@ -34,7 +34,7 @@ export async function prepareWorkerRuntime(site) {
     }
     files.push({ path, source, before, after });
   }
-  const shim = await readFile(join(site, "vendor/node-crypto-shim.mjs"), "utf8");
+  const shim = await readFile(join(vendor, "node-crypto-shim.mjs"), "utf8");
   files.push({ path: "node-crypto-shim.mjs", source: "node-crypto-shim.mjs", before: shim, after: shim });
   for (const file of files) {
     await mkdir(dirname(join(output, file.path)), { recursive: true });

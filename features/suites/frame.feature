@@ -20,7 +20,8 @@ Feature: frame
     And frame.worker.not-verified refuses use of unverified identities
     And frame.worker.request refuses an unknown operation
     And runtime archive rejection codes are final and never trigger page-side fallback
-    And all eighteen production-module controls execute without skips, filtering or cancellation
+    And all nineteen production-module controls execute without skips, filtering or cancellation
     And module workers resolve the same browser crypto adapter without a document import map
     And every runtime module keeps its locked bytes except that one import specifier
     And an unknown bare import refuses worker runtime assembly
+    And fresh scaffold rendering packages from the explicit locked source without requiring a staged vendor directory

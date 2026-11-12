@@ -14,7 +14,7 @@ import { DEFAULT_REGISTRY } from "./register.mjs";
 import { prepareWorkerRuntime } from "./worker-runtime.mjs";
 
 const site = process.argv[2] ?? "site";
-await prepareWorkerRuntime(site);
+await prepareWorkerRuntime(site, fileURLToPath(new URL("../try/vendor", import.meta.url)));
 const read = (path) => readFile(join(site, path), "utf8");
 
 const escape = (text) =>
