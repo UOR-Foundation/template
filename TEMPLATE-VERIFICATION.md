@@ -17,8 +17,8 @@ template contract checker in `app/`.
 Each check runs once per `just vv`. `just bdd` runs only the meta-gate while a
 scenario is being written; `just test` already includes it.
 
-The register holds one claim, `TC-01`, so the meta-gate checks a real row, a
-real scenario and a real test. It becomes an error as soon as an ID, scenario,
+The register holds `TC-01` and `FR-01`, so the meta-gate checks real rows,
+scenarios and tests. It becomes an error as soon as an ID, scenario,
 or test is added without the other two.
 
 ## Planted defects
@@ -451,3 +451,98 @@ commits and against mirrors served with `PRISM_TEMPLATE_RAW`:
 | a mirror's lock names a file its frame does not | refused: the lock's list against the frame's; nothing written |
 | a mirror's frame and lock both add `.github/workflows/x.yml` | refused: `names files outside the page`; nothing written |
 | an untouched mirror | pinned |
+
+## Archive verification stays off the UI thread (FR-01)
+
+The frame's normal worker path now sends an absolute archive URL, not already
+parsed guest bytes. The worker calls the locked `prism-code` browser loader and
+keeps that application for identities, dispatch and acceptance. The page never
+imports the archive runtime on that path. No runtime parser or verifier is copied.
+
+Absent workers, constructor errors and failed startup transport retain fully
+verified page-side loading. A worker reply carrying a runtime load refusal is
+final: it is never treated as unavailable transport. Unverified identities cannot
+enable the card or workspace and cannot dispatch or replay inside the worker.
+Runtime error codes survive the message boundary. Frame protocol failures are
+`frame.worker` (transport), `frame.worker.not-ready`, `frame.worker.initialized`,
+`frame.worker.not-verified`, and `frame.worker.request`, as specified in FR-01's
+scenario. After an initialized worker crashes, waiting and future calls fail;
+they are not silently re-executed on the page.
+
+`frame_fr_01` calls `node site/worker-gate.mjs` from the normal Rust test suite.
+The gate executes the complete production page and worker modules in isolated
+VM contexts. Browser APIs and the imported runtime are test doubles. Fourteen
+controls cover verified fallback, normal startup, exact identities, dispatch,
+acceptance mismatch indices, final archive refusal, unverified archives, protocol
+refusals, runtime codes, crashed/malformed transport, and latest-answer/Enter
+history UI ordering. The gate requires all fourteen controls to pass without
+skips, cancellation or todo entries; process success alone is not enough.
+
+The new capability's register, scenario and failing test preceded implementation.
+The baseline production-page test failed with `archive verification was imported
+on the UI thread before worker startup`; its no-worker control passed. Actual
+`just model-write` and read-back ran in the locked SDK in Foundry diagnostic run
+43059551107, bound to template base dfc09e61 and the preparation patch. Only its
+hash-verified generated `CONFORMANCE.md` was imported, never a handwritten
+projection. `frame.lock` was regenerated with the template's own
+`node bootstrap/frame-sync.mjs --lock` after implementation.
+
+Planted defects rejected by `node site/worker-gate.mjs` (all exit 1):
+- importing archive verification on the normal UI path;
+- retrying an archive refusal through page-side fallback;
+- allowing worker dispatch for unverified identities;
+- returning a different archive fingerprint;
+- dropping runtime refusal codes;
+- skipping the normal worker control;
+- omitting a fallback control.
+
+All fourteen controls passed again after restoring the production sources.
+Syntax checks, `frame-sync --check`, and whitespace checks also passed locally.
+A separate Node worker-thread adapter executed the unchanged production worker
+with the exact failed Foundry archive (385,046 bytes; SHA-256
+`b7b116cd0f20bca62b598a51867bd20a01a91ca122769f791b9ae0201ce61e93`) and the diagnostic
+artifact's actual runtime. All 114 acceptance vectors and 114 individual dispatch
+comparisons passed, with the original verified fingerprint. A changed model
+returned unverified identities and refused dispatch/replay; a malformed header
+preserved `archive.magic`. These are Node functional checks, not browser
+performance qualification, and the diagnostic inputs are not vendored here.
+
+Full locked-SDK `just vv` on the finished patch and browser/Lighthouse acceptance
+remain required. Local tooling did not support the SDK or browser launch. No
+performance threshold, universal policy, production dependency, or deployment
+gate was weakened. No production performance improvement is claimed until the
+original browser gate passes on the reviewed downstream import.
+
+### Browser worker module graph repair
+
+The earlier diagnostic ran the frame protocol against VM doubles but the real
+module worker could not import `node:crypto`. Document import maps do not apply
+to workers, so startup failed and the fully verified page fallback preserved
+correctness while retaining the original long task.
+
+The build now packages the exact locked runtime static module graph under
+`worker-runtime/`. All module bytes are unchanged except one import specifier:
+canonical/index.js selects the identical browser crypto refusal adapter already
+used by the page. No canonical hashing function is supplied or executed. The
+packager records source/output SHA-256 pairs and refuses unknown bare or escaping
+static imports with `frame.worker.bundle`. Source dependency files are untouched.
+The template's frame lock includes the packager, and page assembly always runs it.
+
+The real static module graph failed before implementation with `module workers
+cannot resolve bare specifier node:crypto`. All eighteen complete production
+controls now pass, including exact module bytes, graph linking and planted
+unknown/escaping imports. A separate real Chromium suite exercises the full page,
+absence of document-side runtime imports, 22/22 fixture acceptance and dispatch,
+malformed archives, and offline reload. It runs in the existing browser workflow.
+Local Chromium cannot launch in this executor (`socket() failed: Operation not
+permitted`), so browser results and the downstream Lighthouse improvement remain
+unqualified until hosted CI passes. Thresholds and CSP are unchanged.
+
+Independent review caught a local-render regression: reading `site/vendor`
+assumed production staging and stopped the documented no-holo scaffold render.
+The packager now requires an explicit input root; page assembly names its locked
+`../try/vendor`, while mutation fixtures name their isolated input directories.
+The added source-root control failed before the correction with ENOENT on the
+unstaged vendor directory. Nineteen Node controls pass after correction. A real
+no-holo/no-vendor scaffold render is also included in the browser lane. Production
+packaging remains unconditional; no gate or capability is skipped.
