@@ -335,16 +335,24 @@ h1 {
 }
 .k { margin: 0 0 var(--space-2); font-size: var(--text-14); color: var(--muted-foreground); }
 
+/* Where to go next, under the description: the first link is the main way on. */
+.head-nav { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-3); }
+.head-nav a { display: inline-flex; align-items: center; min-height: var(--control); padding: 0 var(--space-4); border: var(--border-width) solid var(--border); border-radius: var(--radius-control); color: var(--foreground); font-size: var(--text-14); font-weight: 500; text-decoration: none; transition: background var(--duration) var(--ease); }
+.head-nav a:hover { background: var(--accent); }
+.head-nav a:first-child { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); }
+.head-nav a:first-child:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+
 /* The form: a label, a field and the button that runs it, a line on how,
  * the examples, then the answer, which takes the rest of the stage and
  * scrolls inside itself, so the page never moves when an answer arrives. */
-.stage:has(.ask) { place-items: stretch center; }
+.stage:has(.ask) { grid-template-columns: minmax(0, 1fr); place-items: stretch center; }
 .ask { width: min(100%, 44rem); min-height: 0; display: flex; flex-direction: column; gap: var(--space-6); }
 .ask-form { display: flex; flex-direction: column; gap: var(--space-2); }
 .ask-form .k { margin: 0; font-size: var(--text-16); font-weight: 500; color: var(--foreground); }
 .ask-row { display: flex; gap: var(--space-2); }
 .ask-row input {
   flex: 1;
+  width: 0;
   min-width: 0;
   min-height: var(--touch);
   padding: 0 var(--space-4);
@@ -506,6 +514,7 @@ button.spec-x:hover { background: var(--accent); color: var(--foreground); }
   .ws:has(.ask) { grid-template-rows: minmax(0, 1fr); }
   .ws:has(.ask) .rail { display: none; }
   .ask { gap: var(--space-4); }
+  .head-nav a { padding: 0 var(--space-3); }
   .ask-row button { padding: 0 var(--space-4); }
   .result, .has-card .result { min-height: 2.5rem; align-items: center; }
   .result output { font-size: 2.25rem; }
@@ -521,7 +530,8 @@ button.spec-x:hover { background: var(--accent); color: var(--foreground); }
   .head { padding-top: var(--space-2); }
   .stage { padding-block: var(--space-2); }
   .ask { gap: var(--space-2); }
-  .hint, .ask-form .k { display: none; }
+  .hint, .ask-form .k, .ask .actions .k { display: none; }
+  .head-nav { margin-top: var(--space-2); }
   .answer { min-height: 4.5rem; padding: var(--space-2) var(--space-3); }
   .answer-head { margin-bottom: var(--space-1); }
 }
@@ -543,7 +553,7 @@ html.immersive .rail { background: color-mix(in oklab, var(--card) 60%, transpar
 /* Touch: every control is 48 px, Material's minimum, whatever rule sized it
  * above. Last, so nothing overrides it. */
 @media (pointer: coarse) {
-  button, input, .ghost, a.ghost, .spec-link, .spec summary, .links a,
+  button, input, .ghost, a.ghost, .spec-link, .spec summary, .links a, .head-nav a,
   .tries button, button.again, button.term, button.more, button.copy, button.check, button.spec-x,
   .rail .controls button, .rail .controls select { min-height: var(--touch); }
   button, .tries button, button.term, button.more, button.copy, button.spec-x, .rail .controls button, .spec-link { min-width: var(--touch); }

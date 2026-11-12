@@ -347,6 +347,13 @@ const surface = card.html ? "" : `          <div class="ask">
               <output id="out" for="input" class="idle" aria-live="polite">${escape(idleText)}</output>
             </section>
           </div>`;
+// Where to go next: app.json "links", [{ label, href }], a row under the
+// description, the first one the main way on. A link is to this site (a
+// relative path) or to https.
+const nav = (meta.links ?? []).map((l) => {
+  if (!l?.label || !/^(https:\/\/|\.?\/?[\w-])/.test(String(l.href ?? ""))) throw new Error(`app.json links: ${JSON.stringify(l)} needs a label and a relative or https href`);
+  return `<a class="go-link" href="${escape(l.href)}">${escape(l.label)}</a>`;
+}).join("");
 // The rail: for an app with its own surface, its result and controls; for any
 // other, what the app does in full, beside the form.
 const about = sentences(meta.purpose).filter((x) => x !== tagline).join(" ");
@@ -466,6 +473,7 @@ const fill = {
   HOLO_NAME: escape(meta.name.toLowerCase().normalize("NFKD").replace(/\p{M}/gu, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "app"),
   PURPOSE: escape(meta.purpose),
   TAGLINE: escape(tagline),
+  NAV: nav ? `<nav class="head-nav" aria-label="Where to go">${nav}</nav>` : "",
   PROMISE_HEADLINE: escape(promise.headline),
   ATT_PROOF_URL: escape(meta.attestations?.proof?.url ?? ""),
   ICON_DOC: ICON.doc,

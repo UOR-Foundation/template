@@ -103,7 +103,7 @@ for (const c of classes) {
       const small = [];
       // The frame draws in its own shadow root; its controls count too.
       const roots = [document, ...[...document.querySelectorAll("*")].map((el) => el.shadowRoot).filter(Boolean)];
-      for (const el of roots.flatMap((root) => [...root.querySelectorAll("button, input, a.ghost, a.spec-link, summary")])) {
+      for (const el of roots.flatMap((root) => [...root.querySelectorAll("button, input, a.ghost, a.spec-link, .head-nav a, summary")])) {
         if (el.hidden || el.closest("[hidden]") || el.classList.contains("use") || el.classList.contains("bare")) continue;
         // The spec, closed, is off screen; it is checked open, below.
         if (getComputedStyle(el).visibility === "hidden") continue;
@@ -112,7 +112,9 @@ for (const c of classes) {
         if (coarse && (r.height < 48 || (el.tagName === "BUTTON" && r.width < 48))) small.push(`${el.tagName.toLowerCase()}#${el.id || el.className} ${Math.round(r.width)}x${Math.round(r.height)}`);
       }
       return {
-        overflow: doc.scrollWidth > doc.clientWidth,
+        // Main clips too, so content wider than it is hidden, not scrolled:
+        // that counts as overflow.
+        overflow: doc.scrollWidth > doc.clientWidth || document.querySelector("main").scrollWidth > document.querySelector("main").clientWidth + 1,
         // The page clips rather than scrolls (html and body hide overflow), so
         // the check is that the workspace ends inside the screen and holds
         // everything it has: a planted 4 rem passed a scroll check alone.
@@ -137,6 +139,14 @@ for (const c of classes) {
     if (c.touch && !facts.coarse) fail(where, "the emulated device is not a coarse pointer");
     for (const s of facts.small) fail(where, `touch target under 48 px: ${s}`);
     if (facts.verified !== "verified") fail(where, `status is "${facts.verified}"`);
+    // Every way on from the header lands on a page.
+    if (theme === "dark") {
+      for (const href of await page.locator(".head-nav a").evaluateAll((links) => links.map((a) => a.href))) {
+        if (!href.startsWith(origin)) continue;
+        const status = (await page.request.get(href)).status();
+        if (status !== 200) fail(where, `the header link ${href.slice(origin.length - 1)} lands nowhere (${status})`);
+      }
+    }
     // The journey, as a visitor takes it: each example, then a request typed
     // and sent with Enter, then with the button, then the button with
     // nothing typed. Each must show an answer, in words, on screen.
