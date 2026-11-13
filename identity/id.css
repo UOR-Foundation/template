@@ -1,7 +1,7 @@
-/* The sign-in page, drawn inside the frame's account panel (or alone, in a
- * popup). It inherits nothing from the app, so it brings the brand's tokens
- * (brand.css) and keeps a transparent ground: the panel behind it shows. */
-html { color-scheme: light; background: transparent; }
+/* The Prism id page: a small window an app's frame opens, or the page
+ * itself at https://id.uor.foundation. It brings the brand's tokens
+ * (brand.css). */
+html { color-scheme: light; }
 html.dark { color-scheme: dark; }
 body {
   margin: 0;
@@ -9,19 +9,28 @@ body {
   font-size: 1rem;
   line-height: 1.45;
   color: var(--foreground);
-  background: transparent;
+  background: var(--background);
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
 }
-html.alone body { background: var(--background); min-height: 100vh; display: grid; place-items: center; }
-html.alone main { width: min(22rem, 100vw - 2rem); }
-main { display: grid; gap: 0.618rem; }
+main { display: grid; gap: 0.618rem; width: min(22rem, 100vw - 2rem); padding: 1rem 0; }
+h1 { margin: 0; font-size: 1.125rem; font-weight: 600; text-align: center; }
+.id { margin: 0; display: flex; gap: 0.5rem; justify-content: center; align-items: baseline; }
+.id code { font-family: var(--font-mono, ui-monospace, monospace); font-size: 0.875rem; }
+.warn { color: var(--foreground); }
+.file { display: grid; gap: 0.25rem; }
+.file input { min-height: 0; padding: 0.25rem; font-family: inherit; }
 button {
   display: inline-flex;
+  color: var(--foreground);
+  background: var(--secondary, transparent);
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
   min-height: 2.618rem;
   padding: 0 1rem;
-  border: 1px solid transparent;
+  border: 1px solid var(--border);
   border-radius: calc(var(--radius) - 2px);
   font: inherit;
   font-weight: 500;
@@ -29,13 +38,13 @@ button {
   transition: background 150ms ease, opacity 150ms ease;
 }
 button svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-button.primary { background: var(--primary); color: var(--primary-foreground); }
+button.primary { background: var(--primary); color: var(--primary-foreground); border-color: transparent; }
 button.primary:hover { background: color-mix(in oklab, var(--primary), var(--primary-foreground) 12%); }
 button.link { display: inline; min-height: 0; padding: 0; border: 0; background: none; color: var(--foreground); font-weight: 500; text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 0.2em; }
 button:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 button:disabled { opacity: 0.6; cursor: default; }
 main.busy button { opacity: 0.6; pointer-events: none; }
-main.busy #go svg { animation: pulse 1.2s ease-in-out infinite; }
+main.busy { animation: pulse 1.2s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: 0.35; } }
 .stack { display: grid; gap: 0.5rem; }
 .stack[hidden], [hidden] { display: none !important; }

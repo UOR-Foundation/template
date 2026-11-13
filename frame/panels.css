@@ -466,14 +466,6 @@
 .account-panel .row { justify-content: flex-start; width: 100%; min-height: 2.618rem; padding: 0 1rem; border: 0; border-radius: var(--radius-control); background: none; color: var(--foreground); font-size: 1rem; text-align: start; cursor: pointer; }
 .account-panel .row:hover { background: var(--accent); }
 .account-panel .row:focus-visible, .account-panel .text:focus-visible, .account-close:focus-visible { outline: var(--ring-width) solid var(--ring); outline-offset: var(--ring-offset); }
-.account-ceremony:empty { display: none; }
-/* The iframe's colour scheme matches the page inside it; a mismatch would
- * make the browser paint it an opaque ground over the dialog. */
-.account-ceremony iframe { display: block; width: 100%; height: 2.618rem; border: 0; color-scheme: light; }
-:host([dark]) .account-ceremony iframe { color-scheme: dark; }
-/* Shown only once the sign-in page has answered, so a page that fails to
- * load never shows the browser's error page in the dialog. */
-.account-ceremony iframe:not(.ready) { visibility: hidden; height: 0 !important; }
 #account-window { width: 100%; min-height: 2.618rem; font-size: 1rem; }
 @media (pointer: coarse) {
   .account-panel .row, #account-window { min-height: var(--touch); }

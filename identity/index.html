@@ -5,29 +5,42 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex" />
     <meta name="referrer" content="no-referrer" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self' https://registry.uor.foundation; base-uri 'none'; form-action 'none'" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src https://registry.uor.foundation; base-uri 'none'; form-action 'none'" />
     <meta name="prism-registry" content="https://registry.uor.foundation" />
-    <title>Prism account</title>
+    <title>Prism id</title>
     <link rel="stylesheet" href="brand.css" />
     <link rel="stylesheet" href="id.css" />
+    <link rel="modulepreload" href="prism-id.mjs" />
     <script type="module" src="id.mjs"></script>
   </head>
   <body>
     <main id="card" aria-live="polite">
-      <button id="go" class="primary" type="button" disabled>
-        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="3.5" /><path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6" /></svg>
-        <span id="go-label">Sign in</span>
-      </button>
-      <p id="fresh" class="note" hidden>No passkey on this device yet. <button id="again" class="link" type="button">Try again</button></p>
-      <p id="lost" class="note" hidden><button id="use-code" class="link" type="button">Lost your device? Use a recovery code</button></p>
+      <h1 id="title">Prism id</h1>
+      <div id="none" class="stack" hidden>
+        <p class="note">One Prism id for Foundry and every Prism app. No password, no passkey: this browser holds its own key.</p>
+        <button id="create" class="primary" type="button">Create my Prism id</button>
+        <p class="note"><button id="use-code" class="link" type="button">I have one: use a recovery code</button></p>
+      </div>
+      <div id="held" class="stack" hidden>
+        <p class="id"><code id="id"></code><button id="copy-id" class="link" type="button">Copy</button></p>
+        <button id="continue" class="primary" type="button">Continue</button>
+        <button id="make-code" type="button">Make a new recovery code</button>
+      </div>
+      <div id="removed" class="stack" hidden>
+        <p class="note">Another of your devices removed this browser from your Prism id.</p>
+        <button id="removed-code" class="primary" type="button">Use a recovery code</button>
+      </div>
       <div id="recover" class="stack" hidden>
         <label class="note" for="code">Your recovery code</label>
         <input id="code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX XXXX XXXX …" />
-        <button id="recover-go" class="primary" type="button">Recover on this device</button>
+        <label class="note file">Or choose your recovery file <input id="code-file" type="file" accept=".txt,text/plain" /></label>
+        <button id="recover-go" class="primary" type="button">Bring my Prism id here</button>
+        <p class="note"><button id="recover-back" class="link" type="button">Back</button></p>
       </div>
       <div id="kit" class="stack" hidden>
-        <p class="note">Your recovery code. It brings this account to any device if you lose this one. Keep it offline, somewhere safe: anyone holding it can add a device.</p>
+        <p class="note">Your recovery code brings this Prism id to any browser if you lose this one. Keep it offline, somewhere safe: anyone holding it can add a device.</p>
         <output id="kit-code" class="code"></output>
+        <p id="kit-kept" class="note warn" hidden>The registry could not keep your recovery right now. Download the recovery file: with it, the code works anywhere.</p>
         <div class="pair">
           <button id="kit-copy" type="button">Copy</button>
           <button id="kit-save" type="button">Download</button>

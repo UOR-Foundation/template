@@ -1,115 +1,88 @@
 #!/usr/bin/env node
-// The whole account flow on one machine: the sign-in page on
-// http://localhost:8790 (rpId localhost), an in-memory stand-in for the
-// registry's /passkey/ routes on the same origin, and a demo app page on
-// http://127.0.0.1:8791 that mounts the frame. The stand-in stores and
-// serves records; it does not verify registrations, which is the real
-// registry's job (UOR-Foundation/kappa-registry). The frame verifies every
-// signature exactly as it does in production, so this exercises the real
-// client path. Used by identity/test.mjs; run it by hand to try the flow:
+// The whole Prism id flow on one machine: the Prism id page on
+// http://localhost:8790, an in-memory stand-in for the registry's Prism
+// mailbox (/prism/topic/<name>) on the same origin, and a demo app page on
+// http://127.0.0.1:8791 that mounts the frame. The mailbox keeps and returns
+// opaque messages, as the real one does (UOR-Foundation/kappa-registry);
+// the frame verifies every session exactly as it does in production. Used
+// by identity/test.mjs; run it by hand to try the flow:
 //   node identity/dev.mjs
-import { createHash, randomBytes } from "node:crypto";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
-const b64u = (bytes) => Buffer.from(bytes).toString("base64url");
-const kappa = (spki) => `sha256:${createHash("sha256").update(Buffer.from(spki, "base64url")).digest("hex")}`;
-// The fields of an assertion the registry keeps: a passkey's carries client
-// and authenticator data, a recovery key's only its signature.
-const assertionOf = ({ credential, clientDataJSON, authenticatorData, signature }) => ({ credential, ...(clientDataJSON === undefined ? {} : { clientDataJSON, authenticatorData }), signature });
 const types = { ".html": "text/html; charset=utf-8", ".mjs": "text/javascript", ".css": "text/css" };
 
 // The frame as publish.mjs bakes it, without minifying: its panels module
-// beside it, named by its SHA-256, on the demo app's own origin.
+// and Prism id beside it, each named by its SHA-256, on the demo app's own
+// origin.
 const PUBLISHED_HOST = "https://uor-foundation.github.io/template/frame/";
 async function bakedFrame(host) {
   const at = (text) => text.split(JSON.stringify(PUBLISHED_HOST)).join(JSON.stringify(host));
-  const panels = at(await readFile(join(root, "frame/panels.mjs"), "utf8")).replace('"/*PANELS_CSS*/"', JSON.stringify(await readFile(join(root, "frame/panels.css"), "utf8")));
+  const prismId = await readFile(join(root, "identity/prism-id.mjs"), "utf8");
+  const prismSha = createHash("sha256").update(prismId).digest("hex");
+  const panels = at(await readFile(join(root, "frame/panels.mjs"), "utf8"))
+    .replace('"/*PANELS_CSS*/"', JSON.stringify(await readFile(join(root, "frame/panels.css"), "utf8")))
+    .replace('"/*PRISM_ID*/"', JSON.stringify(prismSha));
   const sha = createHash("sha256").update(panels).digest("hex");
   let module = at(await readFile(join(root, "frame/frame.mjs"), "utf8"));
   module = module.replace('"/*CSS*/"', JSON.stringify(await readFile(join(root, "frame/frame.css"), "utf8")));
   module = module.replace('"/*BRAND*/"', JSON.stringify(await readFile(join(root, "site/brand/hologram-warm.css"), "utf8")));
-  return { frame: module.replace('"/*PANELS*/"', JSON.stringify(sha)), panels, sha };
+  return { frame: module.replace('"/*PANELS*/"', JSON.stringify(sha)), panels, sha, prismId, prismSha };
 }
 
 export function start({ idPort = 8790, appPort = 8791 } = {}) {
   const accounts = `http://localhost:${idPort}`;
-  const challenges = new Set();
-  const records = new Map();
+  // The mailbox: the newest messages of each topic, as the registry keeps them.
+  const topics = new Map();
+  const KEEP = 64;
 
   const json = (response, status, body) => {
     response.writeHead(status, { "content-type": "application/json", "access-control-allow-origin": "*", "cache-control": "no-store" });
     response.end(JSON.stringify(body));
   };
-  const body = (request) => new Promise((done) => {
-    let text = "";
-    request.on("data", (chunk) => (text += chunk));
-    request.on("end", () => done(text ? JSON.parse(text) : {}));
+  const bytesOf = (request) => new Promise((done) => {
+    const chunks = [];
+    request.on("data", (chunk) => chunks.push(chunk));
+    request.on("end", () => done(Buffer.concat(chunks)));
   });
 
   const id = createServer(async (request, response) => {
     const path = new URL(request.url, accounts).pathname;
-    if (request.method === "POST" && path === "/passkey/challenge") {
-      const challenge = b64u(randomBytes(32));
-      challenges.add(challenge);
-      return json(response, 200, { challenge, expires: Date.now() + 120000 });
+    const topic = /^\/prism\/topic\/([a-z0-9-]+:[0-9a-f]{64})$/.exec(path)?.[1];
+    if (topic && request.method === "POST") {
+      const message = (await bytesOf(request)).toString("base64url");
+      const kept = (topics.get(topic) ?? []).filter((m) => m !== message);
+      topics.set(topic, [...kept, message].slice(-KEEP));
+      return json(response, kept.length === topics.get(topic).length ? 200 : 201, { topic, messages: topics.get(topic).length });
     }
-    if (request.method === "POST" && path === "/passkey/register") {
-      const r = await body(request);
-      const client = JSON.parse(Buffer.from(r.clientDataJSON, "base64url"));
-      if (!challenges.delete(client.challenge)) return json(response, 400, { error: "challenge", message: "The challenge is unknown or used." });
-      if (records.has(r.credential)) return json(response, 409, { error: "exists", message: "The passkey is already registered." });
-      const key = kappa(r.spki);
-      const binding = r.binding ? assertionOf(r.binding) : null;
-      const record = { spec: "prism/identity/key/2", key, account: r.binding?.account ?? key, credential: r.credential, alg: r.alg, spki: r.spki, origin: client.origin, created: Date.now(), binding };
-      records.set(r.credential, record);
-      return json(response, 201, { key, account: record.account, record });
+    if (topic && request.method === "GET") {
+      return topics.has(topic) ? json(response, 200, { topic, messages: topics.get(topic) }) : json(response, 404, { error: "unknown", message: "No messages." });
     }
-    // A recovery key: an account's first key, or bound into one. Its
-    // credential is its raw public key, the SPKI's last 32 bytes.
-    if (request.method === "POST" && path === "/passkey/recovery") {
-      const r = await body(request);
-      const key = kappa(r.spki);
-      const credential = b64u(Buffer.from(r.spki, "base64url").subarray(-32));
-      if (records.has(credential)) return json(response, 409, { error: "exists", message: "The key is already registered." });
-      const record = { spec: "prism/identity/key/2", key, account: r.account ?? key, credential, alg: -8, spki: r.spki, origin: accounts, created: Date.now(), binding: r.binding ? assertionOf(r.binding) : null };
-      records.set(credential, record);
-      return json(response, 201, { key, account: record.account, record });
-    }
-    const credential = /^\/passkey\/credential\/([\w-]+)$/.exec(path)?.[1];
-    if (request.method === "GET" && credential) {
-      const record = records.get(credential);
-      return record ? json(response, 200, record) : json(response, 404, { error: "unknown", message: "No passkey has that credential." });
-    }
-    const account = /^\/passkey\/account\/(sha256:[0-9a-f]{64}|[\w-]+)$/.exec(path)?.[1];
-    if (request.method === "GET" && account) {
-      const keys = [...records.values()].filter((r) => r.account === account);
-      return keys.length ? json(response, 200, { account, keys, revoked: [] }) : json(response, 404, { error: "account", message: "No account has that name." });
-    }
-    const file = { "/": "index.html", "/id.mjs": "id.mjs", "/id.css": "id.css", "/brand.css": "../site/brand/hologram-warm.css" }[path];
+    const file = { "/": "index.html", "/id.mjs": "id.mjs", "/prism-id.mjs": "prism-id.mjs", "/id.css": "id.css", "/brand.css": "../site/brand/hologram-warm.css" }[path];
     if (!file) return json(response, 404, { error: "unknown", message: "Not found." });
     let text = await readFile(join(root, "identity", file), "utf8");
-    if (file === "index.html") text = text.replace('content="https://registry.uor.foundation"', `content="${accounts}"`);
+    if (file === "index.html") text = text.replace('content="https://registry.uor.foundation"', `content="${accounts}"`).replace("connect-src https://registry.uor.foundation", "connect-src 'self'");
     response.writeHead(200, { "content-type": types[file.slice(file.lastIndexOf("."))] ?? "text/css", "cache-control": "no-store" });
     response.end(text);
   });
 
   const app = createServer(async (request, response) => {
     const path = new URL(request.url, "http://x").pathname;
-    if (path === "/frame.mjs" || path === "/panels.mjs" || path.endsWith("/prism-panels.mjs")) {
+    if (path === "/frame.mjs" || path.endsWith("/prism-panels.mjs") || path.endsWith("/prism-id.mjs")) {
       const baked = await bakedFrame(`http://127.0.0.1:${appPort}/frame/`);
-      if (path.endsWith("/prism-panels.mjs") && path !== `/frame/${baked.sha}/prism-panels.mjs`) return json(response, 404, { error: "unknown", message: "Not found." });
+      const served = { "/frame.mjs": baked.frame, [`/frame/${baked.sha}/prism-panels.mjs`]: baked.panels, [`/frame/${baked.prismSha}/prism-id.mjs`]: baked.prismId }[path];
+      if (served === undefined) return json(response, 404, { error: "unknown", message: "Not found." });
       response.writeHead(200, { "content-type": "text/javascript", "cache-control": "no-store" });
-      return response.end(path === "/frame.mjs" ? baked.frame : baked.panels);
+      return response.end(served);
     }
     response.writeHead(200, {
       "content-type": "text/html; charset=utf-8",
-      // /strict frames nothing, as a page whose policy predates accounts: the
-      // frame must fall back to the sign-in window.
-      "content-security-policy": `default-src 'self'; script-src 'self' blob:; style-src 'unsafe-inline'; frame-src ${path === "/strict" ? "'none'" : accounts}`,
+      // Frames nothing: the Prism id page opens as its own window.
+      "content-security-policy": "default-src 'self'; script-src 'self' blob:; style-src 'unsafe-inline'; frame-src 'none'",
     });
     response.end(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Account demo</title><script type="module" src="/frame.mjs"></script></head>
 <body><prism-frame name="Account demo" live="http://127.0.0.1:${appPort}/" accounts="${accounts}/"></prism-frame></body></html>`);
@@ -118,7 +91,7 @@ export function start({ idPort = 8790, appPort = 8791 } = {}) {
   return Promise.all([new Promise((done) => id.listen(idPort, done)), new Promise((done) => app.listen(appPort, "127.0.0.1", done))]).then(() => ({
     accounts,
     app: `http://127.0.0.1:${appPort}/`,
-    records,
+    topics,
     close: () => Promise.all([new Promise((done) => id.close(done)), new Promise((done) => app.close(done))]),
   }));
 }

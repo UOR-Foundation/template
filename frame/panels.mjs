@@ -341,22 +341,17 @@ export function panel(frame, core) {
   return { open: () => query || home() };
 }
 
-// The theme panel's contents, which the frame puts in its empty panel.
-// Prism accounts (prism/identity/2, identity/PROTOCOL.md): the checks the
-// sign-in page's answer must pass. The page is trusted with nothing; every
-// signature is checked here, in the visitor's browser, as the frame checks
-// the holo's bytes. A failed check is an IdentityError naming which one.
-// An account is a set of keys: passkeys on devices, and recovery keys its
-// owner keeps as codes. Each added device and each recovery adds a binding;
-// the bound only keeps this check finite.
-const MAX_CHAIN = 32;
-const enc = new TextEncoder();
+// Prism ids (prism/identity/3, identity/PROTOCOL.md). A visitor's Prism id
+// is stitch's Prism id (afflom/stitch, pinned in identity/stitch.lock): the
+// κ of its genesis, held by devices whose keys never leave them. The sign-in
+// page signs one action for this app, "prism/session/1", letting a session
+// key the frame made here act for the id on this origin until it expires.
+// The frame trusts the page with nothing: it checks the action against the
+// id's log with Prism id's own verifyAction, in the visitor's browser, as it
+// checks the holo's bytes. A failed check is an IdentityError naming which.
+const SESSION_ACTION = "prism/session/1";
+const MAX_SESSION_MS = 8 * 24 * 60 * 60 * 1000;
 const b64u = (bytes) => btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-const unb64u = (text) => {
-  if (typeof text !== "string" || !/^[\w-]*$/.test(text)) throw new IdentityError("encoding", "A value is not base64url");
-  return Uint8Array.from(atob(text.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
-};
-const digest = async (bytes) => new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
 
 export class IdentityError extends Error {
   constructor(code, message) {
@@ -369,127 +364,82 @@ const deny = (code, message) => {
   throw new IdentityError(code, message);
 };
 
-// The origins whose signatures count, each with its WebAuthn rpId.
-export const originsOf = (accounts) => ({ [new URL(accounts).origin]: new URL(accounts).hostname });
+// Prism id itself (identity/prism-id.mjs), published beside the frame and
+// named by its SHA-256, which frame/publish.mjs writes here. It is fetched
+// only when a session is checked, and checked as the frame checks this
+// module. Unpublished (tests, a checkout), it is read from the repository.
+const PRISM_ID = "/*PRISM_ID*/";
+let prismModule = null;
+export const prismId = () =>
+  (prismModule ??= (async () => {
+    if (!/^[0-9a-f]{64}$/.test(PRISM_ID)) return import("../identity/prism-id.mjs");
+    const bytes = await (await fetch(new URL(`${PRISM_ID}/prism-id.mjs`, FRAME_HOST))).arrayBuffer();
+    const hex = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), (b) => b.toString(16).padStart(2, "0")).join("");
+    if (hex !== PRISM_ID) throw new Error("Prism id is not the module this frame names");
+    const url = URL.createObjectURL(new Blob([bytes], { type: "text/javascript" }));
+    try {
+      return await import(url);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  })().catch((error) => {
+    prismModule = null;
+    throw error;
+  }));
 
-const ALGORITHMS = {
-  [-7]: { key: { name: "ECDSA", namedCurve: "P-256" }, verify: { name: "ECDSA", hash: "SHA-256" } },
-  [-257]: { key: { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, verify: { name: "RSASSA-PKCS1-v1_5" } },
-};
-// A recovery key: Ed25519, signing the protocol message itself.
-const RECOVERY = -8;
-
-// A key's name, by its record's spec: key/2 names it by κ, the UORC address
-// `sha256:<hex>` of its SPKI; key/1 (prism/identity/1) by base64url SHA-256.
-const KEY_IDS = {
-  "prism/identity/key/2": async (spki) => `sha256:${[...(await digest(spki))].map((b) => b.toString(16).padStart(2, "0")).join("")}`,
-  "prism/identity/key/1": async (spki) => b64u(await digest(spki)),
-};
-
-// A recovery key's signature: no client or authenticator data, only an
-// Ed25519 signature over the message, under the record's key.
-async function verifyRecovery(record, signed, message) {
-  if (signed.clientDataJSON !== undefined || signed.authenticatorData !== undefined) deny("signature", "A recovery signature carries no sign-in data");
-  const key = await crypto.subtle.importKey("spki", unb64u(record.spki), { name: "Ed25519" }, false, ["verify"]).catch(() => deny("key", "The public key does not parse"));
-  if (!(await crypto.subtle.verify({ name: "Ed25519" }, key, unb64u(signed.signature), enc.encode(message)))) deny("signature", "The signature does not verify");
-}
-
-// WebAuthn's ECDSA signatures are DER; WebCrypto's are the two 32-byte halves.
-function rawSignature(der) {
-  let at = 2;
-  const integer = () => {
-    if (der[at++] !== 0x02) deny("signature", "The signature is not DER");
-    const length = der[at++];
-    let value = der.slice(at, (at += length));
-    while (value.length > 32 && value[0] === 0) value = value.slice(1);
-    if (value.length > 32 || at > der.length) deny("signature", "The signature is not DER");
-    const out = new Uint8Array(32);
-    out.set(value, 32 - value.length);
-    return out;
-  };
-  if (der[0] !== 0x30 || der[1] !== der.length - 2) deny("signature", "The signature is not DER");
-  const r = integer();
-  const s = integer();
-  return new Uint8Array([...r, ...s]);
-}
-
-// One WebAuthn assertion: the passkey of record signed message. The six
-// checks of PROTOCOL.md, in its order, failing closed.
-export async function verifySigned(record, signed, message, origins) {
-  if (signed?.credential !== record.credential) deny("credential", "The signature is from another passkey");
-  if (record.alg === RECOVERY) return verifyRecovery(record, signed, message);
-  let client;
-  try {
-    client = JSON.parse(new TextDecoder().decode(unb64u(signed.clientDataJSON)));
-  } catch {
-    deny("client", "The signed client data is not JSON");
-  }
-  if (client.type !== "webauthn.get") deny("type", "The signature is not a sign-in");
-  if (client.challenge !== b64u(await digest(enc.encode(message)))) deny("challenge", "The signature is for another request");
-  const rp = Object.hasOwn(origins, client.origin) ? origins[client.origin] : null;
-  if (!rp) deny("origin", "The signature was made on another site");
-  const data = unb64u(signed.authenticatorData);
-  if (data.length < 37 || b64u(data.slice(0, 32)) !== b64u(await digest(enc.encode(rp)))) deny("rp", "The passkey belongs to another site");
-  if ((data[32] & 0x05) !== 0x05) deny("flags", "The device did not verify its user");
-  const algorithm = ALGORITHMS[record.alg] ?? deny("algorithm", "The passkey's algorithm is not ES256 or RS256");
-  const key = await crypto.subtle.importKey("spki", unb64u(record.spki), algorithm.key, false, ["verify"]).catch(() => deny("key", "The public key does not parse"));
-  let signature = unb64u(signed.signature);
-  if (record.alg === -7) signature = rawSignature(signature);
-  const body = new Uint8Array([...data, ...(await digest(unb64u(signed.clientDataJSON)))]);
-  if (!(await crypto.subtle.verify(algorithm.verify, key, signature, body))) deny("signature", "The signature does not verify");
-}
-
-// A key record, accepted only when its name is its key's hash and it is the
-// account's first key or bound to it by a key already accepted.
-export async function acceptRecord(credential, records, origins, depth = 0) {
-  const record = records.find((r) => r?.credential === credential);
-  const keyId = record && Object.hasOwn(KEY_IDS, record.spec) ? KEY_IDS[record.spec] : null;
-  if (!keyId) deny("record", "The passkey has no record");
-  if ((await keyId(unb64u(record.spki))) !== record.key) deny("key", "The record's name is not its key's hash");
-  if (record.key === record.account) {
-    if (record.binding) deny("binding", "An account's first key has no binding");
-    return record;
-  }
-  if (depth >= MAX_CHAIN || !record.binding) deny("binding", "The key is not bound to its account");
-  const parent = await acceptRecord(record.binding.credential, records, origins, depth + 1);
-  if (parent.account !== record.account) deny("binding", "The key is bound by another account");
-  await verifySigned(parent, record.binding, `prism/identity/bind/1\n${record.account}\n${record.key}`, origins);
-  return record;
-}
-
-// A session: the account's passkey let one browser key act for it, on one
-// app's origin, until it expires. Anyone holding the session can check it.
-export async function verifySession(session, origins, now = Date.now()) {
-  const { app, nonce, sessionKey, expires, assertion, records } = session ?? {};
+// A session: { app, envelope, records }. The envelope is the id's
+// "prism/session/1" action for `app`, naming the session key and its expiry;
+// records are the id's log as the signing device knew it. `fresh` is the
+// window in which the frame that asked must receive it (Prism id's
+// actionFresh); anyone checking a kept session later checks it as of its
+// own signing, and its expiry bounds it.
+export async function verifySession(session, { now = Date.now(), fresh = 60000 } = {}) {
+  const Prism = await prismId();
+  const { app, envelope, records } = session ?? {};
+  const body = envelope?.body;
+  if (typeof app !== "string" || !/^https?:\/\/[^/]+$/.test(app)) deny("app", "The session names no app");
+  if (body?.action !== SESSION_ACTION) deny("action", "The signature is not a session");
+  const { sessionKey, expires } = body.payload ?? {};
+  if (typeof sessionKey !== "string" || !/^[\w-]{87}$/.test(sessionKey)) deny("key", "The session key is malformed");
   if (!Number.isSafeInteger(expires) || expires <= now) deny("expired", "The session has expired");
-  const record = await acceptRecord(assertion?.credential, records ?? [], origins);
-  // A recovery code adds a device; only a device's passkey signs a session.
-  if (record.alg === RECOVERY) deny("algorithm", "A recovery code does not sign in by itself");
-  await verifySigned(record, assertion, `prism/identity/session/1\n${app}\n${nonce}\n${sessionKey}\n${expires}`, origins);
-  return { account: record.account, key: record.key, credential: record.credential, expires };
+  if (expires > body.at + MAX_SESSION_MS) deny("expired", "The session lasts too long");
+  let log;
+  try {
+    log = await Prism.logFromRecords(records);
+  } catch (error) {
+    if (error instanceof Prism.PrismIdError) deny("log", "The log does not parse");
+    throw error;
+  }
+  const at = fresh ? now : body.at;
+  let verdict;
+  try {
+    verdict = await Prism.verifyAction(body.prism, log, envelope, { audience: app, now: at, window: fresh || 1 });
+  } catch (error) {
+    if (error instanceof Prism.PrismIdError) deny("log", `The log does not resolve: ${error.message}`);
+    throw error;
+  }
+  if (!verdict.allowed) deny(verdict.reason === "scope" ? "scope" : "signature", `The session was refused (${verdict.reason})`);
+  return { account: body.prism, key: envelope.signer, sessionKey, expires };
 }
-
 
 const ACCOUNT_PANEL = `
 <button class="account-close" type="button" popovertarget="account-panel" popovertargetaction="hide" aria-label="Close"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18" /></svg></button>
 <h2 id="account-title" class="account-title">Sign in</h2>
-<p id="account-sub" class="account-sub">One account for every Prism app. No password.</p>
+<p id="account-sub" class="account-sub">One Prism id for every Prism app. No password.</p>
 <div id="account-in" class="account-in" hidden>
   <p class="account-id"><code id="account-id"></code><button id="account-copy" class="text" type="button">Copy</button></p>
-  <button id="account-add" class="row" type="button">Add device</button>
   <button id="account-recovery" class="row" type="button">Recovery code</button>
   <button id="account-out" class="row" type="button">Sign out</button>
 </div>
-<div id="account-ceremony" class="account-ceremony"></div>
-<button id="account-window" class="primary" type="button" hidden>Continue</button>
+<button id="account-window" class="primary" type="button">Continue</button>
 `;
 
-// The account panel (prism/identity/2, identity/PROTOCOL.md): the sign-in
-// page from the accounts origin in an iframe, loaded when the visitor reaches
-// for the icon, so the panel opens ready. A page whose policy will not frame
-// that origin gets the same page in a small window instead. The page says
-// nothing the frame takes on trust: every signature is checked here (core's
-// verifySession) before a session is kept.
+// The account panel: one button opens the Prism id page in a small window.
+// It runs as its own first-party page, so this browser's Prism id device is
+// the same one for every app (an iframe's storage is partitioned per site).
+// The page answers this window only, through the browser's origin, and says
+// nothing the frame takes on trust: verifySession checks every answer
+// before a session is kept.
 export function accounts(frame, core) {
   const { SESSION_DAYS, store, accountChannel, loadSession } = core;
   frame.$("account-panel").innerHTML = ACCOUNT_PANEL;
@@ -497,16 +447,9 @@ export function accounts(frame, core) {
   const panel = frame.$("account-panel");
   const target = new URL(frame.data.accounts);
   const origin = target.origin;
-  const origins = originsOf(target.href);
-  const SPEC = "prism/identity/1";
-  const box = frame.$("account-ceremony");
+  const SPEC = "prism/identity/3";
   const windowButton = frame.$("account-window");
   let ceremony = null;
-
-  const policy = [...document.querySelectorAll('meta[http-equiv="Content-Security-Policy" i]')].map((meta) => meta.content).join(";");
-  const directive = (name) => new RegExp(`(?:^|;)\\s*${name}([^;]*)`).exec(policy)?.[1];
-  const frames = directive("frame-src") ?? directive("child-src") ?? directive("default-src");
-  const framed = frames === undefined || frames.split(/\s+/).some((source) => source === "*" || source === origin || (source === "'self'" && origin === location.origin));
 
   const say = (words) => {
     frame.$("bar-status").textContent = words;
@@ -516,10 +459,11 @@ export function accounts(frame, core) {
     const saved = accountChannel.session;
     core.paint();
     frame.$("account-in").hidden = !saved;
-    frame.$("account-title").textContent = saved ? "Prism account" : "Sign in";
-    frame.$("account-sub").textContent = saved ? "Signed in on this device." : "One account for every Prism app. No password.";
+    windowButton.hidden = Boolean(saved);
+    frame.$("account-title").textContent = saved ? "Prism id" : "Sign in";
+    frame.$("account-sub").textContent = saved ? "Signed in on this device." : "One Prism id for every Prism app. No password.";
     if (saved) {
-      frame.$("account-id").textContent = `${saved.account.slice(0, 8)}…${saved.account.slice(-4)}`;
+      frame.$("account-id").textContent = `${saved.account.slice(0, 15)}…${saved.account.slice(-4)}`;
       frame.$("account-id").title = saved.account;
     }
   };
@@ -528,96 +472,40 @@ export function accounts(frame, core) {
     frame.dispatchEvent(new CustomEvent("accountchange", { detail: frame.account, bubbles: true, composed: true }));
   };
   const close = () => {
-    box.replaceChildren();
     ceremony?.popup?.close();
     ceremony = null;
-    windowButton.hidden = true;
     button.classList.remove("busy");
   };
 
-  // One ceremony at a time, each with its own session key and nonce, used once.
-  const begin = (mode) => {
-    if (ceremony?.mode === mode) return;
+  // One window at a time, each with its own session key, used once.
+  const begin = async (mode) => {
     close();
-    paint();
-    if (mode === "add") {
-      frame.$("account-title").textContent = "Add a device";
-      frame.$("account-sub").textContent = "Your phone or another computer joins this account.";
-    }
-    if (mode === "recovery") {
-      frame.$("account-title").textContent = "Recovery code";
-      frame.$("account-sub").textContent = "A code that brings this account to any device, if you lose yours.";
-    }
-    const saved = accountChannel.session;
-    ceremony = {
-      mode,
-      ready: crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, false, ["sign", "verify"]).then(async (keys) => ({
-        keys,
-        request: {
-          type: `${SPEC}/request`,
-          mode,
-          nonce: b64u(crypto.getRandomValues(new Uint8Array(32))),
-          sessionKey: b64u(await crypto.subtle.exportKey("raw", keys.publicKey)),
-          expires: Date.now() + SESSION_DAYS * 864e5,
-          ...(mode === "signin" ? {} : { account: saved.account, credential: saved.credential }),
-        },
-      })),
-    };
-    if (!framed) {
-      windowButton.hidden = false;
-      return;
-    }
-    const iframe = document.createElement("iframe");
+    const keys = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, false, ["sign", "verify"]);
+    const request = { type: `${SPEC}/request`, mode, sessionKey: b64u(await crypto.subtle.exportKey("raw", keys.publicKey)), expires: Date.now() + SESSION_DAYS * 864e5 };
     const page = new URL(target);
     page.hash = `theme=${document.documentElement.classList.contains("dark") ? "dark" : "light"}`;
-    iframe.src = page.href;
-    iframe.title = { add: "Add device", recovery: "Recovery code" }[mode] ?? "Sign in";
-    iframe.allow = "publickey-credentials-get; publickey-credentials-create; clipboard-write";
-    iframe.referrerPolicy = "no-referrer";
-    box.replaceChildren(iframe);
-    ceremony.iframe = iframe;
+    ceremony = { mode, keys, request, popup: open(page.href, "prism-id", "popup,width=420,height=560") };
+    if (!ceremony.popup) {
+      ceremony = null;
+      return say("Allow pop-ups for this page to sign in");
+    }
+    button.classList.add("busy");
     const waiting = ceremony;
-    // A policy the frame cannot read (a header, not a meta tag) that will
-    // not frame the accounts origin says so here: the window takes over.
-    document.addEventListener(
-      "securitypolicyviolation",
-      (event) => {
-        if (ceremony !== waiting || !/^(frame|child|default)-src/.test(event.effectiveDirective) || !String(event.blockedURI).startsWith(origin)) return;
-        waiting.answered = true;
-        box.replaceChildren();
-        windowButton.hidden = false;
-      },
-      { signal: frame.accountWatch.signal },
-    );
-    // The iframe shows only once the page answers, so a page that fails
-    // leaves no browser error page in the panel. A slow network is not a
-    // failure: past 8 s the panel says it is still trying and keeps the
-    // page, which shows the moment it answers. Only past 30 s does it give
-    // up, with one plain sentence, and the next reach tries again.
-    setTimeout(() => {
-      if (ceremony !== waiting || waiting.answered) return;
-      waiting.slow = true;
-      frame.$("account-sub").textContent = "Accounts are slow to answer. Still trying.";
-    }, 8000);
-    setTimeout(() => {
-      if (ceremony !== waiting || waiting.answered) return;
-      close();
-      frame.$("account-sub").textContent = "Accounts are unreachable right now. Try again soon.";
-    }, 30000);
+    const watch = setInterval(() => {
+      if (ceremony !== waiting) return clearInterval(watch);
+      if (waiting.popup.closed) {
+        clearInterval(watch);
+        close();
+      }
+    }, 500);
   };
 
-  windowButton.addEventListener("click", () => {
-    const page = new URL(target);
-    page.hash = `popup&theme=${document.documentElement.classList.contains("dark") ? "dark" : "light"}`;
-    ceremony.popup = open(page.href, "prism-identity", "popup,width=420,height=420");
-    if (!ceremony.popup) say("Allow pop-ups for this page to sign in");
-  });
-
   const finish = async (data) => {
-    const { keys, request } = await ceremony.ready;
-    const delegation = { app: location.origin, nonce: request.nonce, sessionKey: request.sessionKey, expires: request.expires, assertion: data.assertion, records: data.records };
+    const { keys, request } = ceremony;
+    const delegation = { app: location.origin, envelope: data.envelope, records: data.records };
     try {
-      const who = await verifySession(delegation, origins);
+      if (data.envelope?.body?.payload?.sessionKey !== request.sessionKey || data.envelope?.body?.payload?.expires !== request.expires) deny("key", "The session is not the one this page asked for");
+      const who = await verifySession(delegation);
       const saved = { ...who, delegation, privateKey: keys.privateKey };
       await store("readwrite", (s) => s.put(saved, "current"));
       accountChannel.session = saved;
@@ -627,7 +515,7 @@ export function accounts(frame, core) {
       say("Signed in");
     } catch (error) {
       close();
-      begin("signin");
+      paint();
       frame.$("account-sub").textContent = error instanceof IdentityError ? `Sign-in was refused: ${error.message.toLowerCase()}.` : "Sign-in did not finish. Try again.";
     }
   };
@@ -637,30 +525,11 @@ export function accounts(frame, core) {
   addEventListener(
     "message",
     async (event) => {
-      if (!ceremony || event.origin !== origin || event.source !== (ceremony.iframe?.contentWindow ?? ceremony.popup)) return;
+      if (!ceremony || event.origin !== origin || event.source !== ceremony.popup) return;
       const data = event.data ?? {};
-      ceremony.answered = true;
-      // A sign-in page from before recovery codes cannot make one: say so
-      // rather than show a button that would never answer.
-      if (data.type === `${SPEC}/ready` && ceremony.mode === "recovery" && !data.modes?.includes?.("recovery")) {
-        close();
-        frame.$("account-sub").textContent = "Recovery codes are not available yet. Try again soon.";
-        return;
-      }
-      if (data.type === `${SPEC}/ready`) ceremony.iframe?.classList.add("ready");
-      if (data.type === `${SPEC}/ready` && ceremony.slow) {
-        ceremony.slow = false;
-        paint();
-      }
-      if (data.type === `${SPEC}/ready`) event.source.postMessage((await ceremony.ready).request, origin);
-      else if (data.type === `${SPEC}/size` && ceremony.iframe) ceremony.iframe.style.height = `${Math.min(Math.max(Number(data.height) || 0, 48), 480)}px`;
-      else if (data.type === `${SPEC}/busy`) button.classList.toggle("busy", Boolean(data.on));
+      if (data.type === `${SPEC}/ready`) event.source.postMessage(ceremony.request, origin);
       else if (data.type === `${SPEC}/session` && ceremony.mode === "signin") await finish(data);
-      else if (data.type === `${SPEC}/added` && ceremony.mode === "add") {
-        close();
-        panel.hidePopover();
-        say("Device added");
-      } else if (data.type === `${SPEC}/recovery` && ceremony.mode === "recovery") {
+      else if (data.type === `${SPEC}/recovery` && ceremony.mode === "recovery") {
         close();
         panel.hidePopover();
         say("Recovery code saved");
@@ -669,20 +538,15 @@ export function accounts(frame, core) {
     { signal: frame.accountWatch.signal },
   );
 
-  // Only once the saved session is known, so a quick hover never starts a
-  // sign-in for someone already signed in.
-  const reach = () => loadSession().then(() => !accountChannel.session && begin("signin"));
-
-  // The dialog opens centred over the app (panels.css); opening it asks.
+  const reach = () => loadSession();
   panel.addEventListener("beforetoggle", (event) => {
     if (event.newState === "open") {
       paint();
-      return void reach();
+      reach().then(paint);
     }
-    if (ceremony?.mode === "add" || ceremony?.mode === "recovery") close();
   });
 
-  frame.$("account-add").addEventListener("click", () => begin("add"));
+  windowButton.addEventListener("click", () => begin("signin"));
   frame.$("account-recovery").addEventListener("click", () => begin("recovery"));
   frame.$("account-out").addEventListener("click", async () => {
     await store("readwrite", (s) => s.delete("current")).catch(() => {});
@@ -708,6 +572,7 @@ export function accounts(frame, core) {
   return { reach };
 }
 
+// The theme panel's contents, which the frame puts in its empty panel.
 export const THEME_PANEL = `
     <p id="theme-title" class="theme-title">Theme</p>
     <div class="modes" role="group" aria-labelledby="theme-title">
