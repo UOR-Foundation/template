@@ -17,7 +17,7 @@ template contract checker in `app/`.
 Each check runs once per `just vv`. `just bdd` runs only the meta-gate while a
 scenario is being written; `just test` already includes it.
 
-The register holds `TC-01` and `FR-01`, so the meta-gate checks real rows,
+The register holds `TC-01`, `FR-01` and `FR-02`, so the meta-gate checks real rows,
 scenarios and tests. It becomes an error as soon as an ID, scenario,
 or test is added without the other two.
 
@@ -546,3 +546,35 @@ The added source-root control failed before the correction with ENOENT on the
 unstaged vendor directory. Nineteen Node controls pass after correction. A real
 no-holo/no-vendor scaffold render is also included in the browser lane. Production
 packaging remains unconditional; no gate or capability is skipped.
+
+## A returning browser follows a new deploy (FR-02)
+
+`site/sw.js` is the same bytes in every deploy, so a browser never installs a
+new worker for one. The worker that kept the first visit's files served them
+cache-first under every later `index.html`, which is network-first: a
+returning browser met new HTML over old modules, and its controls did nothing
+until the visitor cleared site data. Downstream apps (afflom/me, PR 35) had to
+heal this from the app side.
+
+Each navigation that reaches the network now also asks `precache.json` (no
+store) for the deploy's version. A version the worker does not keep becomes
+its cache (manifest and eager files, as at install) before the navigation is
+answered, so the page's own files then come from the network into the new
+cache; the earlier deploy's caches are dropped. Concurrent navigations share
+one move. Offline, or with no manifest, the kept deploy answers and stays. The
+cost is one small `precache.json` request per online navigation.
+
+`frame_fr_02` calls `node site/sw-gate.mjs`, which runs `site/sw.test.mjs`
+against the unchanged production worker in a VM context with Cache Storage
+and the network stood in, and requires all five controls to pass without
+skips, cancellation or todo entries.
+
+Planted defects rejected by `node site/sw-gate.mjs` (exit 1):
+- the previous `sw.js` (no follow on navigation): the returning-browser and
+  concurrent-navigation controls fail;
+- dropping the deletion of the earlier deploy's cache: the same two fail.
+
+All five controls passed again after restoring the production source.
+`frame.lock` was regenerated with `node bootstrap/frame-sync.mjs --lock`, and
+`CONFORMANCE.md` with `check-model --write`. Full locked-SDK `just vv` and the
+browser acceptance remain for CI.

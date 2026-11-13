@@ -63,7 +63,7 @@
     },
     {
       "path": "site/sw.js",
-      "sha256": "b4d4eb5c8314f5abed013ea9d172e7352dbdfa5aa2b503901df364ebcfbf11f7"
+      "sha256": "baf0fbd7da2fa0b33124951bbd1218aa6658c342340fb24415c636f220c9ea74"
     },
     {
       "path": "site/theme.js",
