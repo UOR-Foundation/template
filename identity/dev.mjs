@@ -34,8 +34,12 @@ async function bakedFrame(host) {
   return { frame: module.replace('"/*PANELS*/"', JSON.stringify(sha)), panels, sha, prismId, prismSha };
 }
 
-export function start({ idPort = 8790, appPort = 8791 } = {}) {
+// `registry`, when given, is a real registry's URL (UOR-Foundation/kappa-registry
+// with KAPPA_PASSKEY_ORIGINS naming this page's origin), used instead of the
+// in-memory mailbox.
+export function start({ idPort = 8790, appPort = 8791, registry = null } = {}) {
   const accounts = `http://localhost:${idPort}`;
+  const mailbox = registry ? new URL(registry).origin : accounts;
   // The mailbox: the newest messages of each topic, as the registry keeps them.
   const topics = new Map();
   const KEEP = 64;
@@ -62,10 +66,10 @@ export function start({ idPort = 8790, appPort = 8791 } = {}) {
     if (topic && request.method === "GET") {
       return topics.has(topic) ? json(response, 200, { topic, messages: topics.get(topic) }) : json(response, 404, { error: "unknown", message: "No messages." });
     }
-    const file = { "/": "index.html", "/id.mjs": "id.mjs", "/prism-id.mjs": "prism-id.mjs", "/id.css": "id.css", "/brand.css": "../site/brand/hologram-warm.css" }[path];
+    const file = { "/3/": "index.html", "/3/id.mjs": "id.mjs", "/3/prism-id.mjs": "prism-id.mjs", "/3/id.css": "id.css", "/3/brand.css": "../site/brand/hologram-warm.css" }[path];
     if (!file) return json(response, 404, { error: "unknown", message: "Not found." });
     let text = await readFile(join(root, "identity", file), "utf8");
-    if (file === "index.html") text = text.replace('content="https://registry.uor.foundation"', `content="${accounts}"`).replace("connect-src https://registry.uor.foundation", "connect-src 'self'");
+    if (file === "index.html") text = text.replace('content="https://registry.uor.foundation"', `content="${mailbox}"`).replace("connect-src https://registry.uor.foundation", `connect-src ${registry ? mailbox : "'self'"}`);
     response.writeHead(200, { "content-type": types[file.slice(file.lastIndexOf("."))] ?? "text/css", "cache-control": "no-store" });
     response.end(text);
   });
@@ -98,5 +102,5 @@ export function start({ idPort = 8790, appPort = 8791 } = {}) {
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const running = await start();
-  console.log(`sign-in page ${running.accounts}/\ndemo app     ${running.app}`);
+  console.log(`Prism id page ${running.accounts}/3/\ndemo app      ${running.app}`);
 }

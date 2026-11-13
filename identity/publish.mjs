@@ -1,9 +1,12 @@
 #!/usr/bin/env node
-// Builds the sign-in page for https://id.uor.foundation, content addressed
+// Builds the Prism id page for https://id.uor.foundation/3/, content addressed
 // like the frame: index.html pins each file it loads by SHA-384 (subresource
 // integrity), so a changed byte never runs, and current.json names the page
 // by its own SHA-256 for anyone checking what the origin serves.
 //   node identity/publish.mjs <out-dir> [<source commit>]
+// It writes <out-dir>/3/, so the page sits beside the prism/identity/1 page
+// at / that open apps on older frames still use: deploying it changes
+// nothing they see.
 // The origin serves <out-dir> as static files over HTTPS, with no other
 // content: its storage holds every visitor's Prism id device.
 import { createHash } from "node:crypto";
@@ -12,7 +15,8 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
-const [out = "identity-out", commit = process.env.GITHUB_SHA ?? null] = process.argv.slice(2);
+const [base = "identity-out", commit = process.env.GITHUB_SHA ?? null] = process.argv.slice(2);
+const out = join(base, "3");
 const files = { "id.mjs": "identity/id.mjs", "prism-id.mjs": "identity/prism-id.mjs", "id.css": "identity/id.css", "brand.css": "site/brand/hologram-warm.css" };
 
 await mkdir(out, { recursive: true });

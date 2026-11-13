@@ -37,7 +37,7 @@ Nothing carries over: a passkey-era account is a fresh Prism id.
 
 | Party | Where | Holds |
 | --- | --- | --- |
-| Prism id page | `https://id.uor.foundation` | This browser's device, keyring and log, in the origin's IndexedDB. It runs as its own window (first-party storage), so every app reaches the same device. It serves no other content. |
+| Prism id page | `https://id.uor.foundation/3/` (prism/identity/1's page stays at `/` for older frames) | This browser's device, keyring and log, in the origin's IndexedDB. It runs as its own window (first-party storage), so every app reaches the same device. It serves no other content. |
 | Registry mailbox | `https://registry.uor.foundation/prism/topic/<name>` | Opaque messages under names only holders can derive: recovery escrows (named by the code's locator) and sealed sync messages (named by a boundary key's sync topic). It reads none of them. |
 | Frame | `<prism-frame>` in every Prism app | This app's session key and the id's signed session. It checks every signature itself, with Prism id's `verifyAction`. |
 
@@ -82,11 +82,18 @@ registry keeps the newest 64 distinct messages of a name, each at most
 When the registry cannot keep an escrow, the page says so and the recovery
 file (the code and its escrow, downloaded) recovers with no registry at all.
 
+## Devices
+
+The page lists the id's active devices (browsers and recovery codes) and
+removes one with Prism id's `revokeDevice`, which rotates the private
+boundary key, then shares the log under every key it holds. A removed
+browser stops signing at its next sync; a removed code links nothing.
+
 ## Not yet
 
 - Linking a second device by QR code (stitch's link offers over the
   `prism-rendezvous:` mailbox). Today a recovery code adds a device.
-- Removing a device from the page (stitch's `revokeDevice` works).
 - A host learns of a removal only from the log the signing device presents;
   a stolen device that never syncs can keep signing until stitch defines
-  how hosts hear revocations.
+  how hosts hear revocations, and a session signed before a removal lasts
+  until it expires (at most 8 days).

@@ -428,7 +428,7 @@ const ACCOUNT_PANEL = `
 <p id="account-sub" class="account-sub">One Prism id for every Prism app. No password.</p>
 <div id="account-in" class="account-in" hidden>
   <p class="account-id"><code id="account-id"></code><button id="account-copy" class="text" type="button">Copy</button></p>
-  <button id="account-recovery" class="row" type="button">Recovery code</button>
+  <button id="account-recovery" class="row" type="button">Recovery codes and devices</button>
   <button id="account-out" class="row" type="button">Sign out</button>
 </div>
 <button id="account-window" class="primary" type="button">Continue</button>
@@ -445,7 +445,9 @@ export function accounts(frame, core) {
   frame.$("account-panel").innerHTML = ACCOUNT_PANEL;
   const button = frame.$("account");
   const panel = frame.$("account-panel");
-  const target = new URL(frame.data.accounts);
+  // The page for this protocol lives at /3/ on the accounts origin, beside
+  // earlier pages that open apps on older frames still use.
+  const target = new URL("/3/", frame.data.accounts);
   const origin = target.origin;
   const SPEC = "prism/identity/3";
   const windowButton = frame.$("account-window");

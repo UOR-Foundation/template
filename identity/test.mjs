@@ -92,7 +92,9 @@ describe("the flow in Chromium", () => {
   let firstId = null;
 
   before(async () => {
-    running = await start({ idPort: 8792, appPort: 8793 });
+    // PRISM_REGISTRY=<url> runs the flow against a real registry (a
+    // kappa-server with KAPPA_PASSKEY_ORIGINS=http://localhost:8792).
+    running = await start({ idPort: 8792, appPort: 8793, registry: process.env.PRISM_REGISTRY });
     const { chromium } = await import("playwright");
     browser = await chromium.launch();
     page = await (await browser.newContext()).newPage();
@@ -134,7 +136,7 @@ describe("the flow in Chromium", () => {
     assert.match(firstId, /^sha256:[0-9a-f]{64}$/);
     assert.equal(await page.locator("#account").getAttribute("aria-label"), "Prism account");
     // The escrow and the devices' sync are in the mailbox, every one sealed.
-    assert.ok(running.topics.size >= 2);
+    if (!process.env.PRISM_REGISTRY) assert.ok(running.topics.size >= 2);
     for (const [, messages] of running.topics) {
       for (const m of messages) assert.ok(["prism/sealed/1", "prism/recovery-escrow/1"].includes(JSON.parse(Buffer.from(m, "base64url")).kind));
     }
@@ -182,7 +184,7 @@ describe("the flow in Chromium", () => {
     );
     assert.equal(appKey, false);
     const idPage = await page.context().newPage();
-    await idPage.goto(`${running.accounts}/`);
+    await idPage.goto(`${running.accounts}/3/`);
     const device = await idPage.evaluate(
       () =>
         new Promise((done) => {
@@ -218,12 +220,47 @@ describe("the flow in Chromium", () => {
     assert.notEqual(await again.locator("#kit-code").textContent(), recoveryCode);
     await Promise.all([again.waitForEvent("close"), again.locator("#kit-done").click()]);
     await fresh.locator("#account-panel:not(:popover-open)").waitFor({ timeout: 10000 });
+
+    // The lost browser and every recovery code are retired from the new one.
+    const manage = await fresh.context().newPage();
+    await manage.goto(`${running.accounts}/3/`);
+    const rows = manage.locator("#device-list li");
+    await rows.first().waitFor({ timeout: 10000 });
+    assert.equal(await rows.count(), 4);
+    assert.equal(await manage.locator("#device-list li", { hasText: "(this browser)" }).count(), 1);
+    await manage.locator("#device-list li", { hasText: "Browser" }).filter({ hasNotText: "(this browser)" }).getByRole("button", { name: "Remove" }).click();
+    await manage.locator("#device-list li").nth(3).waitFor({ state: "detached", timeout: 10000 });
+    for (const left of [2, 1]) {
+      await manage.locator("#device-list li", { hasText: "Recovery code" }).first().getByRole("button", { name: "Remove" }).click();
+      await manage.locator("#device-list li").nth(left).waitFor({ state: "detached", timeout: 10000 });
+    }
+    assert.equal(await rows.count(), 1);
+
+    // The removed browser hears it through the mailbox and signs nothing more.
+    await page.locator("#account").click();
+    await page.locator("#account-out").click();
+    await page.locator("#account:not(.signed-in)").waitFor({ timeout: 10000 });
+    await page.locator("#account").click();
+    const removed = await openWindow(page);
+    await removed.locator("#continue").click();
+    await removed.locator("#title", { hasText: "This device was removed" }).waitFor({ timeout: 10000 });
+    await removed.close();
+    assert.equal(await account(page), null);
+
+    // A retired code brings nothing back.
+    const third = await (await browser.newContext()).newPage();
+    await third.goto(`${running.accounts}/3/`);
+    await third.locator("#use-code").click();
+    await third.locator("#code").fill(recoveryCode);
+    await third.locator("#recover-go").click();
+    await third.locator("#error", { hasText: "removed" }).waitFor({ timeout: 10000 });
+    await third.context().close();
     await fresh.context().close();
   });
 
-  test("a recovery file brings the id back with no registry copy", async () => {
+  test("a recovery file brings the id back with no registry copy", { skip: Boolean(process.env.PRISM_REGISTRY) && "needs the in-memory mailbox" }, async () => {
     const owner = await (await browser.newContext({ acceptDownloads: true })).newPage();
-    await owner.goto(`${running.accounts}/`);
+    await owner.goto(`${running.accounts}/3/`);
     await owner.locator("#create").click();
     await owner.locator("#kit-code").waitFor({ timeout: 10000 });
     const [download] = await Promise.all([owner.waitForEvent("download"), owner.locator("#kit-save").click()]);
@@ -234,7 +271,7 @@ describe("the flow in Chromium", () => {
     const prism = await owner.locator("#id").getAttribute("title");
     running.topics.clear();
     const other = await (await browser.newContext()).newPage();
-    await other.goto(`${running.accounts}/`);
+    await other.goto(`${running.accounts}/3/`);
     await other.locator("#use-code").click();
     await other.locator("#code").fill(id);
     await other.locator("#recover-go").click();

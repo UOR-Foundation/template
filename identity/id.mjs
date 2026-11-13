@@ -197,6 +197,47 @@ function paint() {
   $("continue").hidden = !(asking && request.mode === "signin");
   $("make-code").hidden = asking && request.mode === "signin";
   $("make-code").classList.toggle("primary", asking && request.mode === "recovery");
+  $("devices").hidden = view !== "held" || (asking && request.mode === "signin");
+  if (!$("devices").hidden) listDevices();
+}
+
+// The id's devices, from its log: this browser, other browsers and recovery
+// codes. Removing one is Prism id's revokeDevice, which also rotates the
+// private boundary key; it reaches the other devices through the mailbox.
+const KIND_LABEL = { browser: "Browser", native: "App", mobile: "Phone", embedded: "Device", recovery: "Recovery code" };
+async function listDevices() {
+  const state = await Prism.resolvePrism(held.prism, held.log);
+  const list = $("device-list");
+  list.replaceChildren(
+    ...state.active.map((id) => {
+      const item = document.createElement("li");
+      const label = document.createElement("span");
+      const record = state.devices[id];
+      label.append(`${KIND_LABEL[record.class] ?? "Device"} `);
+      const code = document.createElement("code");
+      code.textContent = id.slice(7, 15);
+      code.title = id;
+      label.append(code);
+      if (id === held.device.id) label.append(" (this browser)");
+      item.append(label);
+      if (id !== held.device.id) {
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.textContent = "Remove";
+        remove.dataset.device = id;
+        remove.addEventListener("click", () =>
+          run(async () => {
+            held = await Prism.revokeDevice(await pull(held), id);
+            await save(held);
+            await share(held);
+            paint();
+          }),
+        );
+        item.append(remove);
+      }
+      return item;
+    }),
+  );
 }
 
 function busy(on) {

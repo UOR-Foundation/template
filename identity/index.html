@@ -25,6 +25,10 @@
         <p class="id"><code id="id"></code><button id="copy-id" class="link" type="button">Copy</button></p>
         <button id="continue" class="primary" type="button">Continue</button>
         <button id="make-code" type="button">Make a new recovery code</button>
+        <div id="devices" class="stack" hidden>
+          <p class="note">Devices that can act for this id. Remove a lost device, or an old recovery code, and it can do nothing more.</p>
+          <ul id="device-list" class="devices"></ul>
+        </div>
       </div>
       <div id="removed" class="stack" hidden>
         <p class="note">Another of your devices removed this browser from your Prism id.</p>

@@ -20,6 +20,10 @@ h1 { margin: 0; font-size: 1.125rem; font-weight: 600; text-align: center; }
 .id code { font-family: var(--font-mono, ui-monospace, monospace); font-size: 0.875rem; }
 .warn { color: var(--foreground); }
 .file { display: grid; gap: 0.25rem; }
+.devices { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.25rem; }
+.devices li { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; font-size: 0.8125rem; }
+.devices code { font-family: var(--font-mono, ui-monospace, monospace); }
+.devices button { min-height: 2rem; padding: 0 0.75rem; font-size: 0.8125rem; }
 .file input { min-height: 0; padding: 0.25rem; font-family: inherit; }
 button {
   display: inline-flex;
