@@ -342,11 +342,14 @@ export function panel(frame, core) {
 }
 
 // The theme panel's contents, which the frame puts in its empty panel.
-// Prism accounts (prism/identity/1, identity/PROTOCOL.md): the checks the
+// Prism accounts (prism/identity/2, identity/PROTOCOL.md): the checks the
 // sign-in page's answer must pass. The page is trusted with nothing; every
 // signature is checked here, in the visitor's browser, as the frame checks
 // the holo's bytes. A failed check is an IdentityError naming which one.
-const MAX_CHAIN = 5;
+// An account is a set of keys: passkeys on devices, and recovery keys its
+// owner keeps as codes. Each added device and each recovery adds a binding;
+// the bound only keeps this check finite.
+const MAX_CHAIN = 32;
 const enc = new TextEncoder();
 const b64u = (bytes) => btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = (text) => {
@@ -373,6 +376,23 @@ const ALGORITHMS = {
   [-7]: { key: { name: "ECDSA", namedCurve: "P-256" }, verify: { name: "ECDSA", hash: "SHA-256" } },
   [-257]: { key: { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, verify: { name: "RSASSA-PKCS1-v1_5" } },
 };
+// A recovery key: Ed25519, signing the protocol message itself.
+const RECOVERY = -8;
+
+// A key's name, by its record's spec: key/2 names it by κ, the UORC address
+// `sha256:<hex>` of its SPKI; key/1 (prism/identity/1) by base64url SHA-256.
+const KEY_IDS = {
+  "prism/identity/key/2": async (spki) => `sha256:${[...(await digest(spki))].map((b) => b.toString(16).padStart(2, "0")).join("")}`,
+  "prism/identity/key/1": async (spki) => b64u(await digest(spki)),
+};
+
+// A recovery key's signature: no client or authenticator data, only an
+// Ed25519 signature over the message, under the record's key.
+async function verifyRecovery(record, signed, message) {
+  if (signed.clientDataJSON !== undefined || signed.authenticatorData !== undefined) deny("signature", "A recovery signature carries no sign-in data");
+  const key = await crypto.subtle.importKey("spki", unb64u(record.spki), { name: "Ed25519" }, false, ["verify"]).catch(() => deny("key", "The public key does not parse"));
+  if (!(await crypto.subtle.verify({ name: "Ed25519" }, key, unb64u(signed.signature), enc.encode(message)))) deny("signature", "The signature does not verify");
+}
 
 // WebAuthn's ECDSA signatures are DER; WebCrypto's are the two 32-byte halves.
 function rawSignature(der) {
@@ -397,6 +417,7 @@ function rawSignature(der) {
 // checks of PROTOCOL.md, in its order, failing closed.
 export async function verifySigned(record, signed, message, origins) {
   if (signed?.credential !== record.credential) deny("credential", "The signature is from another passkey");
+  if (record.alg === RECOVERY) return verifyRecovery(record, signed, message);
   let client;
   try {
     client = JSON.parse(new TextDecoder().decode(unb64u(signed.clientDataJSON)));
@@ -422,8 +443,9 @@ export async function verifySigned(record, signed, message, origins) {
 // account's first key or bound to it by a key already accepted.
 export async function acceptRecord(credential, records, origins, depth = 0) {
   const record = records.find((r) => r?.credential === credential);
-  if (!record || record.spec !== "prism/identity/key/1") deny("record", "The passkey has no record");
-  if (b64u(await digest(unb64u(record.spki))) !== record.key) deny("key", "The record's name is not its key's hash");
+  const keyId = record && Object.hasOwn(KEY_IDS, record.spec) ? KEY_IDS[record.spec] : null;
+  if (!keyId) deny("record", "The passkey has no record");
+  if ((await keyId(unb64u(record.spki))) !== record.key) deny("key", "The record's name is not its key's hash");
   if (record.key === record.account) {
     if (record.binding) deny("binding", "An account's first key has no binding");
     return record;
@@ -441,6 +463,8 @@ export async function verifySession(session, origins, now = Date.now()) {
   const { app, nonce, sessionKey, expires, assertion, records } = session ?? {};
   if (!Number.isSafeInteger(expires) || expires <= now) deny("expired", "The session has expired");
   const record = await acceptRecord(assertion?.credential, records ?? [], origins);
+  // A recovery code adds a device; only a device's passkey signs a session.
+  if (record.alg === RECOVERY) deny("algorithm", "A recovery code does not sign in by itself");
   await verifySigned(record, assertion, `prism/identity/session/1\n${app}\n${nonce}\n${sessionKey}\n${expires}`, origins);
   return { account: record.account, key: record.key, credential: record.credential, expires };
 }
@@ -453,13 +477,14 @@ const ACCOUNT_PANEL = `
 <div id="account-in" class="account-in" hidden>
   <p class="account-id"><code id="account-id"></code><button id="account-copy" class="text" type="button">Copy</button></p>
   <button id="account-add" class="row" type="button">Add device</button>
+  <button id="account-recovery" class="row" type="button">Recovery code</button>
   <button id="account-out" class="row" type="button">Sign out</button>
 </div>
 <div id="account-ceremony" class="account-ceremony"></div>
 <button id="account-window" class="primary" type="button" hidden>Continue</button>
 `;
 
-// The account panel (prism/identity/1, identity/PROTOCOL.md): the sign-in
+// The account panel (prism/identity/2, identity/PROTOCOL.md): the sign-in
 // page from the accounts origin in an iframe, loaded when the visitor reaches
 // for the icon, so the panel opens ready. A page whose policy will not frame
 // that origin gets the same page in a small window instead. The page says
@@ -519,6 +544,10 @@ export function accounts(frame, core) {
       frame.$("account-title").textContent = "Add a device";
       frame.$("account-sub").textContent = "Your phone or another computer joins this account.";
     }
+    if (mode === "recovery") {
+      frame.$("account-title").textContent = "Recovery code";
+      frame.$("account-sub").textContent = "A code that brings this account to any device, if you lose yours.";
+    }
     const saved = accountChannel.session;
     ceremony = {
       mode,
@@ -530,7 +559,7 @@ export function accounts(frame, core) {
           nonce: b64u(crypto.getRandomValues(new Uint8Array(32))),
           sessionKey: b64u(await crypto.subtle.exportKey("raw", keys.publicKey)),
           expires: Date.now() + SESSION_DAYS * 864e5,
-          ...(mode === "add" ? { account: saved.account, credential: saved.credential } : {}),
+          ...(mode === "signin" ? {} : { account: saved.account, credential: saved.credential }),
         },
       })),
     };
@@ -542,8 +571,8 @@ export function accounts(frame, core) {
     const page = new URL(target);
     page.hash = `theme=${document.documentElement.classList.contains("dark") ? "dark" : "light"}`;
     iframe.src = page.href;
-    iframe.title = mode === "add" ? "Add device" : "Sign in";
-    iframe.allow = "publickey-credentials-get; publickey-credentials-create";
+    iframe.title = { add: "Add device", recovery: "Recovery code" }[mode] ?? "Sign in";
+    iframe.allow = "publickey-credentials-get; publickey-credentials-create; clipboard-write";
     iframe.referrerPolicy = "no-referrer";
     box.replaceChildren(iframe);
     ceremony.iframe = iframe;
@@ -611,6 +640,13 @@ export function accounts(frame, core) {
       if (!ceremony || event.origin !== origin || event.source !== (ceremony.iframe?.contentWindow ?? ceremony.popup)) return;
       const data = event.data ?? {};
       ceremony.answered = true;
+      // A sign-in page from before recovery codes cannot make one: say so
+      // rather than show a button that would never answer.
+      if (data.type === `${SPEC}/ready` && ceremony.mode === "recovery" && !data.modes?.includes?.("recovery")) {
+        close();
+        frame.$("account-sub").textContent = "Recovery codes are not available yet. Try again soon.";
+        return;
+      }
       if (data.type === `${SPEC}/ready`) ceremony.iframe?.classList.add("ready");
       if (data.type === `${SPEC}/ready` && ceremony.slow) {
         ceremony.slow = false;
@@ -624,6 +660,10 @@ export function accounts(frame, core) {
         close();
         panel.hidePopover();
         say("Device added");
+      } else if (data.type === `${SPEC}/recovery` && ceremony.mode === "recovery") {
+        close();
+        panel.hidePopover();
+        say("Recovery code saved");
       }
     },
     { signal: frame.accountWatch.signal },
@@ -639,10 +679,11 @@ export function accounts(frame, core) {
       paint();
       return void reach();
     }
-    if (ceremony?.mode === "add") close();
+    if (ceremony?.mode === "add" || ceremony?.mode === "recovery") close();
   });
 
   frame.$("account-add").addEventListener("click", () => begin("add"));
+  frame.$("account-recovery").addEventListener("click", () => begin("recovery"));
   frame.$("account-out").addEventListener("click", async () => {
     await store("readwrite", (s) => s.delete("current")).catch(() => {});
     accountChannel.session = null;

@@ -19,6 +19,21 @@
         <span id="go-label">Sign in</span>
       </button>
       <p id="fresh" class="note" hidden>No passkey on this device yet. <button id="again" class="link" type="button">Try again</button></p>
+      <p id="lost" class="note" hidden><button id="use-code" class="link" type="button">Lost your device? Use a recovery code</button></p>
+      <div id="recover" class="stack" hidden>
+        <label class="note" for="code">Your recovery code</label>
+        <input id="code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX XXXX XXXX …" />
+        <button id="recover-go" class="primary" type="button">Recover on this device</button>
+      </div>
+      <div id="kit" class="stack" hidden>
+        <p class="note">Your recovery code. It brings this account to any device if you lose this one. Keep it offline, somewhere safe: anyone holding it can add a device.</p>
+        <output id="kit-code" class="code"></output>
+        <div class="pair">
+          <button id="kit-copy" type="button">Copy</button>
+          <button id="kit-save" type="button">Download</button>
+        </div>
+        <button id="kit-done" class="primary" type="button">I saved it</button>
+      </div>
       <p id="error" class="error" hidden></p>
     </main>
   </body>

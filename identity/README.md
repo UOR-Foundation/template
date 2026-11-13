@@ -2,8 +2,20 @@
 
 The person icon at the right end of every Prism app's bar. One click opens the
 account panel; one more, and Face ID, Touch ID, Windows Hello or a phone signs
-the visitor in. No password exists anywhere. [PROTOCOL.md](PROTOCOL.md) is the
-contract; this file says why it is built this way and how to run it.
+the visitor in. No password exists anywhere. One account signs in to every
+Prism app, Foundry included. [PROTOCOL.md](PROTOCOL.md) is the contract; this
+file says why it is built this way and how to run it.
+
+## Losing a device never loses the account
+
+A new account's first key is a recovery key, and the page shows its recovery
+code once, before the first sign-in. The device's passkey joins the account
+through it, so the account never depended on that device. On any new device,
+**Lost your device? Use a recovery code** makes that device's passkey and
+binds it with the code, and the visitor is signed in to the same account. A
+signed-in visitor can make a fresh code from the panel at any time
+(**Recovery code**); an account made before recovery codes existed gets its
+first one there.
 
 ## Why a passkey, and why this domain
 
@@ -57,7 +69,9 @@ verify registrations; the frame's checks are the real ones.
    with HSTS. Do not set `Cross-Origin-Opener-Policy: same-origin`: the
    popup fallback needs `window.opener`.
 3. Deploy the registry's `/passkey/` routes (UOR-Foundation/kappa-registry)
-   with `https://id.uor.foundation` as the allowed identity origin.
+   with `https://id.uor.foundation` as the allowed identity origin. Recovery
+   codes need a registry with `POST /passkey/recovery`; deploy it before the
+   page.
 
 Ship the frame change only after steps 2 and 3 are live: every Prism app
 loads the frame from main on its next visit. Before then the panel says

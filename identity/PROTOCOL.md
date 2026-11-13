@@ -1,9 +1,15 @@
-# prism/identity/1
+# prism/identity/2
 
-A Prism account is a passkey. Its private key never leaves the device's secure
-hardware (Secure Enclave, TPM, Android TEE or StrongBox). Everything else is
+A Prism account is a set of keys: passkeys, whose private keys never leave
+each device's secure hardware (Secure Enclave, TPM, Android TEE or StrongBox),
+and recovery keys, whose private keys the owner keeps outside every device as
+a recovery code. Losing a device never loses the account. Everything else is
 public, content addressed and checkable by anyone, so no server is trusted to
-say who a user is.
+say who a user is. One account signs in to every Prism app, Foundry included.
+
+prism/identity/2 extends prism/identity/1: keys are named by κ, recovery keys
+exist, and an account's first key may be one. Every prism/identity/1 record,
+signature and account stays valid.
 
 ## Parties
 
@@ -20,14 +26,26 @@ For development the identity page runs on `http://localhost:<port>` with rpId
 
 `b64u` is base64url without padding. `H(x)` is SHA-256. Strings are UTF-8.
 
-- **Key ID**: `b64u(H(spki))`, where `spki` is the credential public key as
-  DER SubjectPublicKeyInfo (`AuthenticatorAttestationResponse.getPublicKey()`).
-- **Account ID**: the key ID of the account's first passkey. It never changes.
-- **Algorithms**: ES256 (`-7`, P-256) and RS256 (`-257`, for older Windows Hello).
+- **Key ID**: the κ of the key, `sha256:<64 lowercase hex>` of `H(spki)`, the
+  UORC object address of its DER SubjectPublicKeyInfo (for a passkey,
+  `AuthenticatorAttestationResponse.getPublicKey()`). Records of spec
+  `prism/identity/key/1` keep their prism/identity/1 key ID, `b64u(H(spki))`;
+  a reader picks the rule by the record's spec.
+- **Account ID**: the key ID of the account's first key. It never changes,
+  and it outlives that key: revoking it, or losing its device, leaves the
+  account and every key bound into it.
+- **Algorithms**: passkeys ES256 (`-7`, P-256) and RS256 (`-257`, for older
+  Windows Hello); recovery keys EdDSA (`-8`, Ed25519).
 
 ## Signed messages
 
-Every signature is a WebAuthn assertion: the authenticator signs
+A recovery key's signature is Ed25519 over the message's UTF-8 bytes, carried
+as `{credential, signature}` with no `clientDataJSON` or `authenticatorData`;
+a verifier checks it under the record's `spki` and refuses one that carries
+either field. A recovery key signs bind and revoke messages, never a session:
+only a device's passkey signs a session.
+
+Every passkey signature is a WebAuthn assertion: the authenticator signs
 `authenticatorData || H(clientDataJSON)`. The challenge inside `clientDataJSON`
 is the hash of the message below, so the signature covers the message. A
 verifier rebuilds the message, then checks, in order and failing closed:
@@ -54,7 +72,7 @@ exactly one change, so replaying it repeats that change and nothing else.
 
 ```json
 {
-  "spec": "prism/identity/key/1",
+  "spec": "prism/identity/key/2",
   "key": "<key ID>",
   "account": "<account ID>",
   "credential": "<b64u credential ID>",
@@ -67,16 +85,41 @@ exactly one change, so replaying it repeats that change and nothing else.
 ```
 
 `binding` is null for an account's first key (then `key == account`).
-Otherwise it is the bind assertion made by a key already in the account:
+Otherwise it is the bind signature made by a key already in the account, a
+passkey's assertion or a recovery key's signature:
 
 ```json
 { "credential": "<b64u>", "clientDataJSON": "<b64u>", "authenticatorData": "<b64u>", "signature": "<b64u>" }
+{ "credential": "<b64u>", "signature": "<b64u>" }
 ```
 
-A reader accepts a record only when `key == b64u(H(spki))` and either
-`key == account`, or the binding verifies as a bind message under a record that
-the reader has itself accepted for the same account. A chain longer than five
-bindings is refused.
+A recovery key's record has `alg` `-8`, its `credential` is its raw 32-byte
+public key in b64u (so the code alone finds its record), and its `origin` is
+the identity origin it was made on.
+
+A reader accepts a record only when `key` is the key ID its spec names for
+`spki` and either `key == account`, or the binding verifies as a bind message
+under a record that the reader has itself accepted for the same account. A
+chain longer than 32 bindings is refused; the bound only keeps a reader's work
+finite.
+
+## Recovery codes
+
+A recovery code is a recovery key's 32-byte Ed25519 seed followed by the first
+three bytes of `H(seed)`, in Crockford base32: 56 characters, written in
+groups of four. A reader ignores spaces, hyphens and case, reads `I` and `L`
+as `1` and `O` as `0`, and refuses a code whose check bytes differ. The
+private key is the PKCS#8 encoding of the seed; the code is shown once, never
+stored and never sent.
+
+The sign-in page makes a new account with a recovery key as its first key:
+it creates the device's passkey, registers the recovery key alone (which
+starts the account), binds the passkey to it with a recovery signature, shows
+the code, and then asks the passkey to sign the app's session. A signed-in
+account adds a recovery code by its passkey binding a new recovery key. On a
+new device, the code finds its record, the device's new passkey is bound by
+a recovery signature, and that passkey signs the session. A recovery key is
+revoked like any key.
 
 ## Registry routes
 
@@ -85,7 +128,8 @@ All bodies are JSON. Errors are `{"error": "<code>", "message": "<one sentence>"
 | Route | Does |
 | --- | --- |
 | `POST /passkey/challenge` | `{"challenge": "<b64u 32 bytes>", "expires": <ms>}`. Single use, 120 s. |
-| `POST /passkey/register` | Registers a new passkey. Body: `spki`, `alg`, `credential`, `clientDataJSON`, `authenticatorData`, `attestationObject`, `transports`, and `binding` (null, or a bind assertion plus `account`). |
+| `POST /passkey/register` | Registers a new passkey. Body: `spki`, `alg`, `credential`, `clientDataJSON`, `authenticatorData`, `attestationObject`, `transports`, and `binding` (null, or a bind signature plus `account`). |
+| `POST /passkey/recovery` | Adds a recovery key. Body: `spki` alone, which starts an account with it as the first key and records the request's identity origin; or `spki`, `account` and `binding`, a bind signature by a live key of the account. Answers `{key, account, record}`. |
 | `GET /passkey/credential/{credential}` | The key record. `404` unknown, `410` revoked. |
 | `GET /passkey/account/{account}` | `{"account", "keys": [records], "revoked": [key IDs]}`. |
 | `POST /passkey/revoke` | Body: `account`, `key`, and a revoke assertion by a live key of the account. |

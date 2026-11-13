@@ -37,6 +37,34 @@ button:disabled { opacity: 0.6; cursor: default; }
 main.busy button { opacity: 0.6; pointer-events: none; }
 main.busy #go svg { animation: pulse 1.2s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: 0.35; } }
+.stack { display: grid; gap: 0.5rem; }
+.stack[hidden], [hidden] { display: none !important; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.pair button { background: var(--secondary, transparent); color: var(--foreground); border-color: var(--border); }
+input {
+  min-height: 2.618rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  background: var(--background);
+  color: var(--foreground);
+  font: inherit;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.875rem;
+}
+input:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
+.code {
+  display: block;
+  padding: 0.618rem;
+  border: 1px dashed var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.9375rem;
+  letter-spacing: 0.04em;
+  text-align: center;
+  word-spacing: 0.2em;
+  user-select: all;
+}
 .note { margin: 0; color: var(--muted-foreground); font-size: 0.8125rem; text-align: center; }
 .error { margin: 0; color: var(--destructive); font-size: 0.8125rem; text-align: center; }
 @media (pointer: coarse) { button:not(.link) { min-height: 3rem; } }

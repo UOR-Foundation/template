@@ -16,6 +16,10 @@ import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const b64u = (bytes) => Buffer.from(bytes).toString("base64url");
+const kappa = (spki) => `sha256:${createHash("sha256").update(Buffer.from(spki, "base64url")).digest("hex")}`;
+// The fields of an assertion the registry keeps: a passkey's carries client
+// and authenticator data, a recovery key's only its signature.
+const assertionOf = ({ credential, clientDataJSON, authenticatorData, signature }) => ({ credential, ...(clientDataJSON === undefined ? {} : { clientDataJSON, authenticatorData }), signature });
 const types = { ".html": "text/html; charset=utf-8", ".mjs": "text/javascript", ".css": "text/css" };
 
 // The frame as publish.mjs bakes it, without minifying: its panels module
@@ -58,18 +62,29 @@ export function start({ idPort = 8790, appPort = 8791 } = {}) {
       const client = JSON.parse(Buffer.from(r.clientDataJSON, "base64url"));
       if (!challenges.delete(client.challenge)) return json(response, 400, { error: "challenge", message: "The challenge is unknown or used." });
       if (records.has(r.credential)) return json(response, 409, { error: "exists", message: "The passkey is already registered." });
-      const key = b64u(createHash("sha256").update(Buffer.from(r.spki, "base64url")).digest());
-      const binding = r.binding ? { credential: r.binding.credential, clientDataJSON: r.binding.clientDataJSON, authenticatorData: r.binding.authenticatorData, signature: r.binding.signature } : null;
-      const record = { spec: "prism/identity/key/1", key, account: r.binding?.account ?? key, credential: r.credential, alg: r.alg, spki: r.spki, origin: client.origin, created: Date.now(), binding };
+      const key = kappa(r.spki);
+      const binding = r.binding ? assertionOf(r.binding) : null;
+      const record = { spec: "prism/identity/key/2", key, account: r.binding?.account ?? key, credential: r.credential, alg: r.alg, spki: r.spki, origin: client.origin, created: Date.now(), binding };
       records.set(r.credential, record);
-      return json(response, 201, record);
+      return json(response, 201, { key, account: record.account, record });
+    }
+    // A recovery key: an account's first key, or bound into one. Its
+    // credential is its raw public key, the SPKI's last 32 bytes.
+    if (request.method === "POST" && path === "/passkey/recovery") {
+      const r = await body(request);
+      const key = kappa(r.spki);
+      const credential = b64u(Buffer.from(r.spki, "base64url").subarray(-32));
+      if (records.has(credential)) return json(response, 409, { error: "exists", message: "The key is already registered." });
+      const record = { spec: "prism/identity/key/2", key, account: r.account ?? key, credential, alg: -8, spki: r.spki, origin: accounts, created: Date.now(), binding: r.binding ? assertionOf(r.binding) : null };
+      records.set(credential, record);
+      return json(response, 201, { key, account: record.account, record });
     }
     const credential = /^\/passkey\/credential\/([\w-]+)$/.exec(path)?.[1];
     if (request.method === "GET" && credential) {
       const record = records.get(credential);
       return record ? json(response, 200, record) : json(response, 404, { error: "unknown", message: "No passkey has that credential." });
     }
-    const account = /^\/passkey\/account\/([\w-]+)$/.exec(path)?.[1];
+    const account = /^\/passkey\/account\/(sha256:[0-9a-f]{64}|[\w-]+)$/.exec(path)?.[1];
     if (request.method === "GET" && account) {
       const keys = [...records.values()].filter((r) => r.account === account);
       return keys.length ? json(response, 200, { account, keys, revoked: [] }) : json(response, 404, { error: "account", message: "No account has that name." });

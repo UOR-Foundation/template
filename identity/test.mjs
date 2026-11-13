@@ -25,12 +25,22 @@ function der(raw) {
   return new Uint8Array([0x30, body.length, ...body]);
 }
 
+const kappa = async (spki) => `sha256:${Buffer.from(await sha(spki)).toString("hex")}`;
+
 async function passkey() {
   const keys = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
   const spki = new Uint8Array(await crypto.subtle.exportKey("spki", keys.publicKey));
-  const key = b64u(await sha(spki));
-  return { keys, spki: b64u(spki), key, credential: b64u(crypto.getRandomValues(new Uint8Array(16))) };
+  return { keys, spki: b64u(spki), key: await kappa(spki), legacy: b64u(await sha(spki)), credential: b64u(crypto.getRandomValues(new Uint8Array(16))), alg: -7 };
 }
+
+// A recovery key, as the sign-in page makes one for a recovery code.
+async function recoveryKey() {
+  const keys = await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"]);
+  const spki = new Uint8Array(await crypto.subtle.exportKey("spki", keys.publicKey));
+  return { keys, spki: b64u(spki), key: await kappa(spki), credential: b64u(spki.slice(-32)), alg: -8 };
+}
+
+const signRecovery = async (rk, message) => ({ credential: rk.credential, signature: b64u(await crypto.subtle.sign({ name: "Ed25519" }, rk.keys.privateKey, enc.encode(message))) });
 
 async function assertion(pk, message, { origin = ACCOUNTS, rp = "id.uor.foundation", flags = 0x05, type = "webauthn.get" } = {}) {
   const clientDataJSON = enc.encode(JSON.stringify({ type, challenge: b64u(await sha(message)), origin, crossOrigin: true }));
@@ -39,7 +49,7 @@ async function assertion(pk, message, { origin = ACCOUNTS, rp = "id.uor.foundati
   return { credential: pk.credential, clientDataJSON: b64u(clientDataJSON), authenticatorData: b64u(authenticatorData), signature: b64u(der(raw)) };
 }
 
-const recordOf = (pk, account = pk.key, binding = null) => ({ spec: "prism/identity/key/1", key: pk.key, account, credential: pk.credential, alg: -7, spki: pk.spki, origin: ACCOUNTS, created: 0, binding });
+const recordOf = (pk, account = pk.key, binding = null) => ({ spec: "prism/identity/key/2", key: pk.key, account, credential: pk.credential, alg: pk.alg, spki: pk.spki, origin: ACCOUNTS, created: 0, binding });
 
 async function session(pk, records, overrides = {}) {
   const s = { app: "https://app.example", nonce: b64u(crypto.getRandomValues(new Uint8Array(32))), sessionKey: "k", expires: Date.now() + 60000, records, ...overrides };
@@ -129,6 +139,54 @@ describe("the frame's checks", () => {
     await assert.rejects(acceptRecord(second.credential, [recordOf(second, first.key, binding), recordOf(first)], ORIGINS), refuses("challenge"));
   });
 
+  test("an account made under prism/identity/1 still signs in", async () => {
+    const pk = await passkey();
+    const legacy = { ...recordOf(pk), spec: "prism/identity/key/1", key: pk.legacy, account: pk.legacy };
+    assert.equal((await verifySession(await session(pk, [legacy]), ORIGINS)).account, pk.legacy);
+    await assert.rejects(verifySession(await session(pk, [{ ...legacy, spec: "prism/identity/key/2" }]), ORIGINS), refuses("key"));
+    await assert.rejects(verifySession(await session(pk, [{ ...legacy, spec: "prism/identity/key/9" }]), ORIGINS), refuses("record"));
+  });
+
+  test("an account whose first key is a recovery key signs in with the passkey it bound", async () => {
+    const root = await recoveryKey();
+    const device = await passkey();
+    const binding = await signRecovery(root, `prism/identity/bind/1\n${root.key}\n${device.key}`);
+    const who = await verifySession(await session(device, [recordOf(device, root.key, binding), recordOf(root)]), ORIGINS);
+    assert.equal(who.account, root.key);
+    assert.match(who.account, /^sha256:[0-9a-f]{64}$/);
+  });
+
+  test("a recovery code brings a passkey-first account to a new device", async () => {
+    const lost = await passkey();
+    const rk = await recoveryKey();
+    const fresh = await passkey();
+    const records = [
+      recordOf(fresh, lost.key, await signRecovery(rk, `prism/identity/bind/1\n${lost.key}\n${fresh.key}`)),
+      recordOf(rk, lost.key, await assertion(lost, `prism/identity/bind/1\n${lost.key}\n${rk.key}`)),
+      recordOf(lost),
+    ];
+    assert.equal((await verifySession(await session(fresh, records), ORIGINS)).account, lost.key);
+  });
+
+  test("a recovery key never signs a session itself", async () => {
+    const root = await recoveryKey();
+    const s = { app: "https://app.example", nonce: b64u(crypto.getRandomValues(new Uint8Array(32))), sessionKey: "k", expires: Date.now() + 60000, records: [recordOf(root)] };
+    s.assertion = await signRecovery(root, `prism/identity/session/1\n${s.app}\n${s.nonce}\n${s.sessionKey}\n${s.expires}`);
+    await assert.rejects(verifySession(s, ORIGINS), refuses("algorithm"));
+  });
+
+  test("a recovery signature is refused when forged, misdirected or dressed as a passkey's", async () => {
+    const root = await recoveryKey();
+    const other = await recoveryKey();
+    const device = await passkey();
+    const message = `prism/identity/bind/1\n${root.key}\n${device.key}`;
+    const check = (binding) => acceptRecord(device.credential, [recordOf(device, root.key, binding), recordOf(root)], ORIGINS);
+    await assert.rejects(check({ ...(await signRecovery(other, message)), credential: root.credential }), refuses("signature"));
+    await assert.rejects(check(await signRecovery(root, `prism/identity/bind/1\n${root.key}\nsomeone-else`)), refuses("signature"));
+    await assert.rejects(check({ ...(await signRecovery(root, message)), clientDataJSON: "e30", authenticatorData: "" }), refuses("signature"));
+    await check(await signRecovery(root, message));
+  });
+
   test("an account's first key may not carry a binding", async () => {
     const pk = await passkey();
     await assert.rejects(verifySigned(recordOf(pk), await assertion(pk, "m"), "other", ORIGINS), refuses("challenge"));
@@ -166,6 +224,7 @@ describe("the flow in Chromium, with a virtual passkey", () => {
   });
 
   const signIn = page2 => page2.locator("prism-frame").evaluate((frame) => frame.account);
+  let recoveryCode = null;
   const ceremony = () => page.frameLocator("prism-frame >> iframe");
 
   test("the icon sits after full screen and starts signed out", async () => {
@@ -200,10 +259,15 @@ describe("the flow in Chromium, with a virtual passkey", () => {
     await ceremony().locator("#go:enabled").click();
     await ceremony().locator("#go-label", { hasText: "Create account" }).waitFor({ timeout: 10000 });
     await ceremony().locator("#go:enabled").click();
+    // The account's first key is a recovery code, shown once; saving it signs in.
+    await ceremony().locator("#kit-code").waitFor({ timeout: 10000 });
+    recoveryCode = await ceremony().locator("#kit-code").textContent();
+    assert.match(recoveryCode, /^([0-9A-HJKMNP-TV-Z]{4} ){13}[0-9A-HJKMNP-TV-Z]{4}$/);
+    await ceremony().locator("#kit-done").click();
     await page.locator("#account.signed-in").waitFor({ timeout: 10000 });
     const account = await signIn(page);
-    assert.match(account.id, /^[\w-]{43}$/);
-    assert.equal(running.records.size, 1);
+    assert.match(account.id, /^sha256:[0-9a-f]{64}$/);
+    assert.equal(running.records.size, 2);
     assert.equal(await page.locator("#account").getAttribute("aria-label"), "Prism account");
   });
 
@@ -252,8 +316,9 @@ describe("the flow in Chromium, with a virtual passkey", () => {
     await popup.locator("#go:enabled").click();
     await popup.locator("#go-label", { hasText: "Create account" }).waitFor({ timeout: 10000 });
     await popup.locator("#go:enabled").click();
+    await popup.locator("#kit-done").click();
     await strict.locator("#account.signed-in").waitFor({ timeout: 10000 });
-    assert.match((await signIn(strict)).id, /^[\w-]{43}$/);
+    assert.match((await signIn(strict)).id, /^sha256:[0-9a-f]{64}$/);
     await strict.close();
   });
 
@@ -285,5 +350,54 @@ describe("the flow in Chromium, with a virtual passkey", () => {
     assert.equal(await ceremony().locator("#go-label").textContent(), "Continue with Windows Hello");
     await ceremony().locator("#go:enabled").click();
     await ceremony().locator("#go-label", { hasText: "Create account" }).waitFor({ timeout: 10000 });
+  });
+
+  test("a lost device: the recovery code signs in on a new one, same account", async () => {
+    const fresh = await (await browser.newContext()).newPage({ userAgent: WINDOWS });
+    const cdp2 = await fresh.context().newCDPSession(fresh);
+    await cdp2.send("WebAuthn.enable");
+    await cdp2.send("WebAuthn.addVirtualAuthenticator", {
+      options: { protocol: "ctap2", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+    });
+    await fresh.goto(running.app);
+    await fresh.locator("#account").click();
+    const box = fresh.frameLocator("prism-frame >> iframe");
+    await box.locator("#use-code").click();
+    await box.locator("#code").fill("0000 0000");
+    await box.locator("#recover-go").click();
+    await box.locator("#error", { hasText: "56 letters" }).waitFor({ timeout: 10000 });
+    await box.locator("#code").fill(recoveryCode.toLowerCase());
+    await box.locator("#recover-go").click();
+    await fresh.locator("#account.signed-in").waitFor({ timeout: 10000 });
+    const [first] = [...running.records.values()];
+    assert.equal((await signIn(fresh)).id, first.account);
+    await fresh.close();
+  });
+
+  test("a signed-in account makes a new recovery code", async () => {
+    const other = await (await browser.newContext()).newPage({ userAgent: WINDOWS });
+    const cdp2 = await other.context().newCDPSession(other);
+    await cdp2.send("WebAuthn.enable");
+    await cdp2.send("WebAuthn.addVirtualAuthenticator", {
+      options: { protocol: "ctap2", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+    });
+    await other.goto(running.app);
+    await other.locator("#account").click();
+    const box = other.frameLocator("prism-frame >> iframe");
+    await box.locator("#use-code").click();
+    await box.locator("#code").fill(recoveryCode);
+    await box.locator("#recover-go").click();
+    await other.locator("#account.signed-in").waitFor({ timeout: 10000 });
+    const count = running.records.size;
+    await other.locator("#account").click();
+    await other.locator("#account-recovery").click();
+    await box.locator("#go-label", { hasText: "Make a recovery code" }).waitFor({ timeout: 10000 });
+    await box.locator("#go:enabled").click();
+    await box.locator("#kit-code").waitFor({ timeout: 10000 });
+    assert.notEqual(await box.locator("#kit-code").textContent(), recoveryCode);
+    await box.locator("#kit-done").click();
+    await other.locator("#account-panel:not(:popover-open)").waitFor({ timeout: 10000 });
+    assert.equal(running.records.size, count + 1);
+    await other.close();
   });
 });
