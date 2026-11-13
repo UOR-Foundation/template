@@ -50,9 +50,31 @@ deny:
 # acceptance vectors in the compiled guest, then has the Lean kernel and
 # leanchecker check every theorem (`TC-01`) and the generated code against the
 # model. It runs the build itself, so a separate `prismpm build` would repeat it.
+#
+# A pull request, a merge queue run and a main push may reuse a kept proof;
+# a tag, a manual run and every local run prove in full. bootstrap.yml
+# restores `.prism-proof` from a cache keyed by every proof input and passes
+# `<event>:<ref>` in PRISM_PROOF_EVENT. The key only finds a candidate:
+# `xtask proof-reuse` reuses it only if its attestation ID resolves to the
+# attestation it names and that attestation binds this checkout's model, this
+# image's Lean and Lake, the architecture, the SDK image and every input file.
+# Anything else proves in full, and every proof is kept and read back.
 app:
-    cd app && lexlean fmt --check && lexlean lock --check
-    prismpm --project app verify
+    #!/usr/bin/env bash
+    set -euo pipefail
+    (cd app && lexlean fmt --check && lexlean lock --check)
+    case "${PRISM_PROOF_EVENT:-}" in
+      pull_request:*|merge_group:*|push:refs/heads/main)
+        if cargo run -q --locked -p xtask -- proof-reuse; then
+          exit 0
+        fi
+        ;;
+    esac
+    rm -rf .prism-proof
+    prismpm --project app verify | tee .prism-proof.log
+    attestation=$(sed -n 's/^verified attestation: \([0-9a-f]\{64\}\)$/\1/p' .prism-proof.log)
+    rm -f .prism-proof.log
+    cargo run -q --locked -p xtask -- proof-keep "$attestation"
 
 # Only the meta-gate, while iterating on a scenario. `test` already runs it.
 bdd:

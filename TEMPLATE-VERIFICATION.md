@@ -17,8 +17,8 @@ template contract checker in `app/`.
 Each check runs once per `just vv`. `just bdd` runs only the meta-gate while a
 scenario is being written; `just test` already includes it.
 
-The register holds one claim, `TC-01`, so the meta-gate checks a real row, a
-real scenario and a real test. It becomes an error as soon as an ID, scenario,
+The register holds `TC-01` and `FR-01`, so the meta-gate checks real rows,
+scenarios and tests. It becomes an error as soon as an ID, scenario,
 or test is added without the other two.
 
 ## Planted defects
@@ -31,6 +31,8 @@ or test is added without the other two.
 | `contract_tc_01` | `Conformant` drops the `bootstrap` conjunct, or `dispatch` answers on `true` instead of `conformant` | both rejected |
 | `prismpm verify` | an acceptance vector set without the exact guest-allocation boundary | rejected (PP2009) |
 | `audit-bootstrap` | a floating/copied action, mutable SDK tag, changed universal file, narrowed boundary, shallow/credential-retaining checkout, copied project renderer, omitted standards lock, acceptance bypass, deploy-job signing privilege, incomplete release lifecycle, or a bootstrap that drops a native architecture from main or tags, cancels or replaces a main run, or skips runs by path, condition or matrix exclusion | all rejected |
+| `audit-bootstrap` (`proof_reuse_is_confined`) | a cache key that omits any one of its eight proof inputs, the SDK digest named by a constant, the Lean toolchain read from another file, the ref spliced into the script or dropped, the event line removed, reuse on a tag or on any event, reuse without the read-time check, a stale kept proof surviving a full proof, a recipe that stops proving or keeps a proof without its inputs, a second use of the event, an early exit, and the `merge_group` trigger dropped | all rejected |
+| `xtask proof-reuse` (`binds`) | an attestation ID that does not resolve, a manifest, LexLean attestation or acceptance changed after sealing, a verdict that is not verified, an acceptance of another attestation, a changed model or meaning, another Lean, Lake, architecture or SDK image, a changed Lake workspace file, a modified input, inputs recorded for another attestation, and a Lake path outside `app/` | all proved again |
 
 `audit-deferral` reads every crate and `xtask`, including itself. Its token
 construction therefore cannot exempt the very gate in which a deferral could
@@ -86,6 +88,131 @@ evaluated both expressions and started exactly one job,
 `acceptance / ubuntu-24.04`. That job then stopped before the gate, as every
 template run does, because the template commits no `prismpm.lock`. The main,
 tag and cancellation behavior have not yet run on a hosted runner.
+
+## A pull request reuses main's proof of byte-identical inputs
+
+Proving the application (`prismpm --project app verify`, Lean and leanchecker)
+is most of a pull request's gate: in UOR-Foundation/foundry it took 16 of 20
+minutes, on every pull request, including the many that change no proof input.
+The reasoning of the section above applies to it unchanged: a pull request's
+merge commit is proved again, in full, on main.
+
+`bootstrap.yml` now keeps the proof in `.prism-proof`, through `actions/cache`,
+keyed by every byte the proof reads: `app/**`, `prismpm.lock`, the `Justfile`
+and `rust-toolchain.toml`, per runner OS and architecture. It passes the event
+to the gate as `PRISM_PROOF_EVENT`. `just app` reuses a kept proof only when the
+event is `pull_request` or `merge_group`, and says so with the attestation it
+reuses. A main push, a tag and every local run prove in full and keep their
+proof. GitHub scopes caches by ref: a pull request can write only its own
+scope, and reads main's. A pull request could already change the `Justfile`
+to skip the proof on itself, so reuse gives a pull request no power it lacked.
+Main's verdict, which is what a release rests on, never reuses anything.
+
+`merge_group` joins the fixed trigger block, so a merge queue can require this
+gate. A merge queue run gets the pull request's amd64 matrix and its own
+concurrency group, and is never cancelled.
+
+`proof_reuse_is_confined`, part of `audit-bootstrap`, keeps the saving sound. It
+requires the exact cache key, the exact event line, and a `Justfile` `app`
+recipe whose only use of the event is one `case` with the single pattern
+`pull_request|merge_group)`, and which still runs `prismpm --project app verify`.
+`native_coverage_is_complete` requires `merge_group` in the triggers and the new
+matrix. The new test, `widened_proof_reuse_plant_is_rejected`, rejects every
+planted defect: reuse widened to `push`; reuse for any event; a recipe that
+stops proving; the `Justfile` or `app/**` dropped from the key; the event line
+removed; a second use of the event in the recipe; and `merge_group` dropped
+from the triggers. All 19 `xtask` tests passed in the locked SDK image, with
+formatting checked.
+
+## Main reuses its own proof of identical inputs, checked on read
+
+The section above kept main proving in full. Main then re-proved inputs it had
+already proved: in UOR-Foundation/foundry run 43197127999, a main push, `just
+app` took 420 s of a 624 s gate on amd64 and 630 s of an 818 s gate on arm64.
+Repeating a deterministic proof of the same inputs adds time, not evidence.
+What made reuse unsafe on main was that nothing checked a kept proof when it
+was read back. This change adds that check and then lets main reuse.
+
+The cache key now names every proof input: the runner OS and architecture, the
+SDK image digest and the Lean toolchain by value (a step reads them from
+`prismpm.lock` and `app/lean-toolchain`), and the hash of `app/**`,
+`prismpm.lock`, the `Justfile` and `rust-toolchain.toml`. The key is not
+trusted; it only finds a candidate. `xtask proof-reuse` reuses the candidate
+only when all of these hold:
+
+1. The attestation ID resolves. `prismpm verify` defines it as the SHA-256 of
+   the manifest it publishes under `app/.prism/verified/<id>/`; the kept
+   manifest must hash to the kept ID.
+2. The manifest binds the evidence. Its `lexlean_attestation_sha256` and
+   `acceptance_sha256` must equal the hashes of the kept LexLean attestation
+   and application acceptance, both must say `verified`, and the acceptance
+   must name that LexLean attestation and the manifest's build.
+3. The attestation binds this checkout and this image. Its source and semantic
+   IDs must equal what `lexlean check` computes from `app/` now (0.3 s). Its
+   Lean and Lake executable hashes must equal the executables in this image.
+   Its architecture must be this one. Its Lake workspace files must hash the
+   same in `app/`.
+4. The rest of the inputs are identical. `proof-keep` records, beside the ID,
+   the SDK image the run is in, the `prismpm` and `lexlean` versions, the
+   SHA-256 of every tracked file under `app/` and of `prismpm.lock`, the
+   `Justfile` and `rust-toolchain.toml`, and any modified or untracked input.
+   The record must be byte-identical to what this run computes.
+
+Any failure, including no kept proof, proves in full and prints the reason.
+`proof-keep` keeps every proof and reads it back through the same check, so a
+proof that would not be reusable fails the run that made it.
+
+`just app` now reuses on a pull request, a merge queue run and a push to
+`main`. A tag, a manual run and every local run prove in full. The event and
+its ref reach the recipe as `PRISM_PROOF_EVENT=<event>:<ref>` through the step
+environment, never spliced into the script, so a tag push
+(`push:refs/tags/...`) cannot match `push:refs/heads/main`.
+
+Who could have written a proof that main reuses: GitHub scopes caches by ref,
+and a run on `main` reads only main's scope. Only runs on `refs/heads/main`
+write it, and each of them proved in full before keeping. So main reuses only
+its own earlier proof of the same inputs. The read-time check makes a stale,
+partial or mismatched entry prove again; it does not authenticate an entry. A
+forged entry needs code running on `main`, which could already change what
+`main` runs. Releases are unaffected: tags still prove in full on both
+architectures.
+
+`proof_reuse_is_confined` holds the workflow and the recipe to this shape: the
+exact key, the exact step that names the SDK digest and the Lean toolchain, the
+event through the environment, and the recipe's reuse and proof line for line,
+with one exit. `widened_proof_reuse_plant_is_rejected` rejects 21 planted
+defects, among them a key that omits each of its eight inputs in turn.
+`a_kept_proof_that_does_not_bind_these_inputs_is_proved_again` rejects 16
+planted defects of the read-time check, one per binding, and
+`a_lake_file_outside_the_application_is_never_read` rejects four escaping Lake
+paths. All 22 `xtask` tests passed in the locked SDK image, with formatting and
+all-target Clippy at `-D warnings`.
+
+Run in the locked SDK image (`cd3b47d7`, amd64, WSL, on a machine shared with
+other proofs at load average 15 to 21):
+
+| Case | Result | Time |
+|---|---|---|
+| local run, nothing kept | proved, kept and read back, attestation `1e2f3136…` (the same ID an earlier independent proof produced) | 1047 s |
+| main push, kept proof of these inputs | reused `1e2f3136…` | `just app` 1.7 s |
+| pull request | reused | |
+| merge queue run | reused | |
+| tag push (`push:refs/tags/v9.9.9`) | went to the full proof | |
+| manual run on main, local run | went to the full proof | |
+| one byte appended to the kept manifest | proved in full: the manifest's address differs | |
+| kept ID `ffff…` | proved in full: the manifest's address differs | |
+| committed change to a model source | proved in full | |
+| committed change to `rust-toolchain.toml` | proved in full: the proof inputs differ | |
+| untracked file in `app/` | proved in full: the proof inputs differ | |
+| another `SDK_IMAGE` | proved in full: the proof inputs differ | |
+| `bootstrap.yml` key without the SDK digest, `template.lock` relocked to it | `audit-bootstrap` failed: `bootstrap.yml and the Justfile may reuse a proof only on a pull request, a merge queue run or a main push, keyed by every proof input and checked on read`; restored, it passed | |
+
+The tag push first ran `prismpm verify` in full; under that load the Hologram
+oracle's cargo build was killed (PP5301, SIGTERM), so the tag, manual and local
+cases were then repeated with `prismpm` replaced by a stub that reports it was
+called. The full proof itself passed in the first case.
+
+The whole `just vv`, run as a main push (`PRISM_PROOF_EVENT=push:refs/heads/main`) on these exact commits, passed in 157 s: every other part of the gate ran in full, and `app` reused `1e2f3136…`.
 
 ## Platform-indexed SDK bootstrap
 
@@ -324,3 +451,98 @@ commits and against mirrors served with `PRISM_TEMPLATE_RAW`:
 | a mirror's lock names a file its frame does not | refused: the lock's list against the frame's; nothing written |
 | a mirror's frame and lock both add `.github/workflows/x.yml` | refused: `names files outside the page`; nothing written |
 | an untouched mirror | pinned |
+
+## Archive verification stays off the UI thread (FR-01)
+
+The frame's normal worker path now sends an absolute archive URL, not already
+parsed guest bytes. The worker calls the locked `prism-code` browser loader and
+keeps that application for identities, dispatch and acceptance. The page never
+imports the archive runtime on that path. No runtime parser or verifier is copied.
+
+Absent workers, constructor errors and failed startup transport retain fully
+verified page-side loading. A worker reply carrying a runtime load refusal is
+final: it is never treated as unavailable transport. Unverified identities cannot
+enable the card or workspace and cannot dispatch or replay inside the worker.
+Runtime error codes survive the message boundary. Frame protocol failures are
+`frame.worker` (transport), `frame.worker.not-ready`, `frame.worker.initialized`,
+`frame.worker.not-verified`, and `frame.worker.request`, as specified in FR-01's
+scenario. After an initialized worker crashes, waiting and future calls fail;
+they are not silently re-executed on the page.
+
+`frame_fr_01` calls `node site/worker-gate.mjs` from the normal Rust test suite.
+The gate executes the complete production page and worker modules in isolated
+VM contexts. Browser APIs and the imported runtime are test doubles. Fourteen
+controls cover verified fallback, normal startup, exact identities, dispatch,
+acceptance mismatch indices, final archive refusal, unverified archives, protocol
+refusals, runtime codes, crashed/malformed transport, and latest-answer/Enter
+history UI ordering. The gate requires all fourteen controls to pass without
+skips, cancellation or todo entries; process success alone is not enough.
+
+The new capability's register, scenario and failing test preceded implementation.
+The baseline production-page test failed with `archive verification was imported
+on the UI thread before worker startup`; its no-worker control passed. Actual
+`just model-write` and read-back ran in the locked SDK in Foundry diagnostic run
+43059551107, bound to template base dfc09e61 and the preparation patch. Only its
+hash-verified generated `CONFORMANCE.md` was imported, never a handwritten
+projection. `frame.lock` was regenerated with the template's own
+`node bootstrap/frame-sync.mjs --lock` after implementation.
+
+Planted defects rejected by `node site/worker-gate.mjs` (all exit 1):
+- importing archive verification on the normal UI path;
+- retrying an archive refusal through page-side fallback;
+- allowing worker dispatch for unverified identities;
+- returning a different archive fingerprint;
+- dropping runtime refusal codes;
+- skipping the normal worker control;
+- omitting a fallback control.
+
+All fourteen controls passed again after restoring the production sources.
+Syntax checks, `frame-sync --check`, and whitespace checks also passed locally.
+A separate Node worker-thread adapter executed the unchanged production worker
+with the exact failed Foundry archive (385,046 bytes; SHA-256
+`b7b116cd0f20bca62b598a51867bd20a01a91ca122769f791b9ae0201ce61e93`) and the diagnostic
+artifact's actual runtime. All 114 acceptance vectors and 114 individual dispatch
+comparisons passed, with the original verified fingerprint. A changed model
+returned unverified identities and refused dispatch/replay; a malformed header
+preserved `archive.magic`. These are Node functional checks, not browser
+performance qualification, and the diagnostic inputs are not vendored here.
+
+Full locked-SDK `just vv` on the finished patch and browser/Lighthouse acceptance
+remain required. Local tooling did not support the SDK or browser launch. No
+performance threshold, universal policy, production dependency, or deployment
+gate was weakened. No production performance improvement is claimed until the
+original browser gate passes on the reviewed downstream import.
+
+### Browser worker module graph repair
+
+The earlier diagnostic ran the frame protocol against VM doubles but the real
+module worker could not import `node:crypto`. Document import maps do not apply
+to workers, so startup failed and the fully verified page fallback preserved
+correctness while retaining the original long task.
+
+The build now packages the exact locked runtime static module graph under
+`worker-runtime/`. All module bytes are unchanged except one import specifier:
+canonical/index.js selects the identical browser crypto refusal adapter already
+used by the page. No canonical hashing function is supplied or executed. The
+packager records source/output SHA-256 pairs and refuses unknown bare or escaping
+static imports with `frame.worker.bundle`. Source dependency files are untouched.
+The template's frame lock includes the packager, and page assembly always runs it.
+
+The real static module graph failed before implementation with `module workers
+cannot resolve bare specifier node:crypto`. All eighteen complete production
+controls now pass, including exact module bytes, graph linking and planted
+unknown/escaping imports. A separate real Chromium suite exercises the full page,
+absence of document-side runtime imports, 22/22 fixture acceptance and dispatch,
+malformed archives, and offline reload. It runs in the existing browser workflow.
+Local Chromium cannot launch in this executor (`socket() failed: Operation not
+permitted`), so browser results and the downstream Lighthouse improvement remain
+unqualified until hosted CI passes. Thresholds and CSP are unchanged.
+
+Independent review caught a local-render regression: reading `site/vendor`
+assumed production staging and stopped the documented no-holo scaffold render.
+The packager now requires an explicit input root; page assembly names its locked
+`../try/vendor`, while mutation fixtures name their isolated input directories.
+The added source-root control failed before the correction with ENOENT on the
+unstaged vendor directory. Nineteen Node controls pass after correction. A real
+no-holo/no-vendor scaffold render is also included in the browser lane. Production
+packaging remains unconditional; no gate or capability is skipped.

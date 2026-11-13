@@ -141,41 +141,58 @@ const afterFirstFrame = () => new Promise((resolve) => {
   }
 });
 
-// The verified guest runs in a worker, so nothing blocks the page; without
-// workers it runs here.
-async function offThread(app) {
-  if (typeof Worker !== "function") return app;
-  const { resolveArchive } = await import("./vendor/prism-code/src/index.mjs");
-  const wasm = resolveArchive(app.archive).guest.content;
-  const worker = new Worker("./guest-worker.mjs", { type: "module" });
+// Verification belongs to the worker too: loading a large model can block
+// the UI before the guest ever runs. Only unavailable/broken worker transport
+// falls back to the same fully verified runtime on the page. A runtime refusal
+// is final, not evidence that workers are unavailable.
+async function offThread(source) {
+  const onPage = async () => {
+    const { load } = await import("./vendor/prism-code/src/browser.mjs");
+    return load(source);
+  };
+  if (typeof Worker !== "function") return onPage();
+  let worker;
+  try {
+    worker = new Worker("./guest-worker.mjs", { type: "module" });
+  } catch {
+    return onPage();
+  }
   const waiting = new Map();
   let next = 0;
-  worker.onmessage = ({ data: reply }) => {
-    const settle = waiting.get(reply.id);
-    waiting.delete(reply.id);
-    if (reply.ok) settle.resolve(reply.value);
-    else settle.reject(new Error(reply.error));
-  };
-  // A crashed worker fails every call; the page falls back to the instance.
-  worker.onerror = (event) => {
-    event.preventDefault?.();
-    for (const settle of waiting.values()) settle.reject(new Error("the guest worker failed"));
+  let failure = null;
+  const stop = () => {
+    failure ??= Object.assign(new Error("the guest worker failed"), { code: "frame.worker" });
+    worker.terminate();
+    for (const settle of waiting.values()) settle.reject(failure);
     waiting.clear();
   };
-  const call = (kind, payload) => new Promise((resolve, reject) => {
+  worker.onmessage = ({ data: reply }) => {
+    const settle = waiting.get(reply?.id);
+    if (!settle || typeof reply.ok !== "boolean") { stop(); return; }
+    waiting.delete(reply.id);
+    if (reply.ok) settle.resolve(reply.value);
+    else settle.reject(Object.assign(new Error(reply.error), { code: reply.code, runtimeRefusal: true }));
+  };
+  worker.onerror = (event) => { event.preventDefault?.(); stop(); };
+  worker.onmessageerror = stop;
+  const call = (kind, payload = {}) => new Promise((resolve, reject) => {
+    if (failure) { reject(failure); return; }
     const id = next++;
     waiting.set(id, { resolve, reject });
-    worker.postMessage({ id, kind, ...payload });
+    try { worker.postMessage({ id, kind, ...payload }); } catch { stop(); }
   });
+  let identities;
   try {
-    await call("init", { wasm, limits: app.limits ?? {} });
-  } catch {
+    identities = await call("init", { source });
+  } catch (error) {
     worker.terminate();
-    return app;
+    if (error.runtimeRefusal) throw error;
+    return onPage();
   }
   return {
+    identities,
     dispatch: (request) => call("dispatch", { request }),
-    acceptance: () => call("acceptance", { vectors: app.vectors }),
+    acceptance: () => call("acceptance"),
   };
 }
 
@@ -299,8 +316,7 @@ async function main() {
   let app;
   try {
     await afterFirstFrame();
-    const { load } = await import("./vendor/prism-code/src/browser.mjs");
-    app = await load("./app.holo");
+    app = await offThread(new URL("./app.holo", document.baseURI).href);
   } catch (error) {
     verdict("bad", "The app failed to load");
     replayed("error");
@@ -310,7 +326,7 @@ async function main() {
   }
 
   const { identities } = app;
-  const runner = await offThread(app);
+  const runner = app;
   const ok = identities.verified;
   verdict(ok ? "good" : "bad", ok ? "Verified in this browser" : "NOT verified", identities.archiveFingerprint);
   checked.fingerprint = identities.archiveFingerprint;
