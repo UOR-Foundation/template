@@ -38,3 +38,9 @@ id = "FR-02"
 level = "build"
 suite = "frame"
 statement = "A returning browser whose worker kept an earlier deploy serves this deploy from the navigation that brings its page"
+
+[[id]]
+id = "FR-03"
+level = "build"
+suite = "frame"
+statement = "A first visit's bytes are counted once the page has started, the frame's and the app's each within its own budget"

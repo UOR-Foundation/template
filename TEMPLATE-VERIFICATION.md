@@ -578,3 +578,42 @@ All five controls passed again after restoring the production source.
 `frame.lock` was regenerated with `node bootstrap/frame-sync.mjs --lock`, and
 `CONFORMANCE.md` with `check-model --write`. Full locked-SDK `just vv` and the
 browser acceptance remain for CI.
+
+## A first visit's weight, counted once the page has started (FR-03)
+
+Lighthouse's `resource-summary:total:size` (120 KiB) and `:count` (28) could
+pass or fail the same build. The frame, the worker runtime and the holo wait
+for first paint (`afterFirstFrame` in `site/app.mjs`), so they land in
+Lighthouse's trace only some of the time. On afflom/me's assembled site at
+13b0c9b (frame d38b00b7), four runs of the unchanged `lighthouserc.json`
+counted 71,045, 72,061, 92,299 and 133,131 bytes; with the worker blocked,
+the late requests were listed with 0 bytes transferred. Waiting longer
+(`pauseAfterLoadMs`, `networkQuietThresholdMs` and `cpuQuietThresholdMs` at
+3 s) still gave 71,045 to 133,131. afflom/me's main passed at 72 KB while its
+PR 48 failed at 152 KB in 6 of 6 runs.
+
+The two assertions are gone from `lighthouserc.json`, and
+`bootstrap/weight.mjs site` (frame-locked) counts instead: a first visit at
+412 x 823 on a coarse pointer with service workers blocked, the site served
+gzip-compressed as GitHub Pages serves it, waiting until the canonical frame
+is defined and the shield's `examples` reads `passed/total` (or `error`), then
+until the network is quiet. Every finished request's body and headers count,
+the page's workers included. The frame's bytes (its host, `frame.lock`'s
+`site/` files, `fonts/`, `worker-runtime/`) are held to 100 KiB, the app's to
+120 KiB, the visit to 28 requests; two runs must see the same requests.
+`pages.yml` runs it after the screens gate. `frame_fr_03` calls
+`node bootstrap/weight-gate.mjs`, which runs `bootstrap/weight.test.mjs`
+(five controls of the split and budgets) and requires all five.
+
+On the same afflom/me site, both runs counted frame 82,608, app 79,388 and 24
+requests.
+
+| Gate | Planted defect | Result |
+| --- | --- | --- |
+| `weight.mjs site` on afflom/me | 130,000 random bytes, base64, appended to `card.mjs` | rejected: `FR-03: the app's bytes are 211060, over its budget of 122880`; the frame's count unchanged at 82,608 |
+| `weight-gate.mjs` | the frame host's bytes counted as the app's | rejected: `not ok 1`, `FR-03 weight gate regression failed` |
+| `weight.mjs site` on afflom/me | the wait for the started page removed (load, then network quiet only) | passed with the same counts: on this site network quiet alone settled the boot. The wait stays so a page whose start pauses longer than the quiet window is still counted at its start |
+
+`frame.lock` was regenerated with `node bootstrap/frame-sync.mjs --lock`, and
+`CONFORMANCE.md` with `check-model --write`.
+

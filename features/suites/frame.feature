@@ -39,3 +39,13 @@ Feature: frame
     And offline, the kept deploy answers the navigation and stays
     And navigations at the same time move to the new deploy once
     And a fresh install keeps its deploy and later navigations do not move it
+
+  @FR-03 @build
+  Scenario: A first visit's bytes are counted once the page has started, the frame's and the app's each within its own budget
+    Given a first visit to the assembled site on a phone, with no service worker
+    When the canonical frame is running and the shield has replayed every example, and the network is quiet
+    Then every byte over the wire is counted, the page's workers included
+    And the frame's host, the frame-locked site files, the fonts and the worker runtime count as the frame's
+    And everything else counts as the app's
+    And the frame's bytes, the app's bytes and the requests are each held to their own budget
+    And a blob or data URL is not counted again

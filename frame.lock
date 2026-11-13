@@ -3,7 +3,7 @@
   "files": [
     {
       "path": "bootstrap/frame-sync.mjs",
-      "sha256": "c82b0a057aeccd601ec817ea71d7211b10083d884a1267f8bdf310f11199062b"
+      "sha256": "5d874908a8f5813b6f7c1004ec0e73ec03584139bf7ac8ffabb2ad5c0eeee7af"
     },
     {
       "path": "bootstrap/icons.py",
@@ -30,12 +30,16 @@
       "sha256": "c9787ebf5ad8e8b649034ec3e43f8812ba51777ba59eb11f1f51ca084a395b67"
     },
     {
+      "path": "bootstrap/weight.mjs",
+      "sha256": "de432422e9931b4adf0f422a2030d7b38097a60a4d8fc9ed62fd20fe0c468373"
+    },
+    {
       "path": "bootstrap/worker-runtime.mjs",
       "sha256": "0f9fbb6ec4db48fb7f7c4b779a0494e95d5411e868b36e1e163e5173fcc34557"
     },
     {
       "path": "lighthouserc.json",
-      "sha256": "0145d04da93193801b0d8736ceba7e0df94b9b15f183b07a16e6feda16d72082"
+      "sha256": "85aa0f6219cb8396b34f5b461c1d4d7b149e4cc1674cbd2f0100c5b5e16636d9"
     },
     {
       "path": "site/app.mjs",
