@@ -180,7 +180,7 @@ fn native_coverage_is_complete(bootstrap: &str) -> bool {
 
 /// The cache key: every proof input, the SDK image digest and the Lean
 /// toolchain by value. A key that omits one would find a proof of other inputs.
-const PROOF_KEY: &str = "key: prism-proof-${{ runner.os }}-${{ runner.arch }}-sdk-${{ steps.proof-inputs.outputs.sdk }}-lean-${{ steps.proof-inputs.outputs.lean }}-${{ hashFiles('app/**', 'prismpm.lock', 'Justfile', 'rust-toolchain.toml') }}";
+const PROOF_KEY: &str = "key: prism-proof-${{ runner.os }}-${{ runner.arch }}-sdk-${{ steps.proof-inputs.outputs.sdk }}-lean-${{ steps.proof-inputs.outputs.lean }}-${{ hashFiles('app/**', '!app/specs/**', 'prismpm.lock', 'Justfile', 'rust-toolchain.toml') }}";
 
 /// The step that names the SDK image digest and the Lean toolchain for the key.
 const PROOF_INPUTS: [&str; 8] = [

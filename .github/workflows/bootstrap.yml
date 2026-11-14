@@ -58,7 +58,7 @@ jobs:
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: .prism-proof
-          key: prism-proof-${{ runner.os }}-${{ runner.arch }}-sdk-${{ steps.proof-inputs.outputs.sdk }}-lean-${{ steps.proof-inputs.outputs.lean }}-${{ hashFiles('app/**', 'prismpm.lock', 'Justfile', 'rust-toolchain.toml') }}
+          key: prism-proof-${{ runner.os }}-${{ runner.arch }}-sdk-${{ steps.proof-inputs.outputs.sdk }}-lean-${{ steps.proof-inputs.outputs.lean }}-${{ hashFiles('app/**', '!app/specs/**', 'prismpm.lock', 'Justfile', 'rust-toolchain.toml') }}
 
       - name: Reserve disk for the locked SDK
         shell: bash
