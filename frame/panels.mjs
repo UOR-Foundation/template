@@ -682,6 +682,7 @@ export function accounts(frame, core) {
       await saveDevice(held);
       await holdKit(made.shares[0]);
       fresh = true;
+      checked = true; // nothing elsewhere can have removed a device made this moment
     }
     await loadSession();
     if (accountChannel.session) await stillHeld(Prism);

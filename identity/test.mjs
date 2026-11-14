@@ -187,6 +187,7 @@ describe("the flow in Chromium", () => {
     await first.locator("#account").click();
     assert.equal(await first.locator("#account-title").textContent(), "Prism id");
     assert.equal(await first.getByText(/sign in/i).count(), 0);
+    assert.equal(relay.requests, asked);
     const [download] = await Promise.all([first.waitForEvent("download"), first.locator("#account-kit-save").click()]);
     kitPath = await download.path();
     const kit = JSON.parse(await readFile(kitPath, "utf8"));
