@@ -15,7 +15,7 @@ pub mod artifact;
 pub mod codegen;
 pub mod registry;
 
-pub use registry::{Authorities, AuthorityRow, Claim, IdRow, Ids, Ledger, Level};
+pub use registry::{Authorities, AuthorityRow, Claim, DeclaredFailure, IdRow, Ids, Ledger, Level};
 
 use std::path::{Path, PathBuf};
 
@@ -108,6 +108,9 @@ impl Model {
                 )));
             }
         }
+        // The declared failure types are part of the register, so a malformed
+        // declaration is a malformed register (R5).
+        self.ids.declared_failures()?;
         Ok(())
     }
 

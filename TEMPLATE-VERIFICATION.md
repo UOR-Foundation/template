@@ -27,6 +27,8 @@ or test is added without the other two.
 | --- | --- | --- |
 | `check-model` | `CONFORMANCE.md` disagrees with the register | rejected |
 | `check-model` | an authority's committed artifact with no recorded checksum; one whose checksum no longer matches (a file altered, added or removed); a checksum with no artifact to check it against; an artifact that is missing, outside the repository, empty, or whose checksum is not a SHA-256 | all rejected |
+
+| `audit-limits` | a shipped crate returns `Result<_, E>` for an `E` no register row declares; a declared `E` whose negative test does not exist; one whose negative test is not a registered ID | all rejected |
 | `audit-deferral` | a deferral marker in a crate and in the gate's own source | both rejected |
 | honesty meta-gate | an ID with no test | rejected |
 | `contract_tc_01` | `Conformant` drops the `bootstrap` conjunct, or `dispatch` answers on `true` instead of `conformant` | both rejected |
@@ -41,6 +43,12 @@ authority, so the fixtures build throwaway repositories with one; the rule is
 stated once, in `AUTHORITY_RULE`, and a test holds the doc comment of
 `AuthorityRow`, the header of `model/authorities.toml` and the generated
 `CONFORMANCE.md` to that text.
+
+`audit-limits` reads the sanctioned error types from `failure` and `negative` on
+register rows and has no list of its own. The template's register is empty, so
+its fixtures build throwaway repositories with their own registers: a declared
+type passes, an undeclared type fails, and a declared type without its negative
+test fails.
 
 `audit-deferral` reads every crate and `xtask`, including itself. Its token
 construction therefore cannot exempt the very gate in which a deferral could
