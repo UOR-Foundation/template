@@ -797,13 +797,39 @@ mod tests {
 
     #[test]
     fn hosted_sdk_disk_is_prepared_before_image_pull() {
-        let bootstrap = include_str!("../../.github/workflows/bootstrap.yml");
-        let preparation = bootstrap
+        // Both workflows that pull the SDK image on a hosted runner (#49).
+        for workflow in [
+            include_str!("../../.github/workflows/bootstrap.yml"),
+            include_str!("../../.github/workflows/template-update.yml"),
+        ] {
+            assert_disk_reserved_before_sdk(workflow);
+        }
+    }
+
+    #[test]
+    fn sdk_pull_without_disk_reservation_is_rejected() {
+        let update = include_str!("../../.github/workflows/template-update.yml");
+        let start = update
+            .find("      - name: Reserve disk for the locked SDK")
+            .expect("reservation step");
+        let end = update
+            .find("      - name: Render the complete proposal from immutable inputs")
+            .expect("render step");
+        let plant = format!("{}{}", &update[..start], &update[end..]);
+        assert!(std::panic::catch_unwind(|| assert_disk_reserved_before_sdk(&plant)).is_err());
+    }
+
+    fn assert_disk_reserved_before_sdk(workflow: &str) {
+        let preparation = workflow
             .find("name: Reserve disk for the locked SDK")
             .expect("prepare hosted runner storage before pulling the large SDK");
-        let pull = bootstrap.find("docker run --rm").expect("SDK invocation");
+        let pull = ["docker run --rm", "docker buildx imagetools inspect"]
+            .iter()
+            .filter_map(|needle| workflow.find(needle))
+            .min()
+            .expect("SDK invocation");
         assert!(preparation < pull);
-        let script = &bootstrap[preparation..pull];
+        let script = &workflow[preparation..pull];
         assert!(script.contains("${RUNNER_ENVIRONMENT:-} == github-hosted"));
         assert!(script.contains("${RUNNER_OS:-} == Linux"));
         assert!(script.contains("sudo rm -rf -- /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL"));
