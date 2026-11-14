@@ -1,0 +1,44 @@
+/* The sign-in page, drawn inside the frame's account panel (or alone, in a
+ * popup). It inherits nothing from the app, so it brings the brand's tokens
+ * (brand.css) and keeps a transparent ground: the panel behind it shows. */
+html { color-scheme: light; background: transparent; }
+html.dark { color-scheme: dark; }
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.45;
+  color: var(--foreground);
+  background: transparent;
+}
+html.alone body { background: var(--background); min-height: 100vh; display: grid; place-items: center; }
+html.alone main { width: min(22rem, 100vw - 2rem); }
+main { display: grid; gap: 0.618rem; }
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.618rem;
+  padding: 0 1rem;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius) - 2px);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 150ms ease, opacity 150ms ease;
+}
+button svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+button.primary { background: var(--primary); color: var(--primary-foreground); }
+button.primary:hover { background: color-mix(in oklab, var(--primary), var(--primary-foreground) 12%); }
+button.link { display: inline; min-height: 0; padding: 0; border: 0; background: none; color: var(--foreground); font-weight: 500; text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 0.2em; }
+button:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+button:disabled { opacity: 0.6; cursor: default; }
+main.busy button { opacity: 0.6; pointer-events: none; }
+main.busy #go svg { animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.35; } }
+.note { margin: 0; color: var(--muted-foreground); font-size: 0.8125rem; text-align: center; }
+.error { margin: 0; color: var(--destructive); font-size: 0.8125rem; text-align: center; }
+@media (pointer: coarse) { button:not(.link) { min-height: 3rem; } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+@media (forced-colors: active) { button { border-color: ButtonText; } }
