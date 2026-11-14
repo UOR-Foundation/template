@@ -243,6 +243,7 @@ describe("the flow in Chromium", () => {
     await first.locator("#account-link").click();
     await first.locator("#account-offer").waitFor({ timeout: 10000 });
     const uri = await first.locator("#account-offer").textContent();
+    assert.match(await first.locator("#account-qr path").getAttribute("d"), /^M\d+ \d+h1v1h-1z/, "the offer shows its QR code");
     assert.match(uri, /^prism-link:/);
     await second.locator("#account-uri").fill(uri);
     await second.locator("#account-join-go").click();

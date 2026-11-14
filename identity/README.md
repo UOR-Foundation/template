@@ -13,7 +13,7 @@ the frame.
 Each app keeps its own device of the id, in its own origin's storage. To use
 the same id in another app, or on a phone:
 
-1. In an app already signed in, choose **Add a device or app** and copy the link.
+1. In an app already signed in, choose **Add a device or app**. Scan the QR code with a phone, or copy the link.
 2. In the new app, choose **Use my Prism id from another device or app** and paste it.
 3. The new app shows six digits. Type them into the first app.
 
@@ -58,14 +58,15 @@ asks, and the visitor's click is the only consent.
 
 A session lasts at most 8 days (the frame asks for 7). A removed device stops
 signing new sessions once it syncs, but a session it signed earlier stays
-valid until it expires. An app hears of a removal only from the log the
-signing device presents, so a stolen browser that never syncs can keep
-signing until stitch defines how hosts hear revocations.
+valid until it expires. Every device also publishes the id's public log on
+the relay, and an app checking a session merges it, so a stolen browser that
+never syncs is refused once another device removed it and shared that.
 
 The relay keeps a message for stitch's warm lifetime (30 minutes). A device
-away longer catches up from the next message another device shares. A used
-kit replayed against its own old log is refused here once the newer recovery
-shows up in what the devices shared; stitch is to make every device refuse it.
+away longer, or an app checking later, catches up from the next message a
+device shares. A used kit replayed against its own old log is refused once
+the newer recovery shows up in what the devices shared; stitch is to order
+the two recoveries.
 
 ## Run it
 

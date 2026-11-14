@@ -1,13 +1,13 @@
 {
   "repository": "afflom/stitch",
-  "commit": "e3efc6ee8b7de24db0e33dd17ea1413d02f82ae5",
+  "commit": "7c0ccebfa00e5c09e135901be4c9fad149d1b420",
   "sources": {
     "src/layer1-uor/contracts.js": "94c67e0811f78029b251c55edbf365b2335040106b8125fa5298e59315d2c2d3",
     "src/layer1-uor/custody.js": "597b34d6740b6b371e30af24ee18cd10f8c4142da38e616b9ec5e04d042ab74c",
-    "src/layer1-uor/generated-model.js": "5e6f9974741e6079400d75bd1632ccd2334ad640fd1735554e0a6cf88fb805b7",
+    "src/layer1-uor/generated-model.js": "fae51244e2b96601978233863e86aee96f35ef5a15ad4af4d3e687a9d770fb11",
     "src/layer2-schedulers/policy.js": "8f2074f8fe07a7b1fda51896d78f11a797564afb64accebc7291261e5c00639f",
     "src/layer5-transport/relay-framing.js": "35672c5720f5f1e5d009f1875a1c63de3a6badea2546d66baf73c77fb7c90ae0",
-    "src/prism-id.js": "556e725270602f5706a61d5682fe5fdb50aa699c174a19d5cd900db09b719b74"
+    "src/prism-id.js": "eefc04c53d581308dee9033384050616849ef93996e8cb7858cd1435934b16d7"
   },
   "decisions": [
     "Stitch.Budget.reserveAllowed",
@@ -22,11 +22,13 @@
     "Stitch.PrismId.boundaryVisibleTo",
     "Stitch.PrismId.deviceMaySign",
     "Stitch.PrismId.hostAdmitsDevice",
+    "Stitch.PrismId.hybridSignatureAccepted",
     "Stitch.PrismId.hybridWrapRequired",
     "Stitch.PrismId.linkGate",
     "Stitch.PrismId.linkOfferAccepted",
     "Stitch.PrismId.mayAdminister",
     "Stitch.PrismId.mayShareBoundary",
+    "Stitch.PrismId.presenceSatisfied",
     "Stitch.PrismId.receivesPrivateBoundary",
     "Stitch.PrismId.recoveryBindAllowed",
     "Stitch.PrismId.revocationCounts",
@@ -50,6 +52,6 @@
   ],
   "output": {
     "path": "identity/prism-id.mjs",
-    "sha256": "262418eee8fcfbc3300b8c1a2f903662dee5a01b0467b522d37f6644bd0ef718"
+    "sha256": "3035992b02efa243c87f1c6116e7e37e8a203fc4721d590c4158c762e8997995"
   }
 }

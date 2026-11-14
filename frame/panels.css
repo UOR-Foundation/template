@@ -462,6 +462,8 @@
 .account-in { display: grid; gap: 0.382rem; }
 .account-id { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); margin-bottom: 0.618rem !important; padding: 0.618rem 1rem; border: var(--border-width) solid var(--border); border-radius: var(--radius-control); background: var(--background); }
 .account-id code { font-family: var(--font-mono); color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-qr { display: block; width: min(100%, 14rem); aspect-ratio: 1; margin: 0 auto 0.618rem; background: #fff; border-radius: var(--radius-control); }
+.account-qr path { fill: #000; }
 .account-panel .text { padding: 0; border: 0; background: none; color: var(--foreground); font-weight: 500; text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 0.2em; cursor: pointer; }
 .account-panel .row { justify-content: flex-start; width: 100%; min-height: 2.618rem; padding: 0 1rem; border: 0; border-radius: var(--radius-control); background: none; color: var(--foreground); font-size: 1rem; text-align: start; cursor: pointer; }
 .account-panel .row:hover { background: var(--accent); }

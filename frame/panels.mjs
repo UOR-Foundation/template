@@ -420,7 +420,8 @@ export async function verifySession(session, { now = Date.now(), fresh = 60000 }
   const at = fresh ? now : body.at;
   let verdict;
   try {
-    verdict = await Prism.verifyAction(body.prism, log, envelope, { audience: app, now: at, window: fresh || 1 });
+    // With the relay known, also hear removals the signing device did not present (the id's public log).
+    verdict = await Prism.verifyAction(body.prism, log, envelope, { audience: app, now: at, window: fresh || 1, ...(relay ? { bus: bus(Prism) } : {}) });
   } catch (error) {
     if (error instanceof Prism.PrismIdError) deny("log", `The log does not resolve: ${error.message}`);
     throw error;
@@ -464,9 +465,11 @@ const relayAdmitted = (origin) => {
 const bus = (Prism) => (relayBus ??= Prism.createRelayBus({ relay: relay && relayAdmitted(new URL(relay).origin) ? relay : null }));
 
 // Share this device's log with the id's other devices, under every boundary
-// key it holds, so a device that has not taken up a rotation still hears.
+// key it holds, so a device that has not taken up a rotation still hears,
+// and publish its public records where apps hear removals.
 async function share(Prism, held) {
   for (const keyId of held.keyring.keys()) await Prism.publishSync(held, bus(Prism), { keyId }).catch(() => {});
+  await Prism.publishLog(held, bus(Prism)).catch(() => {});
 }
 // Take in what the other devices shared. A message that does not open or
 // resolve is someone else's or stale: it is skipped, never trusted.
@@ -474,7 +477,7 @@ async function pull(Prism, held) {
   for (const keyId of [...held.keyring.keys()]) {
     const topic = await Prism.syncTopic(held, keyId).catch(() => null);
     if (!topic) continue;
-    for (const bytes of await bus(Prism).fetch(topic).catch(() => [])) {
+    for (const bytes of await bus(Prism).retained(topic).catch(() => [])) {
       try {
         held = await Prism.receiveSync(held, bytes);
       } catch (error) {
@@ -484,6 +487,8 @@ async function pull(Prism, held) {
   }
   return held;
 }
+// The id's log as apps see it: this device's, with what the public log holds.
+const heard = (Prism, held) => Prism.heardLog(held.prism, held.log, bus(Prism)).catch(() => held.log);
 
 // A recovery kit: the paper share of the id's recovery device (stitch's
 // threshold recovery, one share of one) and the id's log. It is as secret as
@@ -491,6 +496,16 @@ async function pull(Prism, held) {
 const KIT = "prism/recovery-kit/1";
 const ONE_PAPER_SHARE = { threshold: 1, guardians: [{ paper: true }] };
 const kitOf = (held, share) => ({ kind: KIT, prism: held.prism, share, records: [...held.log.values()] });
+
+// A QR code as one SVG path, with its four-module quiet zone.
+function drawQr(svg, { size, modules }) {
+  let d = "";
+  modules.forEach((row, y) => row.forEach((dark, x) => dark && (d += `M${x + 4} ${y + 4}h1v1h-1z`)));
+  svg.setAttribute("viewBox", `0 0 ${size + 8} ${size + 8}`);
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", d);
+  svg.replaceChildren(path);
+}
 
 const json = (value) => new TextEncoder().encode(JSON.stringify(value));
 const parse = (bytes) => JSON.parse(new TextDecoder().decode(bytes));
@@ -522,7 +537,8 @@ const ACCOUNT_PANEL = `
   <button id="account-kit-done" class="row" type="button">I saved it</button>
 </div>
 <div id="account-view-offer" class="account-in" hidden>
-  <p>On the new device or app, open the person icon, choose <b>Use my Prism id from another device or app</b>, and paste this link. It works once, for five minutes.</p>
+  <p>On a phone, scan this code. On another app or computer, open the person icon, choose <b>Use my Prism id from another device or app</b>, and paste the link. It works once, for five minutes.</p>
+  <svg id="account-qr" class="account-qr" role="img" aria-label="QR code of the link"></svg>
   <p class="account-id"><code id="account-offer"></code><button id="account-offer-copy" class="text" type="button">Copy</button></p>
   <label id="account-confirm" hidden>Type the code the new device shows <input id="account-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" /></label>
   <button id="account-accept" class="primary" type="button" hidden>Add it</button>
@@ -634,7 +650,7 @@ export function accounts(frame, core) {
   const signIn = async (Prism) => {
     held = await pull(Prism, held);
     await saveDevice(held);
-    if (!(await Prism.canSign(held.prism, held.log, held.device.id))) {
+    if (!(await Prism.canSign(held.prism, await heard(Prism, held), held.device.id))) {
       await forgetDevice();
       held = null;
       return show("removed");
@@ -714,6 +730,7 @@ export function accounts(frame, core) {
       });
       $("offer").textContent = uri;
       $("offer").title = uri;
+      drawQr($("qr"), Prism.linkQr(uri));
       show("offer");
     }),
   );
@@ -782,13 +799,15 @@ export function accounts(frame, core) {
       const device = await Prism.createDevice({ deviceClass: "browser", protection: "software" });
       const recovered = await Prism.recoverPrism({ prism: saved.prism, records: saved.records, shares: [saved.share], device, rotateRecovery: ONE_PAPER_SHARE });
       // The kit's log may be older than the id's: what the other devices
-      // shared since shows a kit already used, by the newer recovery device
-      // that use made. This refuses here; stitch is to make other devices
-      // refuse it too (a used kit replayed against its own old log).
+      // shared since, and the id's public log, show a kit already used, by
+      // the newer recovery device that use made. Any app that hears the
+      // public log sees both recoveries; stitch is to order them (its
+      // docs/prism-id.md, Open).
       const synced = await pull(Prism, recovered.session);
-      const state = await Prism.resolvePrism(synced.prism, synced.log);
+      const log = await heard(Prism, synced);
+      const state = await Prism.resolvePrism(synced.prism, log);
       const newer = state.active.filter((id) => state.roles[id] === "recovery" && id !== recovered.shares[0].recovery);
-      if (newer.length || !(await Prism.canSign(synced.prism, synced.log, synced.device.id))) deny("kit", "That recovery kit was already used, and replaced by a newer one");
+      if (newer.length || !(await Prism.canSign(synced.prism, log, synced.device.id))) deny("kit", "That recovery kit was already used, and replaced by a newer one");
       await keep(Prism, synced);
       showKit(recovered.shares[0], { run: signIn });
     }),

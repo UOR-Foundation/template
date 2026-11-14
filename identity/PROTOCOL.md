@@ -61,7 +61,7 @@ with the paper share and the log, downloaded as JSON.
 Stitch's out-of-band link, over the relay:
 
 1. Signed-in device: `createLinkOffer`. The panel shows the `prism-link:`
-   URI and subscribes to `rendezvousTopic(secret)`.
+   URI and its QR code (`linkQr`), and subscribes to `rendezvousTopic(secret)`.
 2. New device: `parseLinkUri`, a new device, then `requestLink`, published on
    the rendezvous topic. It shows `linkCode(secret, device)`.
 3. The person types those six digits into the first device, which calls
@@ -84,15 +84,20 @@ The panel lists the id's active devices from its log and removes one with
 log under every key it holds, so devices that have not taken up the rotation
 still hear it.
 
-## Not yet (stitch's to define)
+## Apps hear removals
 
-- A used kit replayed against its own old log: the device it makes is
-  refused by the frame that finds the newer recovery, but a device holding
-  only the old log accepts it. Stitch's recovery would need to make a
-  replaced recovery device's binds void everywhere.
-- A host learns of a removal only from the log the signing device presents.
-  A stolen device that never syncs can keep signing, and a session signed
-  before a removal lasts until it expires (at most 8 days).
-- The relay holds messages for 30 minutes. A device away longer catches up
-  from the next message another device shares.
-- A QR code for the link offer. Today the URI is copied and pasted.
+Every time a device shares (after creating, linking, removing or
+recovering), it also publishes the id's public log with `publishLog`, on a
+topic derived from the prism id alone. `verifySession` passes the relay to
+`verifyAction` (`{bus}`), which merges what that topic holds (`heardLog`), so
+a session from a device removed elsewhere is refused even when that device
+never synced. Sign-in and recovery check the same merged log.
+
+## Not yet (stitch's to define, its docs/prism-id.md "Open")
+
+- A used kit replayed against its own old log forks the recovery chain. Every
+  frame that hears the public log sees both recoveries and refuses the kit;
+  ordering them needs stitch's witnessed time.
+- The relay holds messages for 30 minutes, so an app hears a removal only
+  within 30 minutes of the last publish. A session signed before a removal
+  lasts until it expires (at most 8 days).
