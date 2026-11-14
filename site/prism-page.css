@@ -5,10 +5,12 @@
  * brand's: 14, 16, 18, 20, 24, 30, 36 px, nothing under 14. No shadows on the
  * dark ground.
  *
- * Layout follows the Material 3 window size classes: compact under 600 px
- * (one column, 16 px margins), medium 600 to 840 (one column, 24 px margins),
- * expanded and up from 840 (two panes, 24 px apart). Touch targets are 48 px
- * on coarse pointers and 36 px controls on fine ones. */
+ * Layout is the Workspace, by the Material 3 window size classes: from 840 px
+ * (expanded and up) two panes, the app's surface and a rail for its result,
+ * actions and history; under 840 px focus mode, one column, the surface above
+ * one bar. Margins are 16 px under 600 px and 24 px from it. The page never
+ * scrolls: the window is a stage the height of the screen. Touch targets are
+ * 48 px on coarse pointers and 36 px controls on fine ones. */
 
 :root {
   --text-14: 0.875rem;
@@ -61,36 +63,6 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
-/* The column: the frame's contents and main share one width and one margin. */
-main {
-  width: min(100% - 2 * var(--margin) - var(--safe-left) - var(--safe-right), var(--column));
-  margin: 0 auto;
-}
-
-/* The top bar holds the safe area, so main starts below it. */
-main { padding: var(--space-6) 0 calc(var(--space-12) + var(--safe-bottom)); }
-
-@media (min-width: 600px) {
-  main { padding-top: var(--space-8); }
-}
-
-/* Expanded width and up: two panes, identity and proof beside try and examples. */
-@media (min-width: 840px) {
-  :root { --column: var(--measure-wide); }
-  .panes {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: var(--space-6);
-    align-items: start;
-  }
-}
-
-/* Compact height, a phone in landscape: a shorter header, nothing sticky. */
-@media (max-height: 480px) {
-  main { padding-top: var(--space-4); }
-  .intro { margin-bottom: var(--space-4); }
-  .lede { display: none; }
-}
 
 ::selection { background: var(--brand); color: var(--brand-foreground); }
 
@@ -172,70 +144,6 @@ prism-frame:not(:defined):not([data-shell]) {
 html { scroll-padding-top: calc(var(--safe-top) + var(--frame-bar) + var(--space-4)); }
 @media (max-height: 480px) { html { scroll-padding-top: 0; } }
 
-/* Header */
-
-.intro { margin-bottom: var(--space-6); }
-
-h1 {
-  margin: 0 0 var(--space-2);
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: var(--text-36);
-  line-height: 1.1;
-  letter-spacing: var(--tracking-display);
-  overflow-wrap: anywhere;
-}
-
-@media (max-width: 599px) { h1 { font-size: var(--text-30); } }
-
-/* The brand accent appears once per view: the mark in the top bar. */
-.dot {
-  flex: none;
-  width: var(--space-3);
-  height: var(--space-3);
-  border-radius: 50%;
-  background: var(--brand);
-}
-
-.lede { margin: 0; max-width: 62ch; color: var(--muted-foreground); font-size: var(--text-18); }
-
-/* Cards */
-
-.card {
-  background: var(--card);
-  color: var(--card-foreground);
-  border: var(--border-width) solid var(--border);
-  border-radius: var(--radius);
-  padding: var(--space-4);
-  margin-bottom: var(--space-4);
-}
-
-@media (min-width: 600px) { .card { padding: var(--space-6); } }
-
-/* Immersive: the cards are frosted glass over the photo behind the page. */
-html.immersive .card {
-  background: color-mix(in oklab, var(--card) 76%, transparent);
-  -webkit-backdrop-filter: blur(18px) saturate(1.2);
-  backdrop-filter: blur(18px) saturate(1.2);
-}
-
-h2 {
-  margin: 0 0 var(--space-4);
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: var(--text-20);
-  letter-spacing: var(--tracking-display);
-}
-
-.muted { color: var(--muted-foreground); }
-
-.label {
-  margin: 0 0 var(--space-2);
-  font-size: var(--text-14);
-  font-weight: 500;
-  color: var(--muted-foreground);
-}
-
 /* Monospace text is one weight, so a page loads one mono face: Geist Mono
  * Medium (7.6 KB) would be the first load's largest optional cost. */
 code, pre, .mono, .hash {
@@ -261,12 +169,6 @@ a.hash:hover { color: var(--link-hover); }
 
 .row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin: 0; }
 
-/* Facts */
-
-.facts { display: grid; gap: var(--space-4); margin: 0; }
-.facts div { display: grid; gap: var(--space-1); }
-.facts dt { font-size: var(--text-14); font-weight: 500; color: var(--muted-foreground); }
-.facts dd { margin: 0; }
 
 /* Chips carry state. Success for a passing check, warning for a refused
  * request (the app answered correctly) and for an update, destructive for a
@@ -295,10 +197,6 @@ a.hash:hover { color: var(--link-hover); }
  * card as their ground there and keep the coloured hairline. */
 html:not(.dark) .chip-good, html:not(.dark) .chip-bad { background: var(--card); }
 
-/* Space reserved for what the holo fills in after it loads, so nothing shifts. */
-.reserve-1 { display: block; min-height: 1.5rem; }
-.reserve-2 { display: block; flex: 1 0 100%; min-height: 2.625rem; }
-@media (max-width: 599px) { .reserve-1 { min-height: 3rem; } }
 
 /* Controls: 36px on a fine pointer, 48px on a coarse one, radius one step
  * under the surface, hairline, no shadow. */
@@ -343,111 +241,284 @@ button.bare { min-height: auto; padding: 0; border: 0; background: transparent; 
 .ghost:hover, button.ghost:hover { background: var(--accent); color: var(--accent-foreground); }
 
 
-input[type="text"] {
-  flex: 1 1 14rem;
-  min-width: 0;
-  min-height: var(--control);
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-control);
-  border: var(--border-width) solid var(--input);
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-mono);
-  font-size: var(--text-16);
+
+
+
+/* Workspace. The window is a stage the height of the screen: the frame's bar
+ * above it, the frame's 8 px gutter below. A header row, then the app's
+ * surface on the left at full height and a rail on the right for its result,
+ * its actions and what you did. The page itself never scrolls. */
+
+@property --prism-aside { syntax: "<length>"; inherits: true; initial-value: 0px; }
+:root {
+  --aside-w: 25rem;
+  --rail-w: 18.75rem;
+  --slide: cubic-bezier(0.22, 1, 0.36, 1);
+  --slide-time: 420ms;
+  --prism-aside: 0px;
+  transition: --prism-aside var(--slide-time) var(--slide);
 }
-input[type="text"]::placeholder { color: var(--muted-foreground); }
+/* The spec open: the frame's window and bar end --prism-aside from the right,
+ * the page's main does the same, and the spec fills the space on the chrome. */
+:root.spec-open { --prism-aside: var(--aside-w); --rail-w: 16.25rem; }
 
-.try label { display: block; margin-bottom: var(--space-2); font-size: var(--text-14); font-weight: 500; color: var(--muted-foreground); }
-.hint { margin: var(--space-2) 0 0; font-size: var(--text-14); }
-.answer { margin-top: var(--space-4); }
-.answer p { margin: 0 0 var(--space-2); }
+html, body { height: 100%; overflow: hidden; }
 
-/* Proved */
-
-.claim { margin: 0 0 var(--space-4); font-size: var(--text-18); }
-.proposition { margin-bottom: var(--space-4); }
-.proposition p:last-child { margin: 0; font-size: var(--text-14); }
-
-.list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-2); }
-.list li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-3); align-items: start; }
-.list .tick { color: var(--success); font-weight: 500; }
-.list .pin { color: var(--muted-foreground); font-weight: 500; }
-.list .name { font-family: var(--font-mono); font-size: var(--text-14); overflow-wrap: anywhere; }
-.list .what { font-size: var(--text-14); color: var(--muted-foreground); overflow-wrap: anywhere; }
-
-.disclosure { margin-top: var(--space-4); border-top: var(--border-width) solid var(--border); padding-top: var(--space-3); }
-.disclosure summary { cursor: pointer; font-size: var(--text-14); font-weight: 500; color: var(--muted-foreground); min-height: var(--control); display: flex; align-items: center; }
-.disclosure[open] summary { margin-bottom: var(--space-3); }
-
-/* Examples: a table from medium width up, a two-line list on a compact one. */
-
-.examples { width: 100%; border-collapse: collapse; margin-top: var(--space-4); }
-.examples th {
-  text-align: start;
-  font-size: var(--text-14);
-  font-weight: 500;
-  color: var(--muted-foreground);
-  padding: 0 0 var(--space-2);
-  border-bottom: var(--border-width) solid var(--border);
+main {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--safe-top) - var(--frame-bar) - 0.5rem);
+  height: calc(100dvh - var(--safe-top) - var(--frame-bar) - 0.5rem);
+  margin-right: var(--prism-aside);
+  overflow: hidden;
 }
-.examples td { padding: var(--space-2) 0; border-bottom: var(--border-width) solid var(--border); vertical-align: top; }
-.examples td:first-child { padding-inline-end: var(--space-4); }
-.examples tr:last-child td { border-bottom: 0; }
-.examples button.use {
-  min-height: auto;
-  padding: var(--space-1) var(--space-2);
-  background: transparent;
-  border-color: transparent;
-  color: var(--foreground);
-  font-family: var(--font-mono);
-  font-weight: 400;
-  text-align: start;
+
+/* Header row: the same in every app. */
+.head {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) calc(var(--margin) + var(--safe-right)) 0 calc(var(--margin) + var(--safe-left));
+}
+.ident { min-width: 0; }
+h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--text-24);
+  line-height: 1.15;
+  letter-spacing: var(--tracking-display);
   overflow-wrap: anywhere;
 }
-.examples button.use:hover { background: var(--accent); }
-.examples .long { color: var(--muted-foreground); font-size: var(--text-14); }
-.examples .chip { min-height: 1.5rem; }
-/* An answer can be longer than its column (a chess position is 70
- * characters): it wraps inside the column instead of widening the page. */
-.examples { table-layout: fixed; }
-.examples .chip, .answer .chip { max-width: 100%; overflow-wrap: anywhere; }
-
-@media (max-width: 599px) {
-  .examples thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-  .examples tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2); align-items: center; border-bottom: var(--border-width) solid var(--border); padding: var(--space-2) 0; }
-  .examples tr:last-child { border-bottom: 0; }
-  .examples td { display: block; padding: 0; border: 0; }
-  .examples td:first-child { padding-inline-end: 0; }
-}
-
-/* Footer */
-
-.foot {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-4);
-  padding-top: var(--space-4);
+.lede { margin: var(--space-1) 0 0; max-width: 62ch; font-size: var(--text-14); color: var(--muted-foreground); text-wrap: balance; }
+.spec-link {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 2rem;
+  padding: 0 var(--space-2);
+  margin: -0.25rem calc(-1 * var(--space-2)) 0 0;
+  border-radius: var(--radius-control);
+  color: var(--muted-foreground);
   font-size: var(--text-14);
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color var(--duration) var(--ease), background var(--duration) var(--ease), opacity var(--duration) var(--ease);
 }
-.foot a { color: var(--link); text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 0.2em; }
-.foot a:hover { color: var(--link-hover); }
-.foot [hidden] { display: none; }
+.spec-link svg { width: 1rem; height: 1rem; flex: none; }
+.spec-link:hover { color: var(--foreground); background: var(--accent); }
+:root.spec-open .spec-link { opacity: 0; pointer-events: none; }
 
-.noscript { margin: var(--space-4); color: var(--muted-foreground); }
+.ws { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) var(--rail-w); }
+.stage {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4) calc(var(--margin) + var(--safe-left)) var(--space-6);
+  container-type: size;
+}
+.rail {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-4) calc(var(--margin) + var(--safe-right)) var(--space-4) var(--space-6);
+  border-left: var(--border-width) solid var(--border);
+  overflow: hidden;
+}
+.k { margin: 0 0 var(--space-2); font-size: var(--text-14); color: var(--muted-foreground); }
 
-/* Forced colours: keep the hairlines and the chips' edges. */
+/* The input as a display: what you type is the largest thing on screen, and
+ * it shrinks to fit however long it gets (app.mjs counts the characters). */
+.display { display: block; width: min(100%, 40rem); container-type: inline-size; cursor: text; }
+.display .k { margin-bottom: var(--space-1); }
+.display input {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--foreground);
+  caret-color: var(--foreground);
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-size: min(7rem, 16vh, 100cqw * 1.5 / var(--chars, 4));
+  line-height: 1.15;
+  letter-spacing: -0.05em;
+}
+.display input::placeholder { color: color-mix(in oklab, var(--muted-foreground) 45%, transparent); }
+.display .rule { display: block; height: 2px; margin-top: var(--space-2); border-radius: 2px; background: linear-gradient(90deg, var(--foreground), transparent); opacity: 0.2; transition: opacity var(--duration) var(--ease); }
+.display:focus-within .rule { opacity: 0.5; }
+
+/* Rail: the result, the actions, the history. */
+.result { flex: none; min-height: 4.25rem; display: flex; align-items: flex-start; }
+.result output {
+  display: block;
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 7.5vh, 4rem);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  overflow-wrap: anywhere;
+  transition: color var(--duration) var(--ease);
+}
+.result output.idle { color: color-mix(in oklab, var(--muted-foreground) 45%, transparent); }
+.result output.good { color: var(--success); }
+.result output.bad { color: var(--foreground); }
+.result output.refuse { font-family: var(--font-sans); font-size: var(--text-20); font-weight: 500; letter-spacing: 0; line-height: 1.3; color: var(--muted-foreground); }
+.actions { flex: none; }
+.tries { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.tries button {
+  min-height: 2rem;
+  padding: 0 var(--space-3);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-weight: 400;
+}
+.tries button:hover { color: var(--foreground); background: var(--accent); }
+.history { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.history:has(.list:empty) { display: none; }
+.history .list { flex: 1; min-height: 0; max-height: none; margin: 0; padding: 0; list-style: none; display: block; overflow-y: auto; scrollbar-width: thin; }
+.history .list > li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-top: var(--border-width) solid var(--border);
+  font-family: var(--font-mono);
+  font-size: var(--text-14);
+  color: var(--muted-foreground);
+  overflow-wrap: anywhere;
+}
+.history .list > li:first-child { border-top: 0; }
+button.again { width: 100%; min-height: 2rem; display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: start; }
+button.again:hover { background: transparent; color: var(--foreground); }
+.offline { margin: auto 0 0; font-size: var(--text-14); color: var(--muted-foreground); }
+
+.tag { flex: none; padding: 0.125rem var(--space-2); border-radius: var(--radius-control); background: var(--muted); color: var(--foreground); font-family: var(--font-mono); font-size: var(--text-14); }
+.tag.good { background: var(--success-subtle); color: var(--success); }
+html:not(.dark) .tag.good { background: var(--card); box-shadow: inset 0 0 0 var(--border-width) var(--success-border); }
+
+/* Apps with their own surface (site/card.html): the slot script moves each
+ * part into its place before first paint. A square surface takes the largest
+ * square the stage allows. */
+.board-fit { width: 100%; height: 100%; container-type: size; display: grid; place-items: center; }
+.stage .board-fit > * { width: min(100cqw, 100cqh, 40rem); max-width: none; min-width: 0; margin: 0; }
+.result .chip {
+  display: block;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  font-family: var(--font-sans);
+  font-size: var(--text-20);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--foreground);
+}
+.result .chip-bad { color: var(--destructive); }
+.result .chip-warn { color: var(--warning); }
+.result .chip-wait { color: var(--muted-foreground); }
+.has-card .result { min-height: 3.25rem; }
+.rail .controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: 0; padding: 0; }
+
+/* The spec: it slides in from the right on the frame's chrome, beside the
+ * window, never over it, full height, its header level with the bar. */
+.spec {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  width: var(--aside-w);
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--safe-top);
+  background: var(--sidebar);
+  color: var(--foreground);
+  transform: translateX(100%);
+  visibility: hidden;
+  transition: transform var(--slide-time) var(--slide), visibility 0s linear var(--slide-time);
+}
+:root.spec-open .spec { transform: none; visibility: visible; transition: transform var(--slide-time) var(--slide), visibility 0s; }
+.spec:focus { outline: none; }
+.spec-head { flex: none; display: flex; align-items: center; gap: var(--space-2); min-height: var(--frame-bar); padding: 0 var(--space-2) 0 calc(var(--space-6) - var(--space-1)); }
+.spec-title { font-family: var(--font-display); font-weight: 600; font-size: var(--text-16); letter-spacing: var(--tracking-display); }
+.spec-ver { font-family: var(--font-mono); font-size: var(--text-14); color: var(--muted-foreground); }
+button.spec-x { margin-left: auto; width: 2.25rem; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--muted-foreground); display: grid; place-items: center; }
+button.spec-x:hover { background: var(--accent); color: var(--foreground); }
+.spec-x svg { width: 0.875rem; height: 0.875rem; }
+.spec-body { flex: 1; min-height: 0; overflow-y: auto; padding: 0 var(--space-6) var(--space-12); scrollbar-width: thin; }
+.spec-wait { margin: var(--space-6) 0; font-size: var(--text-14); color: var(--muted-foreground); }
+
+/* Phone and small tablet, under 840 px: focus mode. The surface takes the
+ * screen; one bar along the bottom holds the result, then the actions, within
+ * thumb reach. No labels and no history: here the app is the whole story. The
+ * spec takes the whole screen. */
+@media (max-width: 839px) {
+  :root { --aside-w: 100vw; }
+  :root.spec-open { --prism-aside: 0px; }
+  .head { padding-top: var(--space-3); }
+  .lede { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .spec-link span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .spec-link { width: 2.25rem; justify-content: center; padding: 0; }
+  .ws { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+  .stage { padding: var(--space-3) calc(var(--margin) + var(--safe-left)); }
+  .rail {
+    gap: var(--space-3);
+    padding: var(--space-3) calc(var(--margin) + var(--safe-right)) calc(var(--space-3) + var(--safe-bottom)) calc(var(--margin) + var(--safe-left));
+    border-left: 0;
+    border-top: var(--border-width) solid var(--border);
+    background: color-mix(in oklab, var(--background), var(--foreground) 2%);
+  }
+  .rail .k, .history { display: none; }
+  .result, .has-card .result { min-height: 2.5rem; align-items: center; }
+  .result output { font-size: 2.25rem; }
+  .result output.refuse { font-size: var(--text-16); }
+  .result .chip { font-size: var(--text-16); }
+  .spec-head { padding-left: var(--margin); }
+  .spec-body { padding: 0 var(--margin) calc(var(--space-12) + var(--safe-bottom)); }
+}
+
+/* A phone in landscape: the header gives its second line to the app. */
+@media (max-height: 480px) {
+  .lede { display: none; }
+  .head { padding-top: var(--space-2); }
+  .stage { padding-block: var(--space-2); }
+}
+
+/* Immersive: the rail and the spec are frosted glass over the photo. */
+html.immersive .rail { background: color-mix(in oklab, var(--card) 60%, transparent); -webkit-backdrop-filter: blur(18px) saturate(1.2); backdrop-filter: blur(18px) saturate(1.2); }
+
+/* Forced colours: keep the hairlines. */
 @media (forced-colors: active) {
-  .card, .chip, button, input[type="text"] { border-color: CanvasText; }
-  .dot { background: Highlight; }
+  .chip, button, .end, .links a, .spec pre.code { border-color: CanvasText; }
+  .dot, .tick { forced-color-adjust: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { transition: none !important; }
+  :root { transition: none; }
+  *, *::before, *::after { transition: none !important; animation: none !important; }
 }
 
 /* Touch: every control is 48 px, Material's minimum, whatever rule sized it
  * above. Last, so nothing overrides it. */
 @media (pointer: coarse) {
-  button, button.ghost, button.primary, button.secondary, .ghost, a.ghost, input[type="text"], .disclosure summary { min-height: var(--touch); }
-  .row { gap: var(--space-2); }
+  button, input, .ghost, a.ghost, .spec-link, .spec summary, .links a,
+  .tries button, button.again, button.term, button.more, button.copy, button.check, button.spec-x,
+  .rail .controls button, .rail .controls select { min-height: var(--touch); }
+  button, .tries button, button.term, button.more, button.copy, button.spec-x, .rail .controls button, .spec-link { min-width: var(--touch); }
+  .thm-name a { width: var(--touch); height: var(--touch); }
 }

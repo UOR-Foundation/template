@@ -405,48 +405,78 @@
 .share-target:hover .share-glyph { background: var(--accent); }
 .share-target:active .share-glyph { transform: scale(0.94); }
 
-/* The account panel, built as the share panel is: under its icon, right
- * edges aligned (the script sets --account-top and --account-right). */
+/* The account dialog: centred over the app, which dims and blurs behind it,
+ * so the one thing to do is the only thing in view. Its proportions follow
+ * the golden ratio (1.618): the width is 1.618 x 16rem, the padding 1.618rem,
+ * the title 1.618 x the body text, the gaps 0.618, 1 and 1.618rem, and the
+ * backdrop dims by 0.382. Outside, Escape or the close button dismisses it. */
 .account-panel {
   position: fixed;
-  inset: var(--account-top, 4rem) var(--account-right, 1rem) auto auto;
-  width: min(20rem, 100vw - 2rem);
-  max-height: calc(100vh - var(--account-top, 4rem) - 1rem);
-  margin: 0;
-  padding: var(--space-4);
+  inset: 0;
+  width: min(25.888rem, 100vw - 2rem);
+  height: fit-content;
+  max-height: calc(100dvh - 2rem);
+  margin: auto;
+  padding: 1.618rem;
   overflow: auto;
   border: var(--border-width) solid var(--border);
-  border-radius: var(--radius);
+  border-radius: calc(var(--radius) * 1.618);
   background: var(--popover);
   color: var(--popover-foreground);
   box-shadow: var(--shadow-overlay);
   font-size: var(--text-14);
-  line-height: 1.45;
-  transform-origin: top right;
+  line-height: 1.5;
   transition: opacity var(--duration) var(--ease), transform var(--duration) var(--ease), overlay var(--duration) allow-discrete, display var(--duration) allow-discrete;
 }
-.account-panel:not(:popover-open) { opacity: 0; transform: translateY(-0.25rem) scale(0.98); }
+.account-panel:not(:popover-open) { opacity: 0; transform: scale(0.98); }
 @starting-style {
-  .account-panel:popover-open { opacity: 0; transform: translateY(-0.25rem) scale(0.98); }
+  .account-panel:popover-open { opacity: 0; transform: scale(0.98); }
+}
+.account-panel::backdrop {
+  background: rgb(0 0 0 / 0.382);
+  -webkit-backdrop-filter: blur(1rem);
+  backdrop-filter: blur(1rem);
 }
 :host([dark]) .account-panel { box-shadow: none; border-color: var(--border-strong); }
-.account-panel p { margin: 0; }
-.account-title { font-family: var(--font-display); font-weight: 600; font-size: var(--text-16); letter-spacing: var(--tracking-display); }
-.account-sub { margin-block: var(--space-1) var(--space-3) !important; color: var(--muted-foreground); }
-.account-in { display: grid; gap: var(--space-1); }
-.account-id { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); margin-bottom: var(--space-2) !important; padding: var(--space-2) var(--space-3); border: var(--border-width) solid var(--border); border-radius: var(--radius-control); background: var(--background); }
+.account-panel p, .account-panel h2 { margin: 0; }
+.account-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  min-height: 0;
+  padding: 0;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.account-close:hover { background: var(--accent); color: var(--foreground); }
+.account-close svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.account-title { padding-right: 2.618rem; font-family: var(--font-display); font-weight: 600; font-size: 1.618rem; line-height: 1.236; letter-spacing: var(--tracking-display); }
+.account-sub { margin: 0.618rem 0 1.618rem !important; color: var(--muted-foreground); font-size: 1rem; }
+.account-in { display: grid; gap: 0.382rem; }
+.account-id { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); margin-bottom: 0.618rem !important; padding: 0.618rem 1rem; border: var(--border-width) solid var(--border); border-radius: var(--radius-control); background: var(--background); }
 .account-id code { font-family: var(--font-mono); color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .account-panel .text { padding: 0; border: 0; background: none; color: var(--foreground); font-weight: 500; text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 0.2em; cursor: pointer; }
-.account-panel .row { justify-content: flex-start; width: 100%; min-height: var(--control); padding: 0 var(--space-3); border: 0; border-radius: var(--radius-control); background: none; color: var(--foreground); text-align: start; cursor: pointer; }
+.account-panel .row { justify-content: flex-start; width: 100%; min-height: 2.618rem; padding: 0 1rem; border: 0; border-radius: var(--radius-control); background: none; color: var(--foreground); font-size: 1rem; text-align: start; cursor: pointer; }
 .account-panel .row:hover { background: var(--accent); }
-.account-panel .row:focus-visible, .account-panel .text:focus-visible { outline: var(--ring-width) solid var(--ring); outline-offset: var(--ring-offset); }
+.account-panel .row:focus-visible, .account-panel .text:focus-visible, .account-close:focus-visible { outline: var(--ring-width) solid var(--ring); outline-offset: var(--ring-offset); }
 .account-ceremony:empty { display: none; }
 /* The iframe's colour scheme matches the page inside it; a mismatch would
- * make the browser paint it an opaque ground over the panel. */
-.account-ceremony iframe { display: block; width: 100%; height: 7.5rem; border: 0; color-scheme: light; }
+ * make the browser paint it an opaque ground over the dialog. */
+.account-ceremony iframe { display: block; width: 100%; height: 2.618rem; border: 0; color-scheme: light; }
 :host([dark]) .account-ceremony iframe { color-scheme: dark; }
 /* Shown only once the sign-in page has answered, so a page that fails to
- * load never shows the browser's error page in the panel. */
+ * load never shows the browser's error page in the dialog. */
 .account-ceremony iframe:not(.ready) { visibility: hidden; height: 0 !important; }
-#account-window { width: 100%; }
-@media (pointer: coarse) { .account-panel .row { min-height: var(--touch); } }
+#account-window { width: 100%; min-height: 2.618rem; font-size: 1rem; }
+@media (pointer: coarse) {
+  .account-panel .row, #account-window { min-height: var(--touch); }
+  .account-close { top: 0.618rem; right: 0.618rem; width: var(--touch); height: var(--touch); min-height: var(--touch); }
+}
+@media (prefers-reduced-transparency: reduce) { .account-panel::backdrop { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgb(0 0 0 / 0.618); } }

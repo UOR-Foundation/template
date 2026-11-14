@@ -101,13 +101,41 @@ repository needs a paid plan; the artifact and the summary need none.
 ## Publish the app page
 
 `site/` is the standard Prism app page: a lean, installable PWA that loads the
-holo `just app` builds, verifies it in the visitor's browser, shows what is
-proved and what is trusted, and lets them send requests and replay the examples
-the archive carries. Every instance gets the same page; an app edits one file.
+holo `just app` builds, verifies it in the visitor's browser and puts the app
+first. Every instance gets the same page; an app edits one file.
+
+- **The workspace.** The page is a stage the height of the screen and never
+  scrolls. A header row holds the app's name, one line under it, and View
+  spec on the right. Below it, from 840 px, two panes: the app's surface on
+  the left at full height, and a rail on the right with the result, the
+  actions (a few of the holo's own examples, or the app's controls) and a
+  history of what the visitor did, each entry one click from running again.
+  An app with an input gets a display: what you type is the largest thing on
+  screen, shrinking to fit as it grows, and the answer appears as you type,
+  in the success colour when `app.json` calls it positive. Under 840 px the
+  page is in focus mode: the surface takes the screen and one bar under it
+  holds the result, then the actions, within thumb reach.
+- **The spec, one click away.** View spec (or `.`, or a `#spec` link, or
+  the shield's full details) opens a panel beside the window: the window
+  and the bar narrow by its width (the page sets `--prism-aside` on
+  `<html>`, which the frame reads) and nothing in the app moves or scales; on
+  a phone the spec takes the screen. It reads in the order a newcomer asks:
+  the promise and the three facts behind it (proved for every input,
+  tested by the examples it carries, sealed to bytes in and bytes out), each
+  theorem as it reads with its method and the rules it names (opened in
+  place, read from the LexLean source under `app/src`), then the package:
+  what goes in and out, every example replayed here, the fingerprint and the
+  build chain. `page.mjs` renders it at build to `site/spec.html`, from
+  the holo and its source; `site/spec.mjs` and `site/spec.css` load the
+  first time it opens, so a visitor who only uses the app never loads them.
 
 - **`site/app.json`** is the only file an app writes: its name, purpose and
-  labels, the claim, the proposition as it reads in the model, the theorems,
-  the attestations, and the trusted set. `bootstrap/page.mjs` renders
+  labels, the promise (`{ "headline", "detail" }`: one plain sentence a
+  newcomer reads first, no code names, and the rule in everyday words), the
+  claim, the proposition as it reads in the model, the theorems, the
+  attestations, and the trusted set. Without a promise, the first plain
+  sentence of the proposition stands in; `tagline` overrides the line under
+  the name, which is otherwise the purpose's first sentence. `bootstrap/page.mjs` renders
   `site/index.html` and `site/manifest.webmanifest` from it; `bootstrap/icons.py`
   draws the icons (the Hologram logomark, the brand kit's 70 dots, on the warm
   ground, and `site/favicon.svg`, the mark as a vector that follows the
@@ -136,7 +164,13 @@ the archive carries. Every instance gets the same page; an app edits one file.
   in `pages.yml` before the build, and an app takes a newer page with
   `--pin <template commit>`, which reads the template's `frame.lock` at that
   commit, fetches every file, refuses any whose bytes differ and records the
-  pin. In the template, change these files and run `--lock`.
+  pin. Which files a frame has is the target's to say: its `frame-sync.mjs`,
+  matched to its lock, names them (inside `bootstrap/` and `site/` only), so
+  a newer frame can add a file; one the target dropped is left in place and
+  reported. A `frame-sync.mjs` older than this rule refuses a lock with files
+  it does not know; fetch the target's script once, then pin:
+  `curl -fo bootstrap/frame-sync.mjs https://raw.githubusercontent.com/UOR-Foundation/template/<commit>/bootstrap/frame-sync.mjs`.
+  In the template, change these files and run `--lock`.
 - **The brand is wired, not copied.** `brand.lock` pins
   [Hologram-Technologies/hologram-brand-kit](https://github.com/Hologram-Technologies/hologram-brand-kit)
   at one commit and records the SHA-256 of every file the page takes from it:
@@ -149,21 +183,22 @@ the archive carries. Every instance gets the same page; an app edits one file.
   46 px bar on the brand's chrome surface, and the app inside a rounded
   window inset 8 px from the screen's edges, as Lovable and Hologram OS show
   an app. The bar reads like Chrome's: home
-  ([holo-search](https://humuhumu33.github.io/holo-search/)), then the
+  ([holo-search](https://uor-foundation.github.io/holo-search/)), then the
   address across the bar, the shield first, then `holo://` and the app's
   name in lower case with hyphens (`holo://luhn-check`), and the share icon
   at its right end; then GitHub (the app's repository), the theme, and full
   screen. Its icons are bare 16 px line drawings with a
   soft square tint on hover; on a touch screen each takes a 48 px tap
   beyond what it draws, so the bar is the same height everywhere. Under
-  600 px GitHub steps out (the footer still links the repository); at large
+  600 px GitHub steps out (the spec still links the repository); at large
   text the bar wraps and the window moves down with it. It is the live
   frame above: no app carries a copy of it.
-- **Three themes: immersive, dark and light.** Immersive is every new
-  visitor's theme; a choice of dark or light is remembered. The theme button
+- **Three themes: dark, immersive and light.** Plain dark, the brand's warm
+  ground, is every new visitor's theme; a choice of immersive or light is
+  remembered. The theme button
   shows the one in use (photo, moon or sun) and opens a panel to change it.
   Immersive is the dark ground with an Unsplash photo behind the app under
-  a scrim, the cards frosted over it. The photo fills the app's window and
+  a scrim, the rail frosted over it. The photo fills the app's window and
   stops at its edges and corners; the chrome around it never changes. A
   photo is never fetched with the page, which keeps every app inside its
   Lighthouse budget: one shown before comes from the browser's cache at
@@ -193,8 +228,8 @@ the archive carries. Every instance gets the same page; an app edits one file.
   its attestation) and **Behaves as proved** (every example the holo
   carries gives its proved answer here). Grey dots while it checks, green
   only when every check passed, red with the failing check named when one
-  did not. Nothing is written by hand: `page.mjs` passes the proposition's
-  plain statement and the proof attestation from `app.json`, `app.mjs`
+  did not. Nothing is written by hand: `page.mjs` passes the promise's
+  headline and the proof attestation from `app.json`, `app.mjs`
   passes the fingerprint check and the replay as they finish, and the
   frame draws the rest.
 - **The bar holds still.** Until the frame's module arrives, the page shows
@@ -244,7 +279,7 @@ the archive carries. Every instance gets the same page; an app edits one file.
   like Chrome's. Focus it and it selects the address, a hairline in the UOR
   Foundation's colour spectrum runs round it, and it lists this app, every
   app in the Prism index (most stars first, each opening its own live page)
-  and every entry in [Holo Search](https://humuhumu33.github.io/holo-search/)'s
+  and every entry in [Holo Search](https://uor-foundation.github.io/holo-search/)'s
   registry, one row each: the app's icon (its live page's, else its initial
   on a hue taken from its fingerprint, as a browser shows a site with no
   icon), its name, its address or short hash, and on the right its GitHub
@@ -284,22 +319,41 @@ the archive carries. Every instance gets the same page; an app edits one file.
   renderer recomputes the stamp from `app.json`, so a card or icon drawn for
   another app, left stale by an edit, or drawn by an older script never
   ships: run `python -I bootstrap/og.py` and `python -I bootstrap/icons.py`
-  (after `node bootstrap/brand-sync.mjs --sync`, for the icons' font). An app
-  pinning this page for the first time redraws both once. And
+  (after `node bootstrap/brand-sync.mjs --sync`, for the icons' font).
+  `pages.yml` draws both before it renders, with Pillow pinned by hash in
+  `bootstrap/draw-requirements.txt`, so publishing needs neither Python nor
+  Pillow on the author's machine; drawing locally only refreshes the
+  preview. An app pinning this page for the first time redraws both once. And
   `frame-sync.mjs --lock` runs only in this repository, so no app can bless
   its own copy of the page.
-- **Any screen.** Material 3 window size classes: one column under 600 px,
-  two panes from 840; 48 px touch targets on coarse pointers; safe areas;
-  forced colours and reduced motion respected.
+- **Any screen.** Material 3 window size classes: focus mode under 840 px,
+  the workspace's two panes from 840; 16 px margins under 600 px and 24 px
+  from it; 48 px touch targets on coarse pointers; safe areas; forced colours
+  and reduced motion respected. `bootstrap/screens.mjs` holds every class
+  in every theme to it, with the spec open and closed, and fails a page that
+  scrolls.
+- **An app's own surface.** An app that needs more than an input (a chess
+  board) adds `site/card.html`, `site/card.css` and `site/card.mjs`. Each part
+  of `card.html` names the workspace slot it fills with `data-slot`:
+  `surface` (the stage, as large a square as fits), `result`, `actions` and
+  `history` (the rail, `data-label` naming the last two), and `evidence`
+  (the spec). A small script `page.mjs` hashes into the page moves each
+  part into place before first paint, so nothing shifts; `card.mjs` is
+  started with the verified app and finds its parts by id, as before.
 - **Installable and offline.** A manifest with maskable icons and a service
   worker that caches every response as it passes, so the app loads, verifies
   the holo and answers requests with the network off after one visit. A new
   deploy shows one "Update available" chip and reloads only when asked.
 - **The gate.** `lighthouserc.json` asserts 100 in performance, accessibility,
   best practices and SEO on the mobile profile, LCP under 1.5 s, TBT under
-  100 ms, CLS 0, under 120 KiB and at most two third-party requests (the
-  frame's pointer and module); `pages.yml` runs
-  Lighthouse CI on the assembled site before anything is deployed.
+  100 ms, CLS 0 and at most two third-party requests (the frame's pointer
+  and module); `pages.yml` runs Lighthouse CI on the assembled site before
+  anything is deployed. The weight is `bootstrap/weight.mjs` (FR-03): a first
+  visit on a phone with no worker, counted once the frame is running and the
+  shield has replayed every example, so every run counts the same page. The
+  frame's bytes (its host, the frame-locked site files, the fonts and the
+  worker runtime) are held to 100 KiB, the app's (everything else, from the
+  page to the holo) to 120 KiB, and the visit to 28 requests.
 
 `.github/workflows/pages.yml` checks the brand wiring on every push to
 `main`, builds and verifies the holo through the locked SDK, signs its

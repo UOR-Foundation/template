@@ -33,13 +33,16 @@
 // The shield sums the three: green only when the bytes are authentic and
 // every example gives its proved answer; its panel shows each check, as a
 // browser shows a page's security.
-// The frame owns the theme: light, dark or immersive. It sets the dark and
-// immersive classes on <html> and remembers the choice as "prism-theme" (and
-// the photo as "prism-backdrop"), as the page's theme bootstrap reads.
+// The frame owns the theme: light, dark or immersive, plain dark by default.
+// It sets the dark and immersive classes on <html> and remembers the choice
+// as "prism-theme" (and the photo as "prism-backdrop"), as the page's theme
+// bootstrap reads.
+// The window and the bar end --prism-aside from the right edge (0 unless the
+// page sets it on <html>), so a page can open a panel beside its window.
 
 const CSS = "/*CSS*/";
 const BRAND = "/*BRAND*/";
-const HOME = "https://humuhumu33.github.io/holo-search/";
+const HOME = "https://uor-foundation.github.io/holo-search/";
 // The Prism registry: the canonical kappa registry. Its index lists every
 // Prism app by its self-verifying address; every address bar reads it.
 const REGISTRY = "https://registry.uor.foundation/";
@@ -464,11 +467,13 @@ class PrismFrame extends Element {
     if (!document.adoptedStyleSheets.includes(backdropSheet)) {
       document.adoptedStyleSheets = [...document.adoptedStyleSheets, backdropSheet];
     }
-    // Immersive is the default: a visitor who has chosen nothing gets it. A
-    // page built before immersive existed reads both as its own default; the
-    // frame corrects it, once, as it arrives.
+    // Plain dark is the default: a visitor who has chosen nothing gets the
+    // warm dark ground, and immersive is one choice away in the theme panel.
+    // A page built when immersive was the default sets it before first paint;
+    // the frame corrects it, once, as it arrives.
     const chosen = storedTheme().mode;
-    if (chosen !== "light" && chosen !== "dark") document.documentElement.classList.add("dark", "immersive");
+    if (chosen !== "light") document.documentElement.classList.add("dark");
+    if (chosen !== "immersive") document.documentElement.classList.remove("immersive");
     this.render();
     this.watchTheme();
     this.watchHeight();
@@ -864,27 +869,39 @@ class PrismFrame extends Element {
       button.setAttribute("aria-label", label);
       button.title = label;
     };
-    // Reaching for the icon is intent enough: no wait for a first move.
-    const ready = () =>
-      (this.accountReady ??= loadPanels().then(
-        (panels) => {
+    // Reaching for the icon is intent enough: no wait for a first move. An
+    // app sets the frame's attributes as it loads, and each redraws the bar,
+    // so this render's panel may be gone by the time the module arrives: it
+    // then wires nothing, and the panel now drawn wires itself.
+    const current = () => this.$("account-panel") === panel;
+    const ready = () => {
+      if (!this.accountReady) {
+        const mine = loadPanels().then((panels) => {
+          if (!current()) throw new Error("the bar was redrawn");
           this.adoptPanels(panels);
           const accounts = panels.accounts(this, { ...ACCOUNT_CORE, paint });
           wired = true;
           return accounts;
-        },
-        (error) => {
-          this.accountReady = null;
-          throw error;
-        },
-      ));
+        });
+        mine.catch(() => {
+          if (this.accountReady === mine) this.accountReady = null;
+        });
+        this.accountReady = mine;
+      }
+      return this.accountReady;
+    };
     const reach = () => ready().then((accounts) => accounts.reach(), () => {});
     for (const type of ["pointerenter", "focus", "touchstart"]) button.addEventListener(type, reach, { passive: true });
-    // A panel opened before its part of the panels module came waits for it.
+    // A panel opened before its part of the panels module came waits for it,
+    // then opens: this one, or the one drawn since, so no click is lost.
     panel.addEventListener("beforetoggle", (event) => {
       if (event.newState !== "open" || wired) return;
       event.preventDefault();
-      ready().then(() => panel.showPopover(), () => {});
+      const open = () => {
+        const shown = this.$("account-panel");
+        if (!shown.matches(":popover-open")) shown.showPopover();
+      };
+      ready().then(open, () => current() || open());
     });
     paint();
     loadSession().then(paint);

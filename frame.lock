@@ -3,7 +3,7 @@
   "files": [
     {
       "path": "bootstrap/frame-sync.mjs",
-      "sha256": "0c72dce47beb0faea9c24b535e3ec6d6013a9fc8de21f92b61c8e00ec277280a"
+      "sha256": "5d874908a8f5813b6f7c1004ec0e73ec03584139bf7ac8ffabb2ad5c0eeee7af"
     },
     {
       "path": "bootstrap/icons.py",
@@ -15,7 +15,7 @@
     },
     {
       "path": "bootstrap/page.mjs",
-      "sha256": "2a6bf39f0c709c3e5e4e67bad17ad6821f4273aab4c71c958112eda8888d3db3"
+      "sha256": "2df4ef057d37e778b04f67e4f63d862c7da6a77c301d0862b2bb8681fc8ec9d4"
     },
     {
       "path": "bootstrap/precache.mjs",
@@ -27,35 +27,51 @@
     },
     {
       "path": "bootstrap/screens.mjs",
-      "sha256": "b318ca8fb52e34a4203dd4b45b5ace6b472a105783b7a7ad64648f24eee3e405"
+      "sha256": "c9787ebf5ad8e8b649034ec3e43f8812ba51777ba59eb11f1f51ca084a395b67"
+    },
+    {
+      "path": "bootstrap/weight.mjs",
+      "sha256": "de432422e9931b4adf0f422a2030d7b38097a60a4d8fc9ed62fd20fe0c468373"
+    },
+    {
+      "path": "bootstrap/worker-runtime.mjs",
+      "sha256": "0f9fbb6ec4db48fb7f7c4b779a0494e95d5411e868b36e1e163e5173fcc34557"
     },
     {
       "path": "lighthouserc.json",
-      "sha256": "0145d04da93193801b0d8736ceba7e0df94b9b15f183b07a16e6feda16d72082"
+      "sha256": "85aa0f6219cb8396b34f5b461c1d4d7b149e4cc1674cbd2f0100c5b5e16636d9"
     },
     {
       "path": "site/app.mjs",
-      "sha256": "1c77dd800ace96f920da9452e99065fd30286f704102bc916e28c4783c66d5d3"
+      "sha256": "b5b30e78ab9b693fd6d29b89b9d2b74542340542864e99e4533a9ced2d987ee0"
     },
     {
       "path": "site/guest-worker.mjs",
-      "sha256": "0aae31bd459646dfa3a9b8f5f1e9139a34f2fc86154342c14ad5601ec9876d7e"
+      "sha256": "fb7c63cca4f503ca6a3e11e4393a989f94a3c993e0e1dbde2e13f458690b1821"
     },
     {
       "path": "site/page.template.html",
-      "sha256": "3175a4320c087c8416cd23d97884bdff6ee8e7797e174caa06e17204c3375fa3"
+      "sha256": "d7df0bc4d5190ca38ee768bdbd54cbc665ede811608de846068c8a92bd02c14d"
     },
     {
       "path": "site/prism-page.css",
-      "sha256": "2db850d7646d4e2055a97a3742881569e2f3e603ac1620a8ad3eb1f347e87d05"
+      "sha256": "e74dc6dbe7f1394fdf1f7c663578ea4fbb4836f301b87f82d57a7c5dc6066e1c"
+    },
+    {
+      "path": "site/spec.css",
+      "sha256": "a74d0a4e5329f9ab60e5e8ef5f0964ac0af5d1c17912539ae1880fb3862dd383"
+    },
+    {
+      "path": "site/spec.mjs",
+      "sha256": "9f3fa8197085693da6423a27ea228f9180523702c479f19e64fdf27c1d1054bf"
     },
     {
       "path": "site/sw.js",
-      "sha256": "b4d4eb5c8314f5abed013ea9d172e7352dbdfa5aa2b503901df364ebcfbf11f7"
+      "sha256": "baf0fbd7da2fa0b33124951bbd1218aa6658c342340fb24415c636f220c9ea74"
     },
     {
       "path": "site/theme.js",
-      "sha256": "5d73dc3e6c2ba9e0dce3fbf0504adf686c3b8d294a7a0fee5c732c6be785adb4"
+      "sha256": "dedc458660aa62df983ab84dbf370ac365578289699aa6cf8f1476c97db2ce92"
     }
   ]
 }

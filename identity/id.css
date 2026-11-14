@@ -6,20 +6,20 @@ html.dark { color-scheme: dark; }
 body {
   margin: 0;
   font-family: var(--font-sans);
-  font-size: 0.875rem;
+  font-size: 1rem;
   line-height: 1.45;
   color: var(--foreground);
   background: transparent;
 }
 html.alone body { background: var(--background); min-height: 100vh; display: grid; place-items: center; }
 html.alone main { width: min(22rem, 100vw - 2rem); }
-main { display: grid; gap: 0.625rem; }
+main { display: grid; gap: 0.618rem; }
 button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  min-height: 2.5rem;
+  min-height: 2.618rem;
   padding: 0 1rem;
   border: 1px solid transparent;
   border-radius: calc(var(--radius) - 2px);

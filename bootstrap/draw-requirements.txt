@@ -1,0 +1,6 @@
+# What pages.yml installs to draw site/og.png and site/icons with og.py and
+# icons.py, pinned by hash: the Linux x86_64 wheels of Pillow for the
+# runner's Python 3.12. Pillow has no dependencies of its own.
+pillow==12.2.0 \
+    --hash=sha256:b86024e52a1b269467a802258c25521e6d742349d760728092e1bc2d135b4d76 \
+    --hash=sha256:62f5409336adb0663b7caa0da5c7d9e7bdbaae9ce761d34669420c2a801b2780
