@@ -25,7 +25,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Install Node 22
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: 22
       - name: Install the test runner
@@ -68,7 +68,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Install Node 22
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: 22
       # Every Prism app loads the frame from here at run time, so publishing
@@ -82,11 +82,11 @@ jobs:
           cp -r try/. "$RUNNER_TEMP/site/"
           node frame/publish.mjs "$RUNNER_TEMP/site/frame" "$GITHUB_SHA"
       - name: Configure Pages
-        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d
       - name: Upload the try page and the frame
-        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9
         with:
           path: ${{ runner.temp }}/site
       - name: Deploy
         id: deployment
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346

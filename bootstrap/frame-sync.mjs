@@ -42,6 +42,7 @@ const FRAME = [
   "bootstrap/precache.mjs",
   "bootstrap/register.mjs",
   "bootstrap/screens.mjs",
+  "bootstrap/weight.mjs",
   "bootstrap/worker-runtime.mjs",
   "lighthouserc.json",
   "site/app.mjs",
