@@ -90,6 +90,36 @@ checks its own log with `heardLog(..., {own: true})`, which refuses a second
 retirement of a retired recovery device (stitch's `admitRecords`), so a fork
 heard on the relay never reaches it.
 
+## Guardians
+
+A guardian is a device of someone else's id that keeps one share of this id's
+recovery device. The two meet on `rendezvousTopic(secret)`, the secret in a
+link one sends the other (`prism-guardian:` or `prism-help:` and 43
+base64url characters); the relay sees neither the secret nor the shares,
+which are wrapped to one device each.
+
+1. **Be someone's guardian**: the guardian publishes
+   `{kind: "prism/guardian-offer/1", device}` (its device record) and shows the link.
+2. **Add a guardian**: the person's device reads the offer and, with the kit
+   still in the panel or the saved one, calls
+   `replaceRecovery(session, [share], {threshold: 2, guardians: [{paper: true}, device]})`.
+   It publishes `{kind: "prism/guardian-share/1", share}` and keeps the change,
+   and its new kit (the paper share of two), only after the guardian answers
+   `{kind: "prism/guardian-kept/1", recovery}`. The old kit is retired.
+3. **Recovery with a guarded kit**: the new device publishes
+   `{kind: "prism/guardian-help/1", prism, recovery, device}` and shows a
+   `prism-help:` link and `recoveryCode(prism, device)`. **Help someone
+   recover** shows the guardian the same code; the guardian releases only
+   after hearing it from the person by voice or in person: `releaseShare`
+   re-wraps the share to the new device, `{kind: "prism/guardian-release/1", share}`,
+   and the guardian's device deletes its share. `recoverPrism` then combines
+   the two shares, and the new kit is one paper share again, to which a
+   guardian can be added.
+
+A copy of a guarded kit recovers nothing alone, and the guardian who released
+once has no share left for it: the guardian is the witness of the kit's use
+that a paper kit lacks.
+
 ## Devices
 
 The panel lists the id's active devices from its log and removes one with
@@ -108,9 +138,11 @@ never synced. Making the session and recovery check the same merged log.
 
 ## Not yet (stitch's to define, its docs/prism-id.md "Open")
 
-- Whoever holds a used kit can still sign a second retirement and publish it.
-  It cannot act as the person, but apps that hear it act for neither side;
-  telling the two apart needs stitch's witnessed time.
+- Whoever holds a used paper kit (no guardian) can still sign a second
+  retirement and publish it. Where the recovery that used the kit is heard,
+  apps act for neither side; where it is not, the replay passes for a
+  recovery. A guardian closes it (see Guardians); a kit that never left the
+  panel before a guardian was added was never exposed.
 - The relay holds messages for 30 minutes, so an app hears a removal only
   within 30 minutes of the last publish. A session signed before a removal
   lasts until it expires (at most 8 days).

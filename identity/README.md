@@ -37,7 +37,16 @@ restore what an app kept only in a lost browser (its local projects, chats or
 databases). That lives with the app, not the id.
 
 Stitch lets only the recovery device replace itself, so a member cannot make
-a new kit. A kit is made when the id is created and again on each recovery.
+a new kit. A kit is made when the id is created, again on each recovery, and
+when a guardian is added.
+
+**Add a guardian** (optional, nothing asks for it) gives someone you trust,
+in any Prism app (**Be someone's guardian**), one share of the kit: the new
+kit then needs them too. If you lose every device, they open **Help someone
+recover**, hear the code your new browser shows from you, and release their
+share once. A lost or copied kit alone then brings nothing back. Add the
+guardian before saving the first kit, and no kit that works alone ever
+leaves the browser.
 
 ## Devices
 
@@ -53,7 +62,8 @@ Remove, because stitch lets no member revoke it.
 | stitch's relay (ntfy) | Withhold or delay a sync message or a link answer, so a removal or a link does not arrive | Read a sync message (sealed in the id's private boundary) or forge any record (each is signed and checked by the reader). It sees hashed topic names, timing, padded sizes, and in a link answer the id's log (public keys and signatures) |
 | The app's page (its script) | Everything this origin's device can do: sign for this app, link or remove devices, read a recovery kit as it is made | Copy the device keys out: they are non-extractable WebCrypto keys |
 | Another app | Make its own device of the visitor's id | Use this app's device or session: storage is per origin, and a session names the app origin it was signed for |
-| Anyone holding a recovery kit | Take the id over, from any browser | Use it once a newer kit replaced it, if they hear what the id's devices shared (see below) |
+| Anyone holding a recovery kit | Take the id over, from any browser, if the kit has no guardian | Use a kit with a guardian without the guardian releasing to them; use a kit once a newer kit replaced it, if they hear what the id's devices shared (see below) |
+| A guardian | Refuse to help, or help someone else holding the kit | Recover the id alone: their share is one of two, and the kit holds the other |
 
 There is no biometric or OS prompt: a device's keys sign whenever its page
 asks, and the visitor's click is the only consent.
