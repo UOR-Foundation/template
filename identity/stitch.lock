@@ -1,13 +1,13 @@
 {
   "repository": "afflom/stitch",
-  "commit": "7c0ccebfa00e5c09e135901be4c9fad149d1b420",
+  "commit": "6f275d0c7a1c134c2199c1c62811c7a4d88f755a",
   "sources": {
     "src/layer1-uor/contracts.js": "94c67e0811f78029b251c55edbf365b2335040106b8125fa5298e59315d2c2d3",
     "src/layer1-uor/custody.js": "597b34d6740b6b371e30af24ee18cd10f8c4142da38e616b9ec5e04d042ab74c",
     "src/layer1-uor/generated-model.js": "fae51244e2b96601978233863e86aee96f35ef5a15ad4af4d3e687a9d770fb11",
     "src/layer2-schedulers/policy.js": "8f2074f8fe07a7b1fda51896d78f11a797564afb64accebc7291261e5c00639f",
     "src/layer5-transport/relay-framing.js": "35672c5720f5f1e5d009f1875a1c63de3a6badea2546d66baf73c77fb7c90ae0",
-    "src/prism-id.js": "eefc04c53d581308dee9033384050616849ef93996e8cb7858cd1435934b16d7"
+    "src/prism-id.js": "5ae9114fbc7d34c50b2736ed4813d6ab52b678435c1342c97874ab57762fe87f"
   },
   "decisions": [
     "Stitch.Budget.reserveAllowed",
@@ -52,6 +52,6 @@
   ],
   "output": {
     "path": "identity/prism-id.mjs",
-    "sha256": "3035992b02efa243c87f1c6116e7e37e8a203fc4721d590c4158c762e8997995"
+    "sha256": "e17f833d10a345ceafc0e14b998af43d3e19c94fe3f51e6961d420c89729b5dd"
   }
 }

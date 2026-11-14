@@ -79,8 +79,13 @@ Stitch's out-of-band link, over the relay:
 From a kit: `recoverPrism({prism, records, shares: [share], device, rotateRecovery: {threshold: 1, guardians: [{paper: true}]}})`
 binds this browser's new device and revokes every other device. It replaces
 the recovery device, so the new kit retires the old one. The frame then takes
-in what the relay holds. If that shows another active recovery device, the
-kit was already used and is refused.
+in what the relay holds. A used kit's recovery device is retired, and its
+retirement kept none of what this replay signed, so this device cannot sign
+(or the two retirements fork the log, which resolves for no one): the kit was
+already used and is refused, before anything is kept or published. A device
+checks its own log with `heardLog(..., {own: true})`, which refuses a second
+retirement of a retired recovery device (stitch's `admitRecords`), so a fork
+heard on the relay never reaches it.
 
 ## Devices
 
@@ -100,9 +105,9 @@ never synced. Making the session and recovery check the same merged log.
 
 ## Not yet (stitch's to define, its docs/prism-id.md "Open")
 
-- A used kit replayed against its own old log forks the recovery chain. Every
-  frame that hears the public log sees both recoveries and refuses the kit;
-  ordering them needs stitch's witnessed time.
+- Whoever holds a used kit can still sign a second retirement and publish it.
+  It cannot act as the person, but apps that hear it act for neither side;
+  telling the two apart needs stitch's witnessed time.
 - The relay holds messages for 30 minutes, so an app hears a removal only
   within 30 minutes of the last publish. A session signed before a removal
   lasts until it expires (at most 8 days).

@@ -66,9 +66,10 @@ never syncs is refused once another device removed it and shared that.
 
 The relay keeps a message for stitch's warm lifetime (30 minutes). A device
 away longer, or an app checking later, catches up from the next message a
-device shares. A used kit replayed against its own old log is refused once
-the newer recovery shows up in what the devices shared; stitch is to order
-the two recoveries.
+device shares. A used kit replayed against its own old log binds and revokes
+nothing: the retirement in the id's log never kept what the replay signs, so
+the frame refuses the kit once that retirement shows up in what the devices
+shared, and publishes nothing.
 
 ## Run it
 
