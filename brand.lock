@@ -1,0 +1,76 @@
+{
+  "spec": "prism/brand-lock/1",
+  "source": {
+    "repository": "Hologram-Technologies/hologram-brand-kit",
+    "commit": "f14a9d8cfe6bce14fc8a6ff09ac0f99b01e300be",
+    "raw": "https://raw.githubusercontent.com/Hologram-Technologies/hologram-brand-kit/f14a9d8cfe6bce14fc8a6ff09ac0f99b01e300be/"
+  },
+  "copied": [
+    {
+      "from": "brand/css/hologram-warm.css",
+      "to": "site/brand/hologram-warm.css",
+      "sha256": "86297939f26618556c560542f105cf1be1f0a718180aed7617d6e3018bf0339a"
+    },
+    {
+      "from": "brand/fonts/OFL.txt",
+      "to": "site/fonts/OFL-Geist.txt",
+      "sha256": "c683bfbcc7e087f5d37a54ef628f10387c451a83ddc459b151403a164ac46c90"
+    },
+    {
+      "from": "brand/fonts/OFL-Archivo.txt",
+      "to": "site/fonts/OFL-Archivo.txt",
+      "sha256": "108b4e57c9c796d3d38d0428ca7ee39de47ad93187302718d9b2d8864b9b716b"
+    }
+  ],
+  "provenance": [
+    {
+      "from": "brand/tokens/hologram-tokens.json",
+      "sha256": "37aa637601f139f02928fc819daf78148ccd809de3d0d4444b8d03381cf7048a",
+      "note": "The W3C DTCG source of truth the CSS above is generated from. Not served."
+    }
+  ],
+  "fonts": {
+    "tool": "fonttools pyftsubset",
+    "unicodes": "U+0020-007E,U+00A0-00FF,U+2013-2014,U+2018-201D,U+2026,U+2190-2194,U+2211,U+2212,U+2260,U+2264,U+2265,U+22C5,U+2194,U+21D4",
+    "layout_features": "kern,liga,calt,tnum",
+    "files": [
+      {
+        "from": "brand/fonts/web/Archivo-SemiBold.woff2",
+        "source_sha256": "d9e8c29fdd348edde2a4f9aae438e569dd165bbbdebda78495824a2d9aaa67e8",
+        "to": "site/fonts/Archivo-SemiBold.woff2",
+        "sha256": "66822bebb0cbe98fbd0407971acabdc91583ed605cdafa275e3c556121aa9d9d"
+      },
+      {
+        "from": "brand/fonts/web/Geist-Regular.woff2",
+        "source_sha256": "d8bce822db092746889bcf3f57350b41f53708b025458fe7af30729ec4ce0df2",
+        "to": "site/fonts/Geist-Regular.woff2",
+        "sha256": "595373960ca1aa1a83ed8c2543d05e99cc436cc294c17591bfcf2c69031b5ebe"
+      },
+      {
+        "from": "brand/fonts/web/Geist-Medium.woff2",
+        "source_sha256": "b0a0867cda44efef4529a4b13ce37fd9fd6e1597708615287542a51bc7452ab4",
+        "to": "site/fonts/Geist-Medium.woff2",
+        "sha256": "925b5ffbf31ca1d1c2a9e615d0aa590a090ee1d91d70209fdcd67bb0f6d7f75f"
+      },
+      {
+        "from": "brand/fonts/web/GeistMono-Regular.woff2",
+        "source_sha256": "e4507fb4fb5f832fbbb6c06aea4206274ba3083007f23fa8cbc0e87a10acf95b",
+        "to": "site/fonts/GeistMono-Regular.woff2",
+        "sha256": "d189397fb929a6e663eb93ad6ecd02b2571ca3a581000edb4627b10933cbdb3a"
+      },
+      {
+        "from": "brand/fonts/web/GeistMono-Medium.woff2",
+        "source_sha256": "85b99e603f84a47dc8118b5af058ad8f387d7c507a00faeef1b5b60eb371e844",
+        "to": "site/fonts/GeistMono-Medium.woff2",
+        "sha256": "b1670c038fc762b5094b130c5f43a6b7fd92085d74193a4e4895586afa1568cf"
+      }
+    ]
+  },
+  "sources": [
+    {
+      "from": "brand/fonts/otf/Archivo-Variable.ttf",
+      "sha256": "0e094a7d3c7c4c25cf1310c4b30014f1dae9332220b1c2c88f4fa996f0b05053",
+      "note": "Not served. bootstrap/icons.py sets the app's initial in it."
+    }
+  ]
+}

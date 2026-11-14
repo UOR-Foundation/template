@@ -1,0 +1,90 @@
+name: Try Prism page and the canonical frame
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: try-page-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: headless browser acceptance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out the exact event revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install Node 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 22
+      - name: Install the test runner
+        run: npm install
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Verify, answer add 20 22 and replay 22/22
+        run: npm run test:try
+      - name: Draw the browser fixture's icons and social image from its actual metadata
+        run: |
+          python3 -m venv "$RUNNER_TEMP/frame-draw"
+          "$RUNNER_TEMP/frame-draw/bin/pip" install --quiet --no-deps --only-binary :all: --require-hashes -r bootstrap/draw-requirements.txt
+          "$RUNNER_TEMP/frame-draw/bin/python" -I bootstrap/icons.py
+          "$RUNNER_TEMP/frame-draw/bin/python" -I bootstrap/og.py
+      - name: The frame verifies in a real module worker, refuses bad archives and works offline
+        run: node --test site/worker-browser.test.mjs
+      - name: Prism ids - the pinned stitch copy matches its lock, every session check refuses, and two apps share one id
+        run: npm run test:identity
+      - name: Build the canonical frame every Prism app loads
+        run: node frame/publish.mjs "$RUNNER_TEMP/frame" "$GITHUB_SHA"
+
+  deploy:
+    name: publish the try page and the canonical frame
+    # Repositories made from this template have no Pages site for this page.
+    if: github.repository == 'UOR-Foundation/template' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: verify
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out the exact event revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install Node 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 22
+      # Every Prism app loads the frame from here at run time, so publishing
+      # main's frame is how a frame change reaches every app: no app rebuilds.
+      - name: Install the frame's minifier, the exact version package-lock.json pins
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Assemble the try page and the canonical frame
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/site"
+          cp -r try/. "$RUNNER_TEMP/site/"
+          node frame/publish.mjs "$RUNNER_TEMP/site/frame" "$GITHUB_SHA"
+      - name: Configure Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d
+      - name: Upload the try page and the frame
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9
+        with:
+          path: ${{ runner.temp }}/site
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346

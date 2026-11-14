@@ -1,0 +1,524 @@
+/* The standard Prism app page, bound to the Hologram brand kit.
+ * Every colour, radius, border, ring, duration and easing is a variable from
+ * brand/hologram-warm.css; the fonts and their metric-matched fallbacks come
+ * from brand/fonts.css, both pinned by brand.lock. The type scale is the
+ * brand's: 14, 16, 18, 20, 24, 30, 36 px, nothing under 14. No shadows on the
+ * dark ground.
+ *
+ * Layout is the Workspace, by the Material 3 window size classes: from 840 px
+ * (expanded and up) two panes, the app's surface and a rail for its result,
+ * actions and history; under 840 px focus mode, one column, the surface above
+ * one bar. Margins are 16 px under 600 px and 24 px from it. The page never
+ * scrolls: the window is a stage the height of the screen. Touch targets are
+ * 48 px on coarse pointers and 36 px controls on fine ones. */
+
+:root {
+  --text-14: 0.875rem;
+  --text-16: 1rem;
+  --text-18: 1.125rem;
+  --text-20: 1.25rem;
+  --text-24: 1.5rem;
+  --text-30: 1.875rem;
+  --text-36: 2.25rem;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --margin: 1rem;
+  --measure: 45rem;
+  --measure-wide: 80rem;
+  --column: var(--measure);
+  --control: 2.25rem;
+  /* The frame's bar: 32 px controls and the thin chrome above and below
+   * them, the same height on every device (its controls take a 48 px tap
+   * past their circles on a touch screen). */
+  --frame-bar: 2.875rem;
+  --touch: 3rem;
+  --radius-control: calc(var(--radius) - 2px);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
+
+@media (min-width: 600px) {
+  :root { --margin: 1.5rem; }
+}
+
+* { box-sizing: border-box; }
+
+html { background: var(--background); }
+
+body {
+  margin: 0;
+  color: var(--foreground);
+  background: var(--background);
+  font-family: var(--font-sans);
+  font-size: var(--text-16);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+}
+
+
+::selection { background: var(--brand); color: var(--brand-foreground); }
+
+:focus-visible {
+  outline: var(--ring-width) solid var(--ring);
+  outline-offset: var(--ring-offset);
+}
+
+/* The frame: the top bar is the canonical <prism-frame>, loaded live from
+ * the template (site/app.mjs), and drawn in its own shadow root. Until it
+ * arrives its height is reserved and the app's holo:// address stands in,
+ * so nothing moves when it does. */
+prism-frame {
+  display: block;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  min-height: calc(var(--safe-top) + var(--frame-bar));
+}
+/* Between Prism apps the page changes and the frame stays: a navigation is
+ * a short cross-fade of the window, with the bar held in place, as a
+ * browser switches tabs. Every page paints the real bar first (the frame's
+ * shell, written in by bootstrap/page.mjs), so the bar is the same on both
+ * sides and only its address and the app beneath it change. */
+@view-transition { navigation: auto; }
+prism-frame { view-transition-name: prism-frame; }
+/* The page's colour scheme, which the frame's first paint follows. */
+:root { color-scheme: light; }
+:root.dark { color-scheme: dark; }
+::view-transition-group(*) { animation-duration: 160ms; animation-timing-function: cubic-bezier(0.2, 0, 0, 1); }
+@media (prefers-reduced-motion: reduce) {
+  @view-transition { navigation: none; }
+}
+prism-frame:not(:defined):not([data-shell]) {
+  padding-top: var(--safe-top);
+  background: var(--sidebar);
+}
+/* The stand-in, until the frame's module arrives: the bar as it will be, the
+ * Hologram mark and the address in its field, at the bar's height, so the
+ * frame replaces it without anything moving and the page's first load stays
+ * light (the frame is not written into the page). */
+.frame-fallback {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  min-height: var(--frame-bar);
+  padding: 0.5rem calc(0.5rem + var(--safe-right)) 0.375rem calc(0.5rem + var(--safe-left));
+  color: var(--foreground);
+  font-size: var(--text-14);
+  font-weight: 500;
+  text-decoration: none;
+}
+.frame-fallback .mark {
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  background: currentColor;
+  /* The Hologram mark (site/favicon.svg), inline: no request on first load. */
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-104 -104 208 208' role='img' aria-label='Hologram'%3E%3Cstyle%3Ecircle{fill:%23f6f5f4}@media (prefers-color-scheme:light){circle{fill:%23302b28}}%3C/style%3E%3Cg%3E%3Ccircle cx='0.20' cy='-97.39' r='2.61'/%3E%3Ccircle cx='-22.86' cy='-86.55' r='2.71'/%3E%3Ccircle cx='22.54' cy='-86.32' r='2.81'/%3E%3Ccircle cx='-0.03' cy='-76.01' r='2.71'/%3E%3Ccircle cx='45.26' cy='-75.92' r='7.80'/%3E%3Ccircle cx='-45.82' cy='-75.86' r='2.61'/%3E%3Ccircle cx='68.34' cy='-65.13' r='7.70'/%3E%3Ccircle cx='-68.83' cy='-65.00' r='2.61'/%3E%3Ccircle cx='-22.91' cy='-64.90' r='2.61'/%3E%3Ccircle cx='22.71' cy='-64.88' r='2.51'/%3E%3Ccircle cx='91.24' cy='-54.34' r='2.61'/%3E%3Ccircle cx='-45.94' cy='-54.25' r='7.83'/%3E%3Ccircle cx='-91.17' cy='-54.19' r='2.71'/%3E%3Ccircle cx='-0.03' cy='-54.19' r='2.71'/%3E%3Ccircle cx='45.35' cy='-54.19' r='7.80'/%3E%3Ccircle cx='-22.86' cy='-43.64' r='2.71'/%3E%3Ccircle cx='22.71' cy='-43.49' r='2.51'/%3E%3Ccircle cx='68.29' cy='-43.47' r='7.73'/%3E%3Ccircle cx='-68.60' cy='-43.37' r='7.73'/%3E%3Ccircle cx='-45.85' cy='-32.63' r='7.77'/%3E%3Ccircle cx='45.36' cy='-32.60' r='7.80'/%3E%3Ccircle cx='-91.26' cy='-32.55' r='2.71'/%3E%3Ccircle cx='0.10' cy='-32.51' r='2.61'/%3E%3Ccircle cx='91.24' cy='-32.51' r='2.61'/%3E%3Ccircle cx='68.22' cy='-21.95' r='7.83'/%3E%3Ccircle cx='22.67' cy='-21.84' r='7.87'/%3E%3Ccircle cx='-22.86' cy='-21.82' r='2.71'/%3E%3Ccircle cx='-68.57' cy='-21.80' r='7.80'/%3E%3Ccircle cx='45.45' cy='-11.06' r='7.73'/%3E%3Ccircle cx='-0.19' cy='-11.04' r='7.87'/%3E%3Ccircle cx='91.35' cy='-11.01' r='2.81'/%3E%3Ccircle cx='-91.54' cy='-10.97' r='2.51'/%3E%3Ccircle cx='-45.87' cy='-10.87' r='7.73'/%3E%3Ccircle cx='22.71' cy='-0.27' r='8.06'/%3E%3Ccircle cx='-22.89' cy='-0.21' r='7.90'/%3E%3Ccircle cx='68.28' cy='-0.15' r='7.87'/%3E%3Ccircle cx='-68.62' cy='-0.11' r='8.00'/%3E%3Ccircle cx='-0.06' cy='10.98' r='7.87'/%3E%3Ccircle cx='45.54' cy='11.00' r='7.83'/%3E%3Ccircle cx='-45.85' cy='11.02' r='7.77'/%3E%3Ccircle cx='-91.26' cy='11.10' r='2.71'/%3E%3Ccircle cx='91.24' cy='11.13' r='2.61'/%3E%3Ccircle cx='22.71' cy='21.64' r='2.71'/%3E%3Ccircle cx='-68.74' cy='21.66' r='7.87'/%3E%3Ccircle cx='-22.86' cy='21.67' r='7.87'/%3E%3Ccircle cx='68.28' cy='21.67' r='7.87'/%3E%3Ccircle cx='-91.54' cy='32.46' r='2.61'/%3E%3Ccircle cx='0.15' cy='32.46' r='2.71'/%3E%3Ccircle cx='-45.72' cy='32.50' r='7.73'/%3E%3Ccircle cx='45.54' cy='32.59' r='7.83'/%3E%3Ccircle cx='91.35' cy='32.63' r='2.81'/%3E%3Ccircle cx='-23.01' cy='43.23' r='2.61'/%3E%3Ccircle cx='68.25' cy='43.31' r='7.83'/%3E%3Ccircle cx='-68.71' cy='43.34' r='7.83'/%3E%3Ccircle cx='22.71' cy='43.37' r='2.90'/%3E%3Ccircle cx='91.39' cy='53.92' r='2.71'/%3E%3Ccircle cx='45.48' cy='53.95' r='7.87'/%3E%3Ccircle cx='-45.86' cy='53.97' r='7.80'/%3E%3Ccircle cx='-91.34' cy='53.99' r='2.61'/%3E%3Ccircle cx='0.20' cy='54.09' r='2.61'/%3E%3Ccircle cx='-68.57' cy='64.90' r='7.80'/%3E%3Ccircle cx='-22.86' cy='64.92' r='2.71'/%3E%3Ccircle cx='68.28' cy='64.92' r='2.71'/%3E%3Ccircle cx='22.54' cy='65.15' r='2.81'/%3E%3Ccircle cx='-45.88' cy='75.56' r='7.80'/%3E%3Ccircle cx='0.10' cy='75.62' r='2.61'/%3E%3Ccircle cx='45.32' cy='75.62' r='2.61'/%3E%3Ccircle cx='22.53' cy='86.47' r='2.71'/%3E%3Ccircle cx='-22.86' cy='86.75' r='2.71'/%3E%3Ccircle cx='-0.03' cy='97.29' r='2.71'/%3E%3C/g%3E%3C/svg%3E") center / 1.25rem no-repeat;
+}
+.frame-fallback .field {
+  flex: 1 1 10rem;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  height: 2rem;
+  padding: 0 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: light-dark(var(--card), color-mix(in oklab, var(--sidebar), var(--foreground) 3%));
+  overflow: hidden;
+  white-space: nowrap;
+}
+.frame-fallback .scheme { color: var(--muted-foreground); font-weight: 400; }
+@media (max-height: 480px) { prism-frame { position: static; } }
+
+/* A jump to the identity card lands below the bar, not under it. */
+html { scroll-padding-top: calc(var(--safe-top) + var(--frame-bar) + var(--space-4)); }
+@media (max-height: 480px) { html { scroll-padding-top: 0; } }
+
+/* Monospace text is one weight, so a page loads one mono face: Geist Mono
+ * Medium (7.6 KB) would be the first load's largest optional cost. */
+code, pre, .mono, .hash {
+  font-family: var(--font-mono);
+  font-size: var(--text-14);
+  font-weight: 400;
+}
+
+code { overflow-wrap: anywhere; }
+
+pre {
+  margin: 0 0 var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--muted);
+  border-radius: var(--radius-control);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.hash { overflow-wrap: anywhere; color: var(--foreground); text-decoration: none; }
+a.hash { text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 0.2em; }
+a.hash:hover { color: var(--link-hover); }
+
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin: 0; }
+
+
+/* Chips carry state. Success for a passing check, warning for a refused
+ * request (the app answered correctly) and for an update, destructive for a
+ * failure. */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-control);
+  border: var(--border-width) solid var(--border);
+  font-family: var(--font-mono);
+  font-size: var(--text-14);
+  font-weight: 400;
+  transition: background var(--duration) var(--ease), color var(--duration) var(--ease);
+}
+.chip-wait { background: var(--muted); color: var(--muted-foreground); }
+.chip-good { background: var(--success-subtle); color: var(--success); border-color: var(--success-border); }
+.chip-warn { background: var(--warning-subtle); color: var(--warning); border-color: var(--warning-border); }
+.chip-bad { background: var(--destructive-subtle); color: var(--destructive); border-color: var(--destructive-border); }
+.chip[hidden] { display: none; }
+
+/* On paper, the kit's success and destructive text on their subtle grounds
+ * measures under 4.5:1 at 14 px (4.38 and about 4.0), so the chips take the
+ * card as their ground there and keep the coloured hairline. */
+html:not(.dark) .chip-good, html:not(.dark) .chip-bad { background: var(--card); }
+
+
+/* Controls: 36px on a fine pointer, 48px on a coarse one, radius one step
+ * under the surface, hairline, no shadow. */
+
+button, input, .ghost {
+  font: inherit;
+  font-size: var(--text-14);
+}
+
+button {
+  min-height: var(--control);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-control);
+  border: var(--border-width) solid var(--border);
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--duration) var(--ease), color var(--duration) var(--ease), border-color var(--duration) var(--ease);
+}
+button:hover { background: var(--accent); }
+button:active { background: var(--accent-pressed); }
+button:disabled { cursor: default; color: var(--muted-foreground); }
+
+button.primary { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary); }
+button.primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+
+button.bare { min-height: auto; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; }
+
+.ghost, button.ghost {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-control);
+  border: var(--border-width) solid transparent;
+  background: transparent;
+  color: var(--muted-foreground);
+  text-decoration: none;
+  font-weight: 500;
+}
+.ghost:hover, button.ghost:hover { background: var(--accent); color: var(--accent-foreground); }
+
+
+
+
+
+/* Workspace. The window is a stage the height of the screen: the frame's bar
+ * above it, the frame's 8 px gutter below. A header row, then the app's
+ * surface on the left at full height and a rail on the right for its result,
+ * its actions and what you did. The page itself never scrolls. */
+
+@property --prism-aside { syntax: "<length>"; inherits: true; initial-value: 0px; }
+:root {
+  --aside-w: 25rem;
+  --rail-w: 18.75rem;
+  --slide: cubic-bezier(0.22, 1, 0.36, 1);
+  --slide-time: 420ms;
+  --prism-aside: 0px;
+  transition: --prism-aside var(--slide-time) var(--slide);
+}
+/* The spec open: the frame's window and bar end --prism-aside from the right,
+ * the page's main does the same, and the spec fills the space on the chrome. */
+:root.spec-open { --prism-aside: var(--aside-w); --rail-w: 16.25rem; }
+
+html, body { height: 100%; overflow: hidden; }
+
+main {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--safe-top) - var(--frame-bar) - 0.5rem);
+  height: calc(100dvh - var(--safe-top) - var(--frame-bar) - 0.5rem);
+  margin-right: var(--prism-aside);
+  overflow: hidden;
+}
+
+/* Header row: the same in every app. */
+.head {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) calc(var(--margin) + var(--safe-right)) 0 calc(var(--margin) + var(--safe-left));
+}
+.ident { min-width: 0; }
+h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--text-24);
+  line-height: 1.15;
+  letter-spacing: var(--tracking-display);
+  overflow-wrap: anywhere;
+}
+.lede { margin: var(--space-1) 0 0; max-width: 62ch; font-size: var(--text-14); color: var(--muted-foreground); text-wrap: balance; }
+.spec-link {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 2rem;
+  padding: 0 var(--space-2);
+  margin: -0.25rem calc(-1 * var(--space-2)) 0 0;
+  border-radius: var(--radius-control);
+  color: var(--muted-foreground);
+  font-size: var(--text-14);
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color var(--duration) var(--ease), background var(--duration) var(--ease), opacity var(--duration) var(--ease);
+}
+.spec-link svg { width: 1rem; height: 1rem; flex: none; }
+.spec-link:hover { color: var(--foreground); background: var(--accent); }
+:root.spec-open .spec-link { opacity: 0; pointer-events: none; }
+
+.ws { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) var(--rail-w); }
+.stage {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4) calc(var(--margin) + var(--safe-left)) var(--space-6);
+  container-type: size;
+}
+.rail {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-4) calc(var(--margin) + var(--safe-right)) var(--space-4) var(--space-6);
+  border-left: var(--border-width) solid var(--border);
+  overflow: hidden;
+}
+.k { margin: 0 0 var(--space-2); font-size: var(--text-14); color: var(--muted-foreground); }
+
+/* The input as a display: what you type is the largest thing on screen, and
+ * it shrinks to fit however long it gets (app.mjs counts the characters). */
+.display { display: block; width: min(100%, 40rem); container-type: inline-size; cursor: text; }
+.display .k { margin-bottom: var(--space-1); }
+.display input {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--foreground);
+  caret-color: var(--foreground);
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-size: min(7rem, 16vh, 100cqw * 1.5 / var(--chars, 4));
+  line-height: 1.15;
+  letter-spacing: -0.05em;
+}
+.display input::placeholder { color: color-mix(in oklab, var(--muted-foreground) 45%, transparent); }
+.display .rule { display: block; height: 2px; margin-top: var(--space-2); border-radius: 2px; background: linear-gradient(90deg, var(--foreground), transparent); opacity: 0.2; transition: opacity var(--duration) var(--ease); }
+.display:focus-within .rule { opacity: 0.5; }
+
+/* Rail: the result, the actions, the history. */
+.result { flex: none; min-height: 4.25rem; display: flex; align-items: flex-start; }
+.result output {
+  display: block;
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 7.5vh, 4rem);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  overflow-wrap: anywhere;
+  transition: color var(--duration) var(--ease);
+}
+.result output.idle { color: color-mix(in oklab, var(--muted-foreground) 45%, transparent); }
+.result output.good { color: var(--success); }
+.result output.bad { color: var(--foreground); }
+.result output.refuse { font-family: var(--font-sans); font-size: var(--text-20); font-weight: 500; letter-spacing: 0; line-height: 1.3; color: var(--muted-foreground); }
+.actions { flex: none; }
+.tries { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.tries button {
+  min-height: 2rem;
+  padding: 0 var(--space-3);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-weight: 400;
+}
+.tries button:hover { color: var(--foreground); background: var(--accent); }
+.history { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.history:has(.list:empty) { display: none; }
+.history .list { flex: 1; min-height: 0; max-height: none; margin: 0; padding: 0; list-style: none; display: block; overflow-y: auto; scrollbar-width: thin; }
+.history .list > li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-top: var(--border-width) solid var(--border);
+  font-family: var(--font-mono);
+  font-size: var(--text-14);
+  color: var(--muted-foreground);
+  overflow-wrap: anywhere;
+}
+.history .list > li:first-child { border-top: 0; }
+button.again { width: 100%; min-height: 2rem; display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: start; }
+button.again:hover { background: transparent; color: var(--foreground); }
+.offline { margin: auto 0 0; font-size: var(--text-14); color: var(--muted-foreground); }
+
+.tag { flex: none; padding: 0.125rem var(--space-2); border-radius: var(--radius-control); background: var(--muted); color: var(--foreground); font-family: var(--font-mono); font-size: var(--text-14); }
+.tag.good { background: var(--success-subtle); color: var(--success); }
+html:not(.dark) .tag.good { background: var(--card); box-shadow: inset 0 0 0 var(--border-width) var(--success-border); }
+
+/* Apps with their own surface (site/card.html): the slot script moves each
+ * part into its place before first paint. A square surface takes the largest
+ * square the stage allows. */
+.board-fit { width: 100%; height: 100%; container-type: size; display: grid; place-items: center; }
+.stage .board-fit > * { width: min(100cqw, 100cqh, 40rem); max-width: none; min-width: 0; margin: 0; }
+.result .chip {
+  display: block;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  font-family: var(--font-sans);
+  font-size: var(--text-20);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--foreground);
+}
+.result .chip-bad { color: var(--destructive); }
+.result .chip-warn { color: var(--warning); }
+.result .chip-wait { color: var(--muted-foreground); }
+.has-card .result { min-height: 3.25rem; }
+.rail .controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: 0; padding: 0; }
+
+/* The spec: it slides in from the right on the frame's chrome, beside the
+ * window, never over it, full height, its header level with the bar. */
+.spec {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  width: var(--aside-w);
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--safe-top);
+  background: var(--sidebar);
+  color: var(--foreground);
+  transform: translateX(100%);
+  visibility: hidden;
+  transition: transform var(--slide-time) var(--slide), visibility 0s linear var(--slide-time);
+}
+:root.spec-open .spec { transform: none; visibility: visible; transition: transform var(--slide-time) var(--slide), visibility 0s; }
+.spec:focus { outline: none; }
+.spec-head { flex: none; display: flex; align-items: center; gap: var(--space-2); min-height: var(--frame-bar); padding: 0 var(--space-2) 0 calc(var(--space-6) - var(--space-1)); }
+.spec-title { font-family: var(--font-display); font-weight: 600; font-size: var(--text-16); letter-spacing: var(--tracking-display); }
+.spec-ver { font-family: var(--font-mono); font-size: var(--text-14); color: var(--muted-foreground); }
+button.spec-x { margin-left: auto; width: 2.25rem; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--muted-foreground); display: grid; place-items: center; }
+button.spec-x:hover { background: var(--accent); color: var(--foreground); }
+.spec-x svg { width: 0.875rem; height: 0.875rem; }
+.spec-body { flex: 1; min-height: 0; overflow-y: auto; padding: 0 var(--space-6) var(--space-12); scrollbar-width: thin; }
+.spec-wait { margin: var(--space-6) 0; font-size: var(--text-14); color: var(--muted-foreground); }
+
+/* Phone and small tablet, under 840 px: focus mode. The surface takes the
+ * screen; one bar along the bottom holds the result, then the actions, within
+ * thumb reach. No labels and no history: here the app is the whole story. The
+ * spec takes the whole screen. */
+@media (max-width: 839px) {
+  :root { --aside-w: 100vw; }
+  :root.spec-open { --prism-aside: 0px; }
+  .head { padding-top: var(--space-3); }
+  .lede { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .spec-link span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .spec-link { width: 2.25rem; justify-content: center; padding: 0; }
+  .ws { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+  .stage { padding: var(--space-3) calc(var(--margin) + var(--safe-left)); }
+  .rail {
+    gap: var(--space-3);
+    padding: var(--space-3) calc(var(--margin) + var(--safe-right)) calc(var(--space-3) + var(--safe-bottom)) calc(var(--margin) + var(--safe-left));
+    border-left: 0;
+    border-top: var(--border-width) solid var(--border);
+    background: color-mix(in oklab, var(--background), var(--foreground) 2%);
+  }
+  .rail .k, .history { display: none; }
+  .result, .has-card .result { min-height: 2.5rem; align-items: center; }
+  .result output { font-size: 2.25rem; }
+  .result output.refuse { font-size: var(--text-16); }
+  .result .chip { font-size: var(--text-16); }
+  .spec-head { padding-left: var(--margin); }
+  .spec-body { padding: 0 var(--margin) calc(var(--space-12) + var(--safe-bottom)); }
+}
+
+/* A phone in landscape: the header gives its second line to the app. */
+@media (max-height: 480px) {
+  .lede { display: none; }
+  .head { padding-top: var(--space-2); }
+  .stage { padding-block: var(--space-2); }
+}
+
+/* Immersive: the rail and the spec are frosted glass over the photo. */
+html.immersive .rail { background: color-mix(in oklab, var(--card) 60%, transparent); -webkit-backdrop-filter: blur(18px) saturate(1.2); backdrop-filter: blur(18px) saturate(1.2); }
+
+/* Forced colours: keep the hairlines. */
+@media (forced-colors: active) {
+  .chip, button, .end, .links a, .spec pre.code { border-color: CanvasText; }
+  .dot, .tick { forced-color-adjust: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { transition: none; }
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}
+
+/* Touch: every control is 48 px, Material's minimum, whatever rule sized it
+ * above. Last, so nothing overrides it. */
+@media (pointer: coarse) {
+  button, input, .ghost, a.ghost, .spec-link, .spec summary, .links a,
+  .tries button, button.again, button.term, button.more, button.copy, button.check, button.spec-x,
+  .rail .controls button, .rail .controls select { min-height: var(--touch); }
+  button, .tries button, button.term, button.more, button.copy, button.spec-x, .rail .controls button, .spec-link { min-width: var(--touch); }
+  .thm-name a { width: var(--touch); height: var(--touch); }
+}
