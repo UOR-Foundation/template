@@ -765,7 +765,9 @@ class PrismFrame extends Element {
     // the panel waits for them rather than open empty.
     let ui = null;
     const ready = (theme) => {
-      if (ui) return;
+      // A render since this one (an attribute changed, as when Holo Search
+      // opens an app) drew a new panel, which its own render wires.
+      if (ui || !panel.isConnected) return;
       frame.adoptPanels(theme);
       panel.innerHTML = theme.THEME_PANEL;
       frame.themed = true;
