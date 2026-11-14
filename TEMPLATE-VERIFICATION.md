@@ -617,6 +617,54 @@ requests.
 `frame.lock` was regenerated with `node bootstrap/frame-sync.mjs --lock`, and
 `CONFORMANCE.md` with `check-model --write`.
 
+## An input-addressed holo cache
+
+A holo is a pure function of its inputs: `app/`, the `Justfile` recipe that
+builds it, and the SDK image `prismpm.lock` pins. `pages.yml` now keys the
+build by the kappa (BLAKE3) of exactly those tracked bytes,
+`ci/kappa-cache.mjs`, and looks it up before building: in this repository's
+`prism-holo` package on ghcr.io first, then in every other Prism app of the
+same owner, found through the kappa registry's index. A miss builds as before
+and stores the holo under the kappa computed before the build, because the
+build may relock and reformat its inputs. Entries from other owners are never
+read.
+
+A hit replaces the build only after the OCI blob matches its manifest digest,
+the manifest records the same input kappa, `gh attestation verify` accepts
+provenance signed by the storing repository's `pages.yml` on `main`, the
+holo's self-fingerprint holds, and every acceptance vector replays. The
+signature is the binding: probing 200 single-bit flips of `Calculator.holo`,
+each fingerprinted again, 99 still loaded and replayed every vector, because
+the fingerprint is a checksum anyone can recompute. Any failure is a miss,
+and nothing in the cache can fail a build.
+
+Planted defects, `node --test ci/kappa-cache.test.mjs`, run by `just vv`
+through `holo_cache_refuses_every_unbound_holo`:
+
+| Defect | Result |
+| --- | --- |
+| one input byte changed, an input renamed | a different kappa |
+| an untracked file beside the inputs | the same kappa |
+| no tracked input at all | refused, not hashed as empty |
+| one holo byte flipped | refused: self-fingerprint fails |
+| one holo byte flipped and fingerprinted again | passes verify: the reason a hit needs the signature |
+| a holo with no signed provenance from the storing repository's pages workflow on main | refused (`gh attestation verify`: HTTP 404 for its digest) |
+| a truncated holo | refused |
+| a manifest for another kappa, or with no holo layer | refused |
+| blob bytes that differ from the manifest digest | refused |
+
+Measured on `humuhumu33/prism-must-i-file`, the first app built this way:
+
+| Run | Holo step | Whole run |
+| --- | --- | --- |
+| miss: SDK pull, `prismpm verify`, store | 506 s | 11 min 30 s |
+| hit, same inputs | 2 s lookup, verified | 2 min 18 s |
+| hit from another of the owner's repositories, signature checked | 5.9 s | not a CI run |
+
+Only identical inputs hit: a changed model is a full build, and a new app's
+first build always misses. Every build stores its result, so each distinct
+input set is built once across the owner's apps.
+
 ## SDK scratch on the runner's disk
 
 afflom/prism-devrel bootstrap run `43442908204` failed on both runner

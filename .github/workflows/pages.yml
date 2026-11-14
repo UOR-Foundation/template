@@ -36,6 +36,9 @@ jobs:
       contents: read
       id-token: write
       attestations: write
+      # The input-addressed holo cache (ci/kappa-cache.mjs) stores this app's
+      # verified holos in its own ghcr.io package.
+      packages: write
     steps:
       - name: Check out the exact event revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -49,7 +52,17 @@ jobs:
           node bootstrap/brand-sync.mjs --check
           python3 -I bootstrap/brand-fonts.py --check
           node bootstrap/frame-sync.mjs --check
+      - name: Look up this build by its input kappa
+        # A holo is a pure function of app/, the Justfile recipe that builds it
+        # and the SDK prismpm.lock pins. When this owner already built those
+        # exact bytes, the signed, replayed holo is used and the build skipped.
+        id: cache
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node ci/kappa-cache.mjs restore app/.prism/build/kappa/app.holo app Justfile prismpm.lock
       - name: Build and verify the holo through the locked SDK
+        if: steps.cache.outputs.hit != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -90,11 +103,29 @@ jobs:
             printf 'expected one holo, found %d\n' "${#holos[@]}" >&2
             exit 64
           fi
-          fingerprint=$(node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).archive_fingerprint)' "$(dirname "${holos[0]}")/application/holo-identities.json")
+          # The archive fingerprint is the holo's last 32 bytes, the BLAKE3 of
+          # the rest, so a cached holo carries it as surely as a fresh one.
+          fingerprint=$(node -e 'const b=require("fs").readFileSync(process.argv[1]);process.stdout.write(b.subarray(b.length-32).toString("hex"))' "${holos[0]}")
+          identities="$(dirname "${holos[0]}")/application/holo-identities.json"
+          if [[ -f $identities ]]; then
+            recorded=$(node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).archive_fingerprint)' "$identities")
+            if [[ $recorded != "$fingerprint" ]]; then
+              echo "fingerprint $fingerprint differs from the recorded $recorded" >&2
+              exit 1
+            fi
+          fi
           {
             echo "path=${holos[0]}"
             echo "fingerprint=$fingerprint"
           } >>"$GITHUB_OUTPUT"
+      - name: Store this build under its input kappa
+        if: steps.cache.outputs.hit != 'true'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          HOLO: ${{ steps.holo.outputs.path }}
+          KAPPA: ${{ steps.cache.outputs.kappa }}
+        run: node ci/kappa-cache.mjs save "$HOLO"
       - name: Sign the holo's provenance as this repository's workflow
         id: attest
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
