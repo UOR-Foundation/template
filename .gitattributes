@@ -1,0 +1,5 @@
+# `template.lock` binds the universal policy files byte for byte, and
+# `prismpm template check` compares the bytes on disk. A checkout that rewrites
+# line endings (Git for Windows does so by default) changes those bytes and
+# fails the gate before it reaches the project. No file here is converted.
+* -text

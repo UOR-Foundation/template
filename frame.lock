@@ -1,0 +1,77 @@
+{
+  "spec": "prism/frame-lock/1",
+  "files": [
+    {
+      "path": "bootstrap/frame-sync.mjs",
+      "sha256": "5d874908a8f5813b6f7c1004ec0e73ec03584139bf7ac8ffabb2ad5c0eeee7af"
+    },
+    {
+      "path": "bootstrap/icons.py",
+      "sha256": "e3cff5530d752ee1563df8622e4b9ff3453f2d62c850d00fb5a5f1467e5e0b4b"
+    },
+    {
+      "path": "bootstrap/og.py",
+      "sha256": "3794633d2e60896ae86c599f82b17400f04ad6cc32197c35276cde99850e0c7a"
+    },
+    {
+      "path": "bootstrap/page.mjs",
+      "sha256": "8eee238bce9206ca58fc9be5471c28c0bdab82e2350ed78f1972da2a1da6581f"
+    },
+    {
+      "path": "bootstrap/precache.mjs",
+      "sha256": "d1af0e811ed68ea3695144e9c0abddd3c9bf24007b9fde8c5b12f91ec225a388"
+    },
+    {
+      "path": "bootstrap/register.mjs",
+      "sha256": "c83e32d67f7bf8964498527c44a35c4da6f5428e358ae367dc651f0a6c601cf7"
+    },
+    {
+      "path": "bootstrap/screens.mjs",
+      "sha256": "c9787ebf5ad8e8b649034ec3e43f8812ba51777ba59eb11f1f51ca084a395b67"
+    },
+    {
+      "path": "bootstrap/weight.mjs",
+      "sha256": "de432422e9931b4adf0f422a2030d7b38097a60a4d8fc9ed62fd20fe0c468373"
+    },
+    {
+      "path": "bootstrap/worker-runtime.mjs",
+      "sha256": "0f9fbb6ec4db48fb7f7c4b779a0494e95d5411e868b36e1e163e5173fcc34557"
+    },
+    {
+      "path": "lighthouserc.json",
+      "sha256": "85aa0f6219cb8396b34f5b461c1d4d7b149e4cc1674cbd2f0100c5b5e16636d9"
+    },
+    {
+      "path": "site/app.mjs",
+      "sha256": "b5b30e78ab9b693fd6d29b89b9d2b74542340542864e99e4533a9ced2d987ee0"
+    },
+    {
+      "path": "site/guest-worker.mjs",
+      "sha256": "fb7c63cca4f503ca6a3e11e4393a989f94a3c993e0e1dbde2e13f458690b1821"
+    },
+    {
+      "path": "site/page.template.html",
+      "sha256": "b48b9d18e23e959c9e96b4bec58e2e7d80b7b977e981d8a7b0fd369293819b08"
+    },
+    {
+      "path": "site/prism-page.css",
+      "sha256": "e74dc6dbe7f1394fdf1f7c663578ea4fbb4836f301b87f82d57a7c5dc6066e1c"
+    },
+    {
+      "path": "site/spec.css",
+      "sha256": "a74d0a4e5329f9ab60e5e8ef5f0964ac0af5d1c17912539ae1880fb3862dd383"
+    },
+    {
+      "path": "site/spec.mjs",
+      "sha256": "9f3fa8197085693da6423a27ea228f9180523702c479f19e64fdf27c1d1054bf"
+    },
+    {
+      "path": "site/sw.js",
+      "sha256": "baf0fbd7da2fa0b33124951bbd1218aa6658c342340fb24415c636f220c9ea74"
+    },
+    {
+      "path": "site/theme.js",
+      "sha256": "dedc458660aa62df983ab84dbf370ac365578289699aa6cf8f1476c97db2ce92"
+    }
+  ]
+}

@@ -18,6 +18,20 @@ The three honesty levels (R2):
 `cargo xtask audit-limits` fails if any code path returns an error the
 model does not sanction.
 
+## contract
+
+| ID | Level | Statement |
+| --- | --- | --- |
+| `TC-01` | `build` | The checker answers conformant exactly when every universal policy file's observed digest equals its locked digest |
+
+## frame
+
+| ID | Level | Statement |
+| --- | --- | --- |
+| `FR-01` | `build` | With a working worker, the page loads and verifies the archive only in that worker before using its identities or guest |
+| `FR-02` | `build` | A returning browser whose worker kept an earlier deploy serves this deploy from the navigation that brings its page |
+| `FR-03` | `build` | A first visit's bytes are counted once the page has started, the frame's and the app's each within its own budget |
+
 ## Cited authorities
 
 An authority is cited, never re-derived, and never gated on: what it states is not claimed as established here, so the claim that reproduces it stays `some-true`, and that is all "gated on" excludes. Its artifact (a standard's text, a corpus) may be committed when its row names the path in `artifact` and records in `checksum` a SHA-256 over the committed bytes, which `cargo xtask check-model` recomputes; a conformance test may then use a committed corpus as its oracle, as evidence for a `build` claim. With nothing committed, `checksum` is `none` and `checksum_reason` says why.

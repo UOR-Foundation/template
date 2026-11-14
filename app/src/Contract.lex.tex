@@ -1,0 +1,161 @@
+\begin{lexlean}{Contract}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Foundation.Bytes}
+\importmodule{Foundation.View.Text.V1.Model}
+\title{Text application model}
+\begin{semanticmodule}
+structure{
+  name: Digest,
+  type_parameters: [],
+  parameters: [],
+  fields: [
+    {name: w0, type: Nat},
+    {name: w1, type: Nat},
+    {name: w2, type: Nat},
+    {name: w3, type: Nat}
+  ]
+}
+
+structure{
+  name: Pin,
+  type_parameters: [],
+  parameters: [],
+  fields: [{name: expected, type: Digest}, {name: observed, type: Digest}]
+}
+
+structure{
+  name: Observation,
+  type_parameters: [],
+  parameters: [],
+  fields: [
+    {name: devcontainer, type: Pin},
+    {name: bootstrap, type: Pin},
+    {name: agents, type: Pin},
+    {name: verification, type: Pin},
+    {name: prismpmLock, type: Pin},
+    {name: templateContract, type: Pin}
+  ]
+}
+
+definition{
+  name: sameDigest,
+  parameters: [left : Digest, right : Digest],
+  result: Bool,
+  body: (((project left w0) =? (project right w0)) && (((project left w1) =? (project right w1)) && (((project left w2) =? (project right w2)) && ((project left w3) =? (project right w3)))))
+}
+
+definition{
+  name: SameDigest,
+  parameters: [left : Digest, right : Digest],
+  result: Prop,
+  body: (((project left w0) = (project right w0)) /\ (((project left w1) = (project right w1)) /\ (((project left w2) = (project right w2)) /\ ((project left w3) = (project right w3)))))
+}
+
+definition{
+  name: pinMatches,
+  parameters: [pin : Pin],
+  result: Bool,
+  body: (sameDigest (project pin expected) (project pin observed))
+}
+
+definition{
+  name: conformant,
+  parameters: [observation : Observation],
+  result: Bool,
+  body: ((pinMatches (project observation devcontainer)) && ((pinMatches (project observation bootstrap)) && ((pinMatches (project observation agents)) && ((pinMatches (project observation verification)) && ((pinMatches (project observation prismpmLock)) && (pinMatches (project observation templateContract)))))))
+}
+
+definition{
+  name: Conformant,
+  parameters: [observation : Observation],
+  result: Prop,
+  body: ((SameDigest (project (project observation devcontainer) expected) (project (project observation devcontainer) observed)) /\ ((SameDigest (project (project observation bootstrap) expected) (project (project observation bootstrap) observed)) /\ ((SameDigest (project (project observation agents) expected) (project (project observation agents) observed)) /\ ((SameDigest (project (project observation verification) expected) (project (project observation verification) observed)) /\ ((SameDigest (project (project observation prismpmLock) expected) (project (project observation prismpmLock) observed)) /\ (SameDigest (project (project observation templateContract) expected) (project (project observation templateContract) observed)))))))
+}
+
+theorem{
+  name: conformant_decides,
+  parameters: [observation : Observation],
+  statement: (((conformant observation) = true) <-> (Conformant observation)),
+  proof: simplify{
+    definitions: [
+      Bool.and_eq_true,
+      Conformant,
+      Nat.beq_eq,
+      SameDigest,
+      conformant,
+      pinMatches,
+      sameDigest
+    ]
+  },
+  axioms: [propext]
+}
+
+definition{
+  name: digestFrom,
+  parameters: [value : Bytes, offset : Nat, remaining : Nat, accumulated : Nat],
+  result: Nat,
+  body: (match remaining
+    | Nat.zero => accumulated
+    | Nat.succ rest => (match (Foundation.Bytes::byteAt value offset)
+      | Option.none => accumulated
+      | Option.some byte => (digestFrom value (offset + 1) rest ((prim multiply accumulated 256 : Nat) + (prim to_nat byte : Nat))))),
+  axioms: [Quot.sound, propext],
+  recursive_argument: remaining
+}
+
+definition{
+  name: digestAt,
+  parameters: [value : Bytes, offset : Nat],
+  result: Digest,
+  body: (record Digest {w0 := (digestFrom value offset 8 0), w1 := (digestFrom value (offset + 8) 8 0), w2 := (digestFrom value (offset + 16) 8 0), w3 := (digestFrom value (offset + 24) 8 0)}),
+  axioms: [Quot.sound, propext]
+}
+
+definition{
+  name: pinAt,
+  parameters: [value : Bytes, offset : Nat],
+  result: Pin,
+  body: (record Pin {expected := (digestAt value offset), observed := (digestAt value (offset + 32))}),
+  axioms: [Quot.sound, propext]
+}
+
+definition{
+  name: observe,
+  parameters: [value : Bytes],
+  result: Observation,
+  body: (record Observation {devcontainer := (pinAt value 0), bootstrap := (pinAt value 64), agents := (pinAt value 128), verification := (pinAt value 192), prismpmLock := (pinAt value 256), templateContract := (pinAt value 320)}),
+  axioms: [Quot.sound, propext]
+}
+
+definition{
+  name: driftEntry,
+  parameters: [pin : Pin, path : Bytes],
+  result: Bytes,
+  body: (if (pinMatches pin) then 0x else path)
+}
+
+definition{
+  name: drifted,
+  parameters: [observation : Observation],
+  result: Bytes,
+  body: (prim append (driftEntry (project observation devcontainer) (prim utf8_encode " .devcontainer/devcontainer.json" : Bytes)) (prim append (driftEntry (project observation bootstrap) (prim utf8_encode " .github/workflows/bootstrap.yml" : Bytes)) (prim append (driftEntry (project observation agents) (prim utf8_encode " AGENTS.md" : Bytes)) (prim append (driftEntry (project observation verification) (prim utf8_encode " VERIFICATION.md" : Bytes)) (prim append (driftEntry (project observation prismpmLock) (prim utf8_encode " prismpm.lock" : Bytes)) (driftEntry (project observation templateContract) (prim utf8_encode " template-contract.json" : Bytes)) : Bytes) : Bytes) : Bytes) : Bytes) : Bytes)
+}
+
+definition{
+  name: dispatch,
+  parameters: [value : Bytes],
+  result: Bytes,
+  body: (if ((Foundation.Bytes::byteLength value) =? 384) then (if (conformant (observe value)) then (prim utf8_encode "conformant" : Bytes) else (prim append (prim utf8_encode "drift:" : Bytes) (drifted (observe value)) : Bytes)) else (prim utf8_encode "invalid request" : Bytes)),
+  axioms: [Quot.sound, propext]
+}
+
+definition{
+  name: application,
+  parameters: [],
+  result: Foundation.View.Text.V1.Model::TextApplication,
+  body: (record Foundation.View.Text.V1.Model::TextApplication {profile := "prismpm/text-application/1", name := "Template contract", cargoName := "prism-template-contract", cargoVersion := "0.1.0", cargoDescription := "Checks each universal policy file of a UOR template repository against its locked digest.", cargoRepository := "https://github.com/UOR-Foundation/template", cargoHomepage := "https://github.com/UOR-Foundation/template", libraryRoots := (cons "PrismTemplateContract.Contract.dispatch" (nil String)), acceptanceVectors := (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x24ad71c8613ddcf6fd23818cb3bb477a1fb6d83af4550b0bad4309981308868624ad71c8613ddcf6fd23818cb3bb477a1fb6d83af4550b0bad430998130886868dd09b61ab7073f3c786e41fff7abc3a137c17399b533c8d4ecc4f2c341ef53e8dd09b61ab7073f3c786e41fff7abc3a137c17399b533c8d4ecc4f2c341ef53ea54ff182c7e8acf56acfd6e4b9c3ff41e2c41a31c9b211b2deb9df75d9a478f9a54ff182c7e8acf56acfd6e4b9c3ff41e2c41a31c9b211b2deb9df75d9a478f9d6cf5c10d83511fcfaa32ea27ffe04ee19d106f3407c2c15cdf3467dd0f695a5d6cf5c10d83511fcfaa32ea27ffe04ee19d106f3407c2c15cdf3467dd0f695a5403d0a0a3c525b34178f2dbea4bd277ae6706983100d66e802b658c74b28ab1c403d0a0a3c525b34178f2dbea4bd277ae6706983100d66e802b658c74b28ab1c26e29bcac2fe0032ff74eafee208dbb224e8b23ce01be064abeda0b31c35ba6226e29bcac2fe0032ff74eafee208dbb224e8b23ce01be064abeda0b31c35ba62, response := 0x636f6e666f726d616e74}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x24ad71c8613ddcf6fd23818cb3bb477a1fb6d83af4550b0bad4309981308868624ad71c8613ddcf6fd23818cb3bb477a1fb6d83af4550b0bad430998130886868dd09b61ab7073f3c786e41fff7abc3a137c17399b533c8d4ecc4f2c341ef53e8dd09b61ab7073f3c786e41fff7abc3a137c17399b533c8d4ecc4f2c341ef53fa54ff182c7e8acf56acfd6e4b9c3ff41e2c41a31c9b211b2deb9df75d9a478f9a54ff182c7e8acf56acfd6e4b9c3ff41e2c41a31c9b211b2deb9df75d9a478f9d6cf5c10d83511fcfaa32ea27ffe04ee19d106f3407c2c15cdf3467dd0f695a5d6cf5c10d83511fcfaa32ea27ffe04ee19d106f3407c2c15cdf3467dd0f695a5403d0a0a3c525b34178f2dbea4bd277ae6706983100d66e802b658c74b28ab1c403d0a0a3c525b34178f2dbea4bd277ae6706983100d66e802b658c74b28ab1c26e29bcac2fe0032ff74eafee208dbb224e8b23ce01be064abeda0b31c35ba6226e29bcac2fe0032ff74eafee208dbb224e8b23ce01be064abeda0b31c35ba62, response := 0x64726966743a202e6769746875622f776f726b666c6f77732f626f6f7473747261702e796d6c}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x24ad71c8613ddcf6fd23818cb3bb477a1fb6d83af4550b0bad4309981308868624ad71c8613ddcf6fd23818cb3bb477a1fb6d83af4550b0bad430998130886878dd09b61ab7073f3c786e41fff7abc3a137c17399b533c8d4ecc4f2c341ef53e8dd09b61ab7073f3c786e41fff7abc3a137c17399b533c8d4ecc4f2c341ef53ea54ff182c7e8acf56acfd6e4b9c3ff41e2c41a31c9b211b2deb9df75d9a478f9a54ff182c7e8acf56acfd6e4b9c3ff41e2c41a31c9b211b2deb9df75d9a478f9d6cf5c10d83511fcfaa32ea27ffe04ee19d106f3407c2c15cdf3467dd0f695a5d6cf5c10d83511fcfaa32ea27ffe04ee19d106f3407c2c15cdf3467dd0f695a5403d0a0a3c525b34178f2dbea4bd277ae6706983100d66e802b658c74b28ab1c403d0a0a3c525b34178f2dbea4bd277ae6706983100d66e802b658c74b28ab1c26e29bcac2fe0032ff74eafee208dbb224e8b23ce01be064abeda0b31c35ba6226e29bcac2fe0032ff74eafee208dbb224e8b23ce01be064abeda0b31c35ba62, response := 0x64726966743a202e646576636f6e7461696e65722f646576636f6e7461696e65722e6a736f6e}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x24ad71c8613ddcf6fd23818cb3bb477a1fb6d83af4550b0bad4309981308868624ad71c8613ddcf6fd23818cb3bb477a1fb6d83af4550b0bad430998130886868dd09b61ab7073f3c786e41fff7abc3a137c17399b533c8d4ecc4f2c341ef53e8dd09b61ab7073f3c786e41fff7abc3a137c17399b533c8d4ecc4f2c341ef53ea54ff182c7e8acf56acfd6e4b9c3ff41e2c41a31c9b211b2deb9df75d9a478f9a54ff182c7e8acf56acfd6e4b9c3ff41e2c41a31c9b211b2deb9df75d9a478f8d6cf5c10d83511fcfaa32ea27ffe04ee19d106f3407c2c15cdf3467dd0f695a5d6cf5c10d83511fcfaa32ea27ffe04ee19d106f3407c2c15cdf3467dd0f695a5403d0a0a3c525b34178f2dbea4bd277ae6706983100d66e802b658c74b28ab1c403d0a0a3c525b34178f2dbea4bd277ae6706983100d66e802b658c74b28ab1c26e29bcac2fe0032ff74eafee208dbb224e8b23ce01be064abeda0b31c35ba6226e29bcac2fe0032ff74eafee208dbb224e8b23ce01be064abeda0b31c35ba62, response := 0x64726966743a204147454e54532e6d64}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x24ad71c8613ddcf6fd23818cb3bb477a1fb6d83af4550b0bad430998130886862156563c1008dc7e8c45fbc12af98ff5eb4c03499e9af9cbb3cc7837a0f115888dd09b61ab7073f3c786e41fff7abc3a137c17399b533c8d4ecc4f2c341ef53e4ab5637cdb1eeff5b56c4af7726d51ae0a8449729094fc1bd05ea45b83cc649ca54ff182c7e8acf56acfd6e4b9c3ff41e2c41a31c9b211b2deb9df75d9a478f9032d3cbf00bb59401463a558f6449c13ad62473c8c8b499bf5b4394a27bb7561d6cf5c10d83511fcfaa32ea27ffe04ee19d106f3407c2c15cdf3467dd0f695a587bbb4a718128efa40dee62da6d786d06a507892a38122db7caf76a88032c141403d0a0a3c525b34178f2dbea4bd277ae6706983100d66e802b658c74b28ab1c13e4a54a120aa8e77f0ae9382f5f81c4610e9336fdda420a79e70e52e787ce0626e29bcac2fe0032ff74eafee208dbb224e8b23ce01be064abeda0b31c35ba62b7580925861ba3f70d0d86aa91b722be230c070a9079b71927efc93c422cffe0, response := 0x64726966743a202e646576636f6e7461696e65722f646576636f6e7461696e65722e6a736f6e202e6769746875622f776f726b666c6f77732f626f6f7473747261702e796d6c204147454e54532e6d6420564552494649434154494f4e2e6d6420707269736d706d2e6c6f636b2074656d706c6174652d636f6e74726163742e6a736f6e}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x24ad71c8613ddcf6fd23818cb3bb477a1fb6d83af4550b0bad4309981308868624ad71c8613ddcf6fd23818cb3bb477a1fb6d83af4550b0bad430998130886868dd09b61ab7073f3c786e41fff7abc3a137c17399b533c8d4ecc4f2c341ef53e8dd09b61ab7073f3c786e41fff7abc3a137c17399b533c8d4ecc4f2c341ef53ea54ff182c7e8acf56acfd6e4b9c3ff41e2c41a31c9b211b2deb9df75d9a478f9a54ff182c7e8acf56acfd6e4b9c3ff41e2c41a31c9b211b2deb9df75d9a478f9d6cf5c10d83511fcfaa32ea27ffe04ee19d106f3407c2c15cdf3467dd0f695a5d6cf5c10d83511fcfaa32ea27ffe04ee19d106f3407c2c15cdf3467dd0f695a5403d0a0a3c525b34178f2dbea4bd277ae6706983100d66e802b658c74b28ab1c403d0a0a3c525b34178f2dbea4bd277ae6706983100d66e802b658c74b28ab1c26e29bcac2fe0032ff74eafee208dbb224e8b23ce01be064abeda0b31c35ba6226e29bcac2fe0032ff74eafee208dbb224e8b23ce01be064abeda0b31c35ba, response := 0x696e76616c69642072657175657374}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x24ad71c8613ddcf6fd23818cb3bb477a1fb6d83af4550b0bad4309981308868624ad71c8613ddcf6fd23818cb3bb477a1fb6d83af4550b0bad430998130886868dd09b61ab7073f3c786e41fff7abc3a137c17399b533c8d4ecc4f2c341ef53e8dd09b61ab7073f3c786e41fff7abc3a137c17399b533c8d4ecc4f2c341ef53ea54ff182c7e8acf56acfd6e4b9c3ff41e2c41a31c9b211b2deb9df75d9a478f9a54ff182c7e8acf56acfd6e4b9c3ff41e2c41a31c9b211b2deb9df75d9a478f9d6cf5c10d83511fcfaa32ea27ffe04ee19d106f3407c2c15cdf3467dd0f695a5d6cf5c10d83511fcfaa32ea27ffe04ee19d106f3407c2c15cdf3467dd0f695a5403d0a0a3c525b34178f2dbea4bd277ae6706983100d66e802b658c74b28ab1c403d0a0a3c525b34178f2dbea4bd277ae6706983100d66e802b658c74b28ab1c26e29bcac2fe0032ff74eafee208dbb224e8b23ce01be064abeda0b31c35ba6226e29bcac2fe0032ff74eafee208dbb224e8b23ce01be064abeda0b31c35ba6200, response := 0x696e76616c69642072657175657374}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x, response := 0x696e76616c69642072657175657374}) (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000, response := 0x696e76616c69642072657175657374}) (nil Foundation.View.Text.V1.Model::AcceptanceVector)))))))))), entryRoot := "PrismTemplateContract.Contract.dispatch", coreContract := "hologram:guest/core-wasm@1", requestMaximum := (384 : UInt32), responseMaximum := (256 : UInt32), guestAllocationMaximum := (512 : UInt32), capabilitiesEmpty := true, fatArchive := true, primaryLayer := (0 : UInt8), viewLayer := (1 : UInt8), view := (record Foundation.View.Text.V1.Model::TextView {title := "Template contract", heading := "Template contract", inputLabel := "Expected and observed digests", submitLabel := "Check", outputLabel := "Verdict", inputError := "Invalid request", responseError := "Invalid response"})})
+}
+\end{semanticmodule}
+\end{lexlean}

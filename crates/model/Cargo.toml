@@ -19,7 +19,7 @@ categories.workspace = true
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 sha2 = "0.10.9"
-toml = "0.8"
+toml = "1.2"
 
 [lints]
 workspace = true

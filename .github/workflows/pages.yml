@@ -1,0 +1,216 @@
+# Publishes the repository's app page: `site/` with the holo that `just app`
+# builds and verifies through the locked SDK. Project content, not universal
+# policy: a repository may extend or replace it.
+#
+# It runs on every push to main, beside `bootstrap`, not after it: `just app`
+# is the proof-bearing build (the Lean kernel checks every theorem before the
+# holo exists), so the page goes live as soon as that passes, while the rest of
+# the gate runs on both architectures. The SDK step and the signing step are
+# the ones `build.yml` runs, copied here: the gate pins every `uses:` to a
+# commit and so forbids calling a workflow by path. When `build.yml` changes
+# either step, copy it again. The page then carries the same holo that
+# `prism-code build --remote github` would hand a device, with the signed
+# provenance of the run that made it beside it.
+name: pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build and verify the holo, sign its provenance, assemble the page
+    # The template repository publishes its try page instead (try-page.yml).
+    if: github.repository != 'UOR-Foundation/template'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      # The input-addressed holo cache (ci/kappa-cache.mjs) stores this app's
+      # verified holos in its own ghcr.io package.
+      packages: write
+    steps:
+      - name: Check out the exact event revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check the brand and the frame against brand.lock and frame.lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          node bootstrap/brand-sync.mjs --check
+          python3 -I bootstrap/brand-fonts.py --check
+          node bootstrap/frame-sync.mjs --check
+      - name: Look up this build by its input kappa
+        # A holo is a pure function of app/, the Justfile recipe that builds it
+        # and the SDK prismpm.lock pins. When this owner already built those
+        # exact bytes, the signed, replayed holo is used and the build skipped.
+        id: cache
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node ci/kappa-cache.mjs restore app/.prism/build/kappa/app.holo app Justfile prismpm.lock
+      - name: Build and verify the holo through the locked SDK
+        if: steps.cache.outputs.hit != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          image=$(sed -n 's/.*"sdk_image":"\([^"]*\)".*/\1/p' prismpm.lock)
+          if [[ ! $image =~ ^[a-z0-9.-]+(:[0-9]{1,5})?/[a-z0-9./_-]+@sha256:[0-9a-f]{64}$ ]]; then
+            printf '%s\n' 'prismpm.lock does not select an immutable SDK image' >&2
+            exit 64
+          fi
+          docker_config=$(mktemp -d)
+          # The SDK's /tmp is a private directory on the runner's own disk, so the
+          # build's scratch space is bounded by the disk the runner has, not by a
+          # fixed size; it is removed with the credentials when the step ends.
+          scratch=$(mktemp -d)
+          mkdir -p "$scratch/prismpm-home/.docker"
+          trap 'rm -rf "$docker_config" "$scratch"' EXIT
+          printf '{}\n' >"$docker_config/config.json"
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --group-add "$(stat -c '%g' /var/run/docker.sock)" \
+            --volume "$scratch:/tmp" \
+            --volume "$PWD:$PWD" \
+            --volume /var/run/docker.sock:/var/run/docker.sock \
+            --volume "$docker_config:/tmp/prismpm-home/.docker:ro" \
+            --workdir "$PWD" \
+            --env DOCKER_CONFIG=/tmp/prismpm-home/.docker \
+            --env BUILDX_CONFIG=/tmp/prismpm-buildx \
+            --env HOME=/tmp/prismpm-home \
+            --env PRISMPM_EPHEMERAL_HOME=1 \
+            "$image" just app
+      - name: Find the holo
+        id: holo
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          holos=(app/.prism/build/*/*.holo)
+          if [[ ${#holos[@]} -ne 1 ]]; then
+            printf 'expected one holo, found %d\n' "${#holos[@]}" >&2
+            exit 64
+          fi
+          # The archive fingerprint is the holo's last 32 bytes, the BLAKE3 of
+          # the rest, so a cached holo carries it as surely as a fresh one.
+          fingerprint=$(node -e 'const b=require("fs").readFileSync(process.argv[1]);process.stdout.write(b.subarray(b.length-32).toString("hex"))' "${holos[0]}")
+          identities="$(dirname "${holos[0]}")/application/holo-identities.json"
+          if [[ -f $identities ]]; then
+            recorded=$(node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).archive_fingerprint)' "$identities")
+            if [[ $recorded != "$fingerprint" ]]; then
+              echo "fingerprint $fingerprint differs from the recorded $recorded" >&2
+              exit 1
+            fi
+          fi
+          {
+            echo "path=${holos[0]}"
+            echo "fingerprint=$fingerprint"
+          } >>"$GITHUB_OUTPUT"
+      - name: Store this build under its input kappa
+        if: steps.cache.outputs.hit != 'true'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          HOLO: ${{ steps.holo.outputs.path }}
+          KAPPA: ${{ steps.cache.outputs.kappa }}
+        run: node ci/kappa-cache.mjs save "$HOLO"
+      - name: Sign the holo's provenance as this repository's workflow
+        id: attest
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ steps.holo.outputs.path }}
+          show-summary: false
+      - name: Draw the social image and the icons for this app.json
+        # page.mjs refuses an og.png or icon not drawn for this app.json. Drawing
+        # them here, with Pillow pinned by hash, means a new app needs neither
+        # Python nor Pillow on its author's machine; the committed images only
+        # serve a local preview.
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/draw"
+          "$RUNNER_TEMP/draw/bin/pip" install --quiet --no-deps --only-binary :all: --require-hashes -r bootstrap/draw-requirements.txt
+          "$RUNNER_TEMP/draw/bin/python" -I bootstrap/og.py
+          "$RUNNER_TEMP/draw/bin/python" -I bootstrap/icons.py
+      - name: Assemble the page
+        shell: bash
+        env:
+          HOLO: ${{ steps.holo.outputs.path }}
+          FINGERPRINT: ${{ steps.holo.outputs.fingerprint }}
+          ATTESTATION_URL: ${{ steps.attest.outputs.attestation-url }}
+        run: |
+          set -euo pipefail
+          cp "$HOLO" site/app.holo
+          cp -r try/vendor site/vendor
+          rm -rf site/vendor/prism-code/fixtures
+          # The page says where this holo's provenance is: the signed statement
+          # GitHub keeps for the build that made it.
+          node -e '
+            const { readFileSync, writeFileSync } = require("node:fs");
+            const [id, url] = process.argv.slice(1);
+            const app = JSON.parse(readFileSync("site/app.json", "utf8"));
+            app.attestations ??= {};
+            app.attestations.build = { id, url };
+            writeFileSync("site/app.json", `${JSON.stringify(app, null, 2)}\n`);
+          ' "$FINGERPRINT" "$ATTESTATION_URL"
+          node bootstrap/page.mjs site
+          node bootstrap/precache.mjs site
+      - name: Lighthouse at 100 on mobile, before anything is deployed
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-audit --no-fund --global @lhci/cli@0.15.1
+          lhci autorun --config=lighthouserc.json
+      - name: Every Material 3 window size class, both themes, before anything is deployed
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-audit --no-fund --global playwright@1.56.1
+          playwright install --with-deps chromium
+          node bootstrap/screens.mjs site screens
+      - name: A first visit's weight, counted once the page has started (FR-03)
+        shell: bash
+        run: |
+          set -euo pipefail
+          node bootstrap/weight.mjs site
+      - name: Keep the screens
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: screens
+          path: screens
+          if-no-files-found: ignore
+      - name: Configure Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d
+      - name: Upload the page
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9
+        with:
+          path: site
+
+  deploy:
+    name: publish the page
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346

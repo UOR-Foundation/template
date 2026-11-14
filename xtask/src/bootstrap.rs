@@ -64,6 +64,22 @@ fn content_matches(bytes: &[u8], expected: &str) -> bool {
     sha256(bytes) == expected
 }
 
+/// The SDK's `/tmp` is a fresh mode-0700 directory on the runner's disk,
+/// removed with the credentials when the step ends. Its space is the disk the
+/// runner has, so no fixed size caps how large a model's build may grow, and
+/// no `/tmp` mount of another kind or size may stand in for it.
+fn private_scratch(bootstrap: &str) -> bool {
+    let lines: Vec<_> = bootstrap.lines().map(str::trim).collect();
+    let tmp_mounts: Vec<_> = lines
+        .iter()
+        .copied()
+        .filter(|line| line.starts_with("--tmpfs /tmp") || line.contains(":/tmp\""))
+        .collect();
+    lines.contains(&"scratch=$(mktemp -d)")
+        && lines.contains(&"trap 'rm -rf \"$docker_config\" \"$scratch\"' EXIT")
+        && tmp_mounts == [r#"--volume "$scratch:/tmp" \"#]
+}
+
 fn docker_credentials_are_confined(devcontainer: &str, bootstrap: &str) -> bool {
     let lines: Vec<_> = bootstrap.lines().map(str::trim).collect();
     let buildx_config: Vec<_> = lines
@@ -103,7 +119,7 @@ fn docker_credentials_are_confined(devcontainer: &str, bootstrap: &str) -> bool 
         && bootstrap.contains("--volume \"$docker_config:/tmp/prismpm-home/.docker:ro\"")
         && !bootstrap.contains("--volume \"$HOME/.docker:/tmp/prismpm-home/.docker:ro\"")
         && buildx_config == [r"--env BUILDX_CONFIG=/tmp/prismpm-buildx \"]
-        && bootstrap.contains("--tmpfs /tmp:rw,exec,nosuid,size=2g")
+        && private_scratch(bootstrap)
         && private_umask
 }
 
@@ -117,6 +133,136 @@ fn policy_boundary_is_canonical(universal: &[&str], project: &[&str], required: 
         && union
             .windows(2)
             .all(|pair| pair[0].as_bytes() < pair[1].as_bytes())
+}
+
+/// A pull request may run the complete gate once, on amd64, because its merge
+/// commit is verified again on main. That saving is only sound while every main
+/// push and tag still runs the complete gate on both native architectures, and
+/// while nothing except a newer push to the same pull request can cancel or
+/// replace a run: GitHub keeps one pending run per concurrency group, so a
+/// shared main group would silently drop the verdict of a queued commit.
+fn native_coverage_is_complete(bootstrap: &str) -> bool {
+    const TRIGGERS: &str = "on:\n  push:\n    branches: [main]\n    tags: ['**']\n  pull_request:\n  merge_group:\n  workflow_dispatch:\n\n";
+    const BOTH: &str = "[ubuntu-24.04, ubuntu-24.04-arm]";
+    const PULL_REQUEST_AMD64: &str = r#"${{ fromJSON((github.event_name == 'pull_request' || github.event_name == 'merge_group') && '["ubuntu-24.04"]' || '["ubuntu-24.04", "ubuntu-24.04-arm"]') }}"#;
+    const GROUP: &str = "${{ github.event_name == 'pull_request' && format('bootstrap-pr-{0}', github.event.pull_request.number) || format('bootstrap-run-{0}', github.run_id) }}";
+    const CANCEL: &str = "${{ github.event_name == 'pull_request' }}";
+    let values = |key: &str| {
+        bootstrap
+            .lines()
+            .filter_map(|line| line.trim().strip_prefix(key))
+            .map(str::trim)
+            .collect::<Vec<_>>()
+    };
+    let runners = values("runner:");
+    let groups = values("group:");
+    let cancels = values("cancel-in-progress:");
+    let skips_runs = bootstrap.lines().map(str::trim).any(|line| {
+        [
+            "if:",
+            "continue-on-error:",
+            "include:",
+            "exclude:",
+            "paths:",
+            "paths-ignore:",
+            "branches-ignore:",
+            "tags-ignore:",
+        ]
+        .iter()
+        .any(|key| line.starts_with(key))
+    });
+    bootstrap.contains(TRIGGERS)
+        && (runners == [BOTH] || runners == [PULL_REQUEST_AMD64])
+        && values("runs-on:") == ["${{ matrix.runner }}"]
+        && ((groups.is_empty() && cancels.is_empty()) || (groups == [GROUP] && cancels == [CANCEL]))
+        && !skips_runs
+}
+
+/// The cache key: every proof input, the SDK image digest and the Lean
+/// toolchain by value. A key that omits one would find a proof of other inputs.
+const PROOF_KEY: &str = "key: prism-proof-${{ runner.os }}-${{ runner.arch }}-sdk-${{ steps.proof-inputs.outputs.sdk }}-lean-${{ steps.proof-inputs.outputs.lean }}-${{ hashFiles('app/**', 'prismpm.lock', 'Justfile', 'rust-toolchain.toml') }}";
+
+/// The step that names the SDK image digest and the Lean toolchain for the key.
+const PROOF_INPUTS: [&str; 8] = [
+    "id: proof-inputs",
+    "shell: bash",
+    "run: |",
+    "set -euo pipefail",
+    r#"sdk=$(sed -n 's/.*"sdk_image":"[^"@]*@sha256:\([0-9a-f]\{64\}\)".*/\1/p' prismpm.lock)"#,
+    r"lean=$(sed -n 's/^leanprover\/lean4:\(v[0-9A-Za-z.-]*\)$/\1/p' app/lean-toolchain)",
+    r#"test -n "$sdk""#,
+    r#"test -n "$lean""#,
+];
+
+/// The `app` recipe's reuse and proof, line for line: reuse only on a pull
+/// request, a merge queue run or a main push, only through the read-time check,
+/// and otherwise prove in full and keep the proof.
+const PROOF_RECIPE: [&str; 12] = [
+    r#"case "${PRISM_PROOF_EVENT:-}" in"#,
+    "pull_request:*|merge_group:*|push:refs/heads/main)",
+    "if cargo run -q --locked -p xtask -- proof-reuse; then",
+    "exit 0",
+    "fi",
+    ";;",
+    "esac",
+    "rm -rf .prism-proof",
+    "prismpm --project app verify | tee .prism-proof.log",
+    r"attestation=$(sed -n 's/^verified attestation: \([0-9a-f]\{64\}\)$/\1/p' .prism-proof.log)",
+    "rm -f .prism-proof.log",
+    r#"cargo run -q --locked -p xtask -- proof-keep "$attestation""#,
+];
+
+/// A run may reuse a kept proof only when nothing it would prove has changed.
+/// The cache key finds a candidate and names every proof input; the event and
+/// ref reach `just app` through the environment; `just app` reuses only on a
+/// pull request, a merge queue run or a main push, and only after
+/// `xtask proof-reuse` has checked that the kept attestation resolves and binds
+/// this checkout's inputs. A tag, a manual run and a local run always prove.
+/// Main's cache scope holds only proofs main made, so main reuses its own.
+fn proof_reuse_is_confined(bootstrap: &str, justfile: &str) -> bool {
+    let lines: Vec<_> = bootstrap.lines().map(str::trim).collect();
+    let keys: Vec<_> = lines
+        .iter()
+        .copied()
+        .filter(|line| line.starts_with("key: prism-proof-"))
+        .collect();
+    let events: Vec<_> = lines
+        .iter()
+        .copied()
+        .filter(|line| line.contains("PRISM_PROOF_EVENT"))
+        .collect();
+    let names_inputs = lines
+        .windows(PROOF_INPUTS.len())
+        .any(|window| window == PROOF_INPUTS)
+        && lines.contains(&r#"printf 'sdk=%s\nlean=%s\n' "$sdk" "$lean" >>"$GITHUB_OUTPUT""#)
+        && bootstrap.matches("steps.proof-inputs.outputs.").count() == 2;
+    let Some(start) = justfile.find("\napp:\n") else {
+        return false;
+    };
+    let recipe: Vec<_> = justfile[start + 1..]
+        .lines()
+        .skip(1)
+        .take_while(|line| line.starts_with("    ") || line.is_empty())
+        .map(str::trim)
+        .collect();
+    let exits = recipe
+        .iter()
+        .filter(|line| line.contains("exit") || line.contains("return"))
+        .count();
+    keys == [PROOF_KEY]
+        && names_inputs
+        && events
+            == [
+                "PRISM_PROOF_EVENT: ${{ github.event_name }}:${{ github.ref }}",
+                r"--env PRISM_PROOF_EVENT \",
+            ]
+        && lines.contains(&"path: .prism-proof")
+        && recipe
+            .windows(PROOF_RECIPE.len())
+            .any(|window| window == PROOF_RECIPE)
+        && exits == 1
+        && justfile.matches("PRISM_PROOF_EVENT").count() == 2
+        && justfile.matches("proof-reuse").count() == 2
 }
 
 fn workflow_history_is_complete(source: &str) -> bool {
@@ -507,6 +653,18 @@ pub fn audit(root: &Path) -> Result<(), Fail> {
                 .into(),
         );
     }
+    if !proof_reuse_is_confined(&bootstrap, &read(root, "Justfile")?) {
+        return Err(
+            "bootstrap.yml and the Justfile may reuse a proof only on a pull request, a merge queue run or a main push, keyed by every proof input and checked on read"
+                .into(),
+        );
+    }
+    if !native_coverage_is_complete(&bootstrap) {
+        return Err(
+            "bootstrap.yml must run the complete gate on both native architectures for every main push and tag, and never cancel or replace those runs"
+                .into(),
+        );
+    }
 
     for path in workflow_files(root)? {
         let source = std::fs::read_to_string(&path)?;
@@ -598,10 +756,207 @@ pub fn audit(root: &Path) -> Result<(), Fail> {
 mod tests {
     use super::{
         action_reference_is_pinned, content_matches, dependency_updates_are_confined,
-        docker_credentials_are_confined, immutable_image, pipeline_lifecycle_is_complete,
-        policy_boundary_is_canonical, sha256, update_preserves_project_content,
-        workflow_history_is_complete, PROJECT_CONTENT_PATHS, UNIVERSAL_POLICY_PATHS,
+        docker_credentials_are_confined, immutable_image, native_coverage_is_complete,
+        pipeline_lifecycle_is_complete, policy_boundary_is_canonical, proof_reuse_is_confined,
+        sha256, update_preserves_project_content, workflow_history_is_complete,
+        PROJECT_CONTENT_PATHS, PROOF_KEY, UNIVERSAL_POLICY_PATHS,
     };
+
+    #[test]
+    fn hosted_sdk_disk_is_prepared_before_image_pull() {
+        let bootstrap = include_str!("../../.github/workflows/bootstrap.yml");
+        let preparation = bootstrap
+            .find("name: Reserve disk for the locked SDK")
+            .expect("prepare hosted runner storage before pulling the large SDK");
+        let pull = bootstrap.find("docker run --rm").expect("SDK invocation");
+        assert!(preparation < pull);
+        let script = &bootstrap[preparation..pull];
+        assert!(script.contains("${RUNNER_ENVIRONMENT:-} == github-hosted"));
+        assert!(script.contains("${RUNNER_OS:-} == Linux"));
+        assert!(script.contains("sudo rm -rf -- /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL"));
+        assert!(script.contains("df -h / /var/lib/docker"));
+        assert!(!script.contains("rm -rf -- /var/lib/docker"));
+        assert!(!script.contains("rm -rf -- \"$HOME\""));
+    }
+
+    #[test]
+    fn dropped_native_coverage_plant_is_rejected() {
+        let bootstrap = include_str!("../../.github/workflows/bootstrap.yml");
+        assert!(native_coverage_is_complete(bootstrap));
+        let matrix = r#"'["ubuntu-24.04"]' || '["ubuntu-24.04", "ubuntu-24.04-arm"]'"#;
+        let plants = [
+            // Main and tags lose the arm64 leg.
+            bootstrap.replace(matrix, r#"'["ubuntu-24.04"]' || '["ubuntu-24.04"]'"#),
+            // The legs are swapped: pull requests get both, main gets one.
+            bootstrap.replace(matrix, r#"'["ubuntu-24.04", "ubuntu-24.04-arm"]' || '["ubuntu-24.04"]'"#),
+            // Tags stop running the gate.
+            bootstrap.replace("    tags: ['**']\n", ""),
+            // A main run becomes cancellable by its successor.
+            bootstrap.replace(
+                "cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
+                "cancel-in-progress: true",
+            ),
+            // Main runs share one group, so a queued commit is replaced unverified.
+            bootstrap.replace("format('bootstrap-run-{0}', github.run_id)", "github.ref"),
+            // A path filter skips main for some commits.
+            bootstrap.replace(
+                "    branches: [main]\n",
+                "    branches: [main]\n    paths-ignore: ['**.md']\n",
+            ),
+            // A job condition skips the arm64 leg.
+            bootstrap.replace(
+                "    runs-on: ${{ matrix.runner }}\n",
+                "    runs-on: ${{ matrix.runner }}\n    if: matrix.runner == 'ubuntu-24.04'\n",
+            ),
+            // A matrix exclusion removes the arm64 leg.
+            bootstrap.replace(
+                "    runs-on: ${{ matrix.runner }}\n",
+                "        exclude:\n          - runner: ubuntu-24.04-arm\n    runs-on: ${{ matrix.runner }}\n",
+            ),
+        ];
+        for plant in &plants {
+            assert_ne!(plant, bootstrap, "every plant must change the workflow");
+            assert!(!native_coverage_is_complete(plant));
+        }
+        // Running both architectures on every event, without concurrency, is
+        // stronger than the policy and stays admissible.
+        let mut unconditional = bootstrap.replace(
+            r#"${{ fromJSON((github.event_name == 'pull_request' || github.event_name == 'merge_group') && '["ubuntu-24.04"]' || '["ubuntu-24.04", "ubuntu-24.04-arm"]') }}"#,
+            "[ubuntu-24.04, ubuntu-24.04-arm]",
+        );
+        let concurrency = unconditional
+            .find("concurrency:\n")
+            .expect("the workflow declares concurrency");
+        let jobs = unconditional
+            .find("jobs:\n")
+            .expect("the workflow has jobs");
+        unconditional.replace_range(concurrency..jobs, "");
+        assert!(native_coverage_is_complete(&unconditional));
+    }
+
+    #[test]
+    fn widened_proof_reuse_plant_is_rejected() {
+        let bootstrap = include_str!("../../.github/workflows/bootstrap.yml");
+        let justfile = include_str!("../../Justfile");
+        assert!(proof_reuse_is_confined(bootstrap, justfile));
+        let mut plants: Vec<(&str, String, String)> = Vec::new();
+        let plant_bootstrap = |defect, from: &str, to: &str| {
+            assert!(bootstrap.contains(from), "{defect}: {from}");
+            (
+                defect,
+                bootstrap.replacen(from, to, 1),
+                justfile.to_string(),
+            )
+        };
+        let plant_justfile = |defect, from: &str, to: &str| {
+            assert!(justfile.contains(from), "{defect}: {from}");
+            (
+                defect,
+                bootstrap.to_string(),
+                justfile.replacen(from, to, 1),
+            )
+        };
+        // A key that omits any one proof input would find a proof of other inputs.
+        let key = PROOF_KEY.trim_start_matches("key: ");
+        for input in [
+            "-${{ runner.os }}",
+            "-${{ runner.arch }}",
+            "-sdk-${{ steps.proof-inputs.outputs.sdk }}",
+            "-lean-${{ steps.proof-inputs.outputs.lean }}",
+            "'app/**', ",
+            "'prismpm.lock', ",
+            "'Justfile', ",
+            ", 'rust-toolchain.toml'",
+        ] {
+            assert!(key.contains(input), "{input}");
+            plants.push(plant_bootstrap(
+                "a key that omits one proof input",
+                key,
+                &key.replacen(input, "", 1),
+            ));
+        }
+        plants.extend([
+            plant_bootstrap(
+                "the SDK digest named by a constant",
+                r#"sdk=$(sed -n 's/.*"sdk_image":"[^"@]*@sha256:\([0-9a-f]\{64\}\)".*/\1/p' prismpm.lock)"#,
+                "sdk=pinned",
+            ),
+            plant_bootstrap(
+                "the Lean toolchain read from elsewhere",
+                "app/lean-toolchain)",
+                "rust-toolchain.toml)",
+            ),
+            plant_bootstrap(
+                "the ref spliced into the script",
+                r"--env PRISM_PROOF_EVENT \",
+                r"--env PRISM_PROOF_EVENT=${{ github.event_name }}:${{ github.ref }} \",
+            ),
+            plant_bootstrap(
+                "the ref dropped, so a tag looks like main",
+                "PRISM_PROOF_EVENT: ${{ github.event_name }}:${{ github.ref }}",
+                "PRISM_PROOF_EVENT: ${{ github.event_name }}:refs/heads/main",
+            ),
+            plant_bootstrap(
+                "the event never reaches the recipe",
+                "            --env PRISM_PROOF_EVENT \\\n",
+                "",
+            ),
+            plant_justfile(
+                "a tag reuses",
+                "push:refs/heads/main)",
+                "push:*)",
+            ),
+            plant_justfile(
+                "any event reuses",
+                "pull_request:*|merge_group:*|push:refs/heads/main)",
+                "*)",
+            ),
+            plant_justfile(
+                "reuse without the read-time check",
+                "if cargo run -q --locked -p xtask -- proof-reuse; then",
+                "if [[ -s .prism-proof/attestation ]]; then",
+            ),
+            plant_justfile(
+                "a stale kept proof survives a full proof",
+                "    rm -rf .prism-proof\n",
+                "",
+            ),
+            plant_justfile(
+                "the recipe stops proving",
+                "prismpm --project app verify | tee",
+                "true | tee",
+            ),
+            plant_justfile(
+                "a proof kept without its inputs",
+                r#"cargo run -q --locked -p xtask -- proof-keep "$attestation""#,
+                "mkdir -p .prism-proof",
+            ),
+            plant_justfile(
+                "a second, unconfined use of the event",
+                "    rm -rf .prism-proof\n",
+                "    [[ $PRISM_PROOF_EVENT == push* ]] && exit 0\n    rm -rf .prism-proof\n",
+            ),
+            plant_justfile(
+                "an early exit before the case",
+                "    case \"${PRISM_PROOF_EVENT:-}\" in\n",
+                "    [[ -d .prism-proof ]] && exit 0\n    case \"${PRISM_PROOF_EVENT:-}\" in\n",
+            ),
+        ]);
+        for (defect, plant_bootstrap, plant_justfile) in &plants {
+            assert!(
+                plant_bootstrap != bootstrap || plant_justfile != justfile,
+                "{defect}: every plant must change an input"
+            );
+            assert!(
+                !proof_reuse_is_confined(plant_bootstrap, plant_justfile),
+                "{defect} was accepted"
+            );
+        }
+        // The merge queue trigger is part of the fixed trigger block: dropping it is refused.
+        assert!(!native_coverage_is_complete(
+            &bootstrap.replace("  merge_group:\n", "")
+        ));
+    }
 
     #[test]
     fn dependency_updates_preserve_sdk_ownership_and_ordinary_maintenance() {
@@ -731,6 +1086,19 @@ mod tests {
     }
 
     #[test]
+    fn holo_cache_refuses_every_unbound_holo() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap();
+        let result = std::process::Command::new("node")
+            .args(["--test", "ci/kappa-cache.test.mjs"])
+            .current_dir(root)
+            .status()
+            .expect("the locked SDK supplies Node");
+        assert!(result.success(), "holo cache negative tests failed");
+    }
+
+    #[test]
     fn native_platform_inventory_rejects_swaps_missing_platforms_and_legacy_drift() {
         let bytes = |architecture: &str| {
             serde_json::to_vec(&serde_json::json!({"artifacts":[{
@@ -847,8 +1215,10 @@ mod tests {
           "mounts":["source=${localEnv:HOME}/.docker/config.json,target=/home/vscode/.docker/config.json,type=bind,readonly"]
         }"#;
         let bootstrap = r#"--volume "$docker_config:/tmp/prismpm-home/.docker:ro"
+scratch=$(mktemp -d)
+trap 'rm -rf "$docker_config" "$scratch"' EXIT
 --env BUILDX_CONFIG=/tmp/prismpm-buildx \
---tmpfs /tmp:rw,exec,nosuid,size=2g
+--volume "$scratch:/tmp" \
 "$image" bash -c '
 umask 077
 docker buildx version
@@ -897,7 +1267,20 @@ docker buildx version
                 "--env BUILDX_CONFIG=/tmp/prismpm-buildx",
                 "--env BUILDX_CONFIG=/tmp/prismpm-home/buildx",
             ),
-            bootstrap.replace("--tmpfs /tmp:rw,exec,nosuid,size=2g", ""),
+            bootstrap.replace("--volume \"$scratch:/tmp\" \\\n", ""),
+            bootstrap.replace(
+                "--volume \"$scratch:/tmp\"",
+                "--tmpfs /tmp:rw,exec,nosuid,size=2g",
+            ),
+            bootstrap.replace(
+                "--volume \"$scratch:/tmp\" \\\n",
+                "--volume \"$scratch:/tmp\" \\\n--tmpfs /tmp:rw,exec,nosuid,size=2g \\\n",
+            ),
+            bootstrap.replace("scratch=$(mktemp -d)", "scratch=/tmp/shared"),
+            bootstrap.replace(
+                "trap 'rm -rf \"$docker_config\" \"$scratch\"' EXIT",
+                "trap 'rm -rf \"$docker_config\"' EXIT",
+            ),
             bootstrap.replace("umask 077", "umask 022"),
             format!("{bootstrap}\n--env BUILDX_CONFIG=/tmp/other \\\n"),
         ] {
