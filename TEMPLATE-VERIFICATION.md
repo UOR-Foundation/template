@@ -694,3 +694,15 @@ removed; the old `--tmpfs /tmp:rw,exec,nosuid,size=2g` restored in its place;
 the tmpfs added beside it; a shared fixed path in place of `mktemp -d`; and a
 `trap` that no longer removes the scratch directory. The 22-test xtask suite,
 formatting and Clippy pass.
+
+## The update proposal reserves runner disk before it pulls the SDK (#49)
+
+`template-update.yml` pulls both platform children of the locked SDK on a
+standard hosted runner, the same pull that ran `bootstrap.yml` out of disk.
+Its proposal job now runs the same "Reserve disk for the locked SDK" step
+before its first SDK invocation. `hosted_sdk_disk_is_prepared_before_image_pull`
+checks both workflows, and the reservation must come before the first
+`docker buildx imagetools inspect` or `docker run --rm`. Planted defect,
+rejected by `sdk_pull_without_disk_reservation_is_rejected`: the step removed
+from `template-update.yml`. With the step reverted, the guard fails at the
+missing reservation.
