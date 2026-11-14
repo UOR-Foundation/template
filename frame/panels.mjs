@@ -455,6 +455,12 @@ const forgetDevice = () => deviceStore("readwrite", (s) => s.delete("self"));
 const loadKit = () => deviceStore("readonly", (s) => s.get("kit")).catch(() => null);
 const saveKit = (kit) => deviceStore("readwrite", (s) => s.put(kit, "kit"));
 const forgetKit = () => deviceStore("readwrite", (s) => s.delete("kit"));
+// Shares this device keeps as someone's guardian, each wrapped to it alone.
+const loadGuarding = () => deviceStore("readonly", (s) => s.get("guarding")).then((list) => list ?? [], () => []);
+const saveGuarding = (list) => deviceStore("readwrite", (s) => s.put(list, "guarding"));
+// The recovery device this device gave a guardian, so the panel stops offering one.
+const loadGuarded = () => deviceStore("readonly", (s) => s.get("guarded")).catch(() => null);
+const saveGuarded = (recovery) => deviceStore("readwrite", (s) => s.put(recovery, "guarded"));
 
 // The bus to the id's other devices: stitch's relay (the frame's
 // PRISM_RELAY), which the page's connect-src must name; the page build reads
@@ -504,6 +510,51 @@ const KIT = "prism/recovery-kit/1";
 const ONE_PAPER_SHARE = { threshold: 1, guardians: [{ paper: true }] };
 const kitOf = (held, share) => ({ kind: KIT, prism: held.prism, share, records: [...held.log.values()] });
 
+// A guardian: a device of someone else's Prism id that keeps one share of
+// this id's recovery device (stitch's replaceRecovery, two shares of two:
+// the paper kit and the guardian's). The kit alone then recovers nothing,
+// and the guardian, who releases its share once and only after talking to
+// the person, is the witness a copied kit never gets past. The two devices
+// meet on a rendezvous topic named by a secret in the link one gives the
+// other; the relay sees neither the secret nor what passes.
+const GUARDIAN = "prism-guardian:";
+const HELP = "prism-help:";
+const MSG = {
+  offer: "prism/guardian-offer/1",
+  share: "prism/guardian-share/1",
+  kept: "prism/guardian-kept/1",
+  help: "prism/guardian-help/1",
+  release: "prism/guardian-release/1",
+};
+const TWO_OF_PAPER_AND = (guardian) => ({ threshold: 2, guardians: [{ paper: true }, guardian] });
+const WAIT_MS = 5 * 60000;
+const newSecret = () => b64u(crypto.getRandomValues(new Uint8Array(32)));
+const secretOf = (uri, scheme) => {
+  const secret = uri.trim().startsWith(scheme) ? uri.trim().slice(scheme.length) : "";
+  if (!/^[\w-]{43}$/.test(secret)) deny("link", "That is not the link they sent");
+  return secret;
+};
+// The first message of `kind` on a topic, or a refusal once `ms` pass.
+// Stopped (the person went back), it never settles.
+function awaitOn(Prism, topic, kind, accept = () => true, ms = WAIT_MS) {
+  let unsubscribe = () => {};
+  let timer = 0;
+  const stop = () => (clearTimeout(timer), unsubscribe());
+  const found = new Promise((done, failed) => {
+    unsubscribe = bus(Prism).subscribe(topic, (bytes) => {
+      let message;
+      try {
+        message = parse(bytes);
+      } catch {
+        return;
+      }
+      if (message?.kind === kind && accept(message)) done(message);
+    });
+    timer = setTimeout(() => failed(new IdentityError("wait", "The other device did not answer in time. Try again")), ms);
+  });
+  return { found: found.finally(stop), stop };
+}
+
 // A QR code as one SVG path, with its four-module quiet zone.
 function drawQr(svg, { size, modules }) {
   let d = "";
@@ -531,6 +582,9 @@ const ACCOUNT_PANEL = `
   <button id="account-devices" class="row" type="button">Devices</button>
   <button id="account-join" class="row" type="button">Use my Prism id from another device or app</button>
   <button id="account-recover" class="row" type="button">Use a recovery kit</button>
+  <button id="account-guard" class="row" type="button" hidden>Add a guardian</button>
+  <button id="account-guardian" class="row" type="button">Be someone's guardian</button>
+  <button id="account-help" class="row" type="button" hidden>Help someone recover</button>
 </div>
 <div id="account-view-offer" class="account-in" hidden>
   <p>On a phone, scan this code. On another app or computer, open the person icon, choose <b>Use my Prism id from another device or app</b>, and paste the link. It works once, for five minutes.</p>
@@ -548,6 +602,29 @@ const ACCOUNT_PANEL = `
 <div id="account-view-recover" class="account-in" hidden>
   <p>Choose the recovery kit you saved. This browser becomes your Prism id's device, every other device is removed, and you get a new kit to save.</p>
   <input id="account-kit-file" type="file" accept=".json,application/json" aria-label="Recovery kit" />
+  <div id="account-ask" hidden>
+    <p>This kit also needs your guardian. Send them this link; they open the person icon in a Prism app, choose <b>Help someone recover</b> and paste it. Then read them this code: <b id="account-ask-code"></b></p>
+    <p class="account-id"><code id="account-ask-link"></code><button id="account-ask-copy" class="text" type="button">Copy</button></p>
+  </div>
+</div>
+<div id="account-view-guard" class="account-in" hidden>
+  <p>Ask someone you trust to open the person icon in any Prism app, choose <b>Be someone's guardian</b>, and send you the link it shows. Paste it here.</p>
+  <input id="account-guard-uri" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" aria-label="Link from your guardian" />
+  <label id="account-guard-kit-label" hidden>Your recovery kit <input id="account-guard-kit" type="file" accept=".json,application/json" /></label>
+  <button id="account-guard-go" class="primary" type="button">Add guardian</button>
+</div>
+<div id="account-view-guardian" class="account-in" hidden>
+  <p>Send this link to the person. Keep this open until it says you are their guardian. If they ever lose every device, they will ask you to help.</p>
+  <p class="account-id"><code id="account-guardian-link"></code><button id="account-guardian-copy" class="text" type="button">Copy</button></p>
+</div>
+<div id="account-view-help" class="account-in" hidden>
+  <p>Paste the link the person sent you.</p>
+  <input id="account-help-uri" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" aria-label="Link from the person" />
+  <button id="account-help-go" class="primary" type="button">Find their request</button>
+  <div id="account-help-check" hidden>
+    <p>Release your share only after you have talked to them, by voice or in person, and they read you this code: <b id="account-help-code"></b></p>
+    <button id="account-help-release" class="primary" type="button">Release my share</button>
+  </div>
 </div>
 <div id="account-view-devices" class="account-in" hidden>
   <ul id="account-device-list" class="account-devices"></ul>
@@ -563,6 +640,9 @@ const TITLES = {
   join: ["Use your Prism id here", ""],
   recover: ["Use a recovery kit", ""],
   devices: ["Devices", "Removing one stops it signing the next time it syncs."],
+  guard: ["Add a guardian", "Your new kit then needs them too: a lost or copied kit alone cannot bring your id back."],
+  guardian: ["Be someone's guardian", ""],
+  help: ["Help someone recover", ""],
 };
 
 // The account panel, drawn in the frame. Every step is stitch's Prism id
@@ -577,6 +657,8 @@ export function accounts(frame, core) {
   let view = "held";
   let kit = null;
   let link = null;
+  let guarding = [];
+  let guarded = false;
 
   const say = (words) => {
     frame.$("bar-status").textContent = words;
@@ -588,13 +670,16 @@ export function accounts(frame, core) {
   };
   function paint() {
     core.paint();
-    for (const name of ["held", "offer", "join", "recover", "devices"]) $(`view-${name}`).hidden = name !== view;
+    for (const name of ["held", "offer", "join", "recover", "devices", "guard", "guardian", "help"]) $(`view-${name}`).hidden = name !== view;
     const [title, sub] = TITLES[view === "held" && kit ? "kit" : view];
     $("title").textContent = title;
     $("sub").textContent = sub;
     $("sub").hidden = !sub;
     $("kit-save").hidden = !kit;
-    for (const name of ["link", "devices"]) $(name).hidden = !held;
+    for (const name of ["link", "devices", "guardian"]) $(name).hidden = !held;
+    // A kit of one paper share can gain a guardian; one that has one cannot change it without them.
+    $("guard").hidden = !held || guarded;
+    $("help").hidden = !held || !guarding.length;
     $("back").hidden = view === "held";
     $("id").textContent = held ? short(held.prism) : "Making your Prism id";
     $("id").title = held?.prism ?? "";
@@ -673,6 +758,8 @@ export function accounts(frame, core) {
   async function ensure(Prism) {
     held ??= await loadDevice();
     kit ??= await loadKit();
+    guarding = await loadGuarding();
+    if (held) guarded = (await loadGuarded()) === (await Prism.resolvePrism(held.prism, held.log).catch(() => null))?.recovery;
     // A new id stays on this device until it links or is recovered: there
     // is no other device to share with, so nothing goes to the relay.
     let fresh = false;
@@ -720,6 +807,8 @@ export function accounts(frame, core) {
   const endLink = () => {
     link?.stop?.();
     link = null;
+    $("ask").hidden = true;
+    $("help-check").hidden = true;
     $("code").value = "";
     $("confirm").hidden = true;
     $("accept").hidden = true;
@@ -818,7 +907,23 @@ export function accounts(frame, core) {
       }
       if (saved?.kind !== KIT || !Array.isArray(saved.records)) deny("kit", "That is not a recovery kit");
       const device = await Prism.createDevice({ deviceClass: "browser", protection: "software" });
-      const recovered = await Prism.recoverPrism({ prism: saved.prism, records: saved.records, shares: [saved.share], device, rotateRecovery: ONE_PAPER_SHARE });
+      const shares = [saved.share];
+      if (saved.share?.threshold === 2) {
+        // A guarded kit: the guardian releases their share to this device.
+        endLink();
+        const secret = newSecret();
+        const topic = await Prism.rendezvousTopic(secret);
+        const waiting = awaitOn(Prism, topic, MSG.release, (m) => m.share?.guardian === device.id && m.share?.recovery === saved.share.recovery);
+        link = { stop: waiting.stop };
+        await bus(Prism).publish(topic, json({ kind: MSG.help, prism: saved.prism, recovery: saved.share.recovery, device: device.record }));
+        $("ask-link").textContent = HELP + secret;
+        $("ask-code").textContent = await Prism.recoveryCode(saved.prism, device.record);
+        $("ask").hidden = false;
+        panel.classList.remove("busy");
+        shares.push((await waiting.found).share);
+        endLink();
+      }
+      const recovered = await Prism.recoverPrism({ prism: saved.prism, records: saved.records, shares, device, rotateRecovery: ONE_PAPER_SHARE });
       // The kit's log may be older than the id's: what the other devices
       // shared since, and the id's public log, show a kit already used. Its
       // retirement never kept what this replay signed, so this device cannot
@@ -882,6 +987,115 @@ export function accounts(frame, core) {
 
   $("join").addEventListener("click", () => (show("join"), $("uri").focus()));
   $("recover").addEventListener("click", () => show("recover"));
+  $("ask-copy").addEventListener("click", () => copy($("ask-copy"), $("ask-link").textContent));
+
+  // ---- a guardian for this id: the guardian's device offers itself on the
+  // topic, this device moves the recovery to two shares of two and hands the
+  // guardian theirs, and keeps the change only once the guardian kept it.
+  $("guard").addEventListener("click", () => {
+    $("guard-kit-label").hidden = !!kit;
+    show("guard");
+    $("guard-uri").focus();
+  });
+  $("guard-go").addEventListener("click", () =>
+    run(async (Prism) => {
+      endLink();
+      const secret = secretOf($("guard-uri").value, GUARDIAN);
+      let current = kit;
+      if (!current) {
+        const file = $("guard-kit").files[0];
+        if (!file) deny("kit", "Choose your recovery kit too");
+        try {
+          current = JSON.parse(await file.text());
+        } catch {
+          deny("kit", "That is not a recovery kit");
+        }
+      }
+      if (current?.kind !== KIT || current.prism !== held.prism || current.share?.threshold !== 1) deny("kit", "That is not this id's recovery kit");
+      const topic = await Prism.rendezvousTopic(secret);
+      const offered = awaitOn(Prism, topic, MSG.offer);
+      link = { stop: offered.stop };
+      const guardian = (await offered.found).device;
+      Prism.checkDeviceRecord(guardian);
+      held = await pull(Prism, held);
+      const replaced = await Prism.replaceRecovery(held, [current.share], TWO_OF_PAPER_AND(guardian));
+      const share = replaced.shares.find((s) => s.guardian !== "paper");
+      const kept = awaitOn(Prism, topic, MSG.kept, (m) => m.recovery === replaced.recovery);
+      link = { stop: kept.stop };
+      await bus(Prism).publish(topic, json({ kind: MSG.share, share }));
+      await kept.found;
+      endLink();
+      await keep(Prism, replaced.session);
+      await saveGuarded(replaced.recovery);
+      guarded = true;
+      await holdKit(replaced.shares.find((s) => s.guardian === "paper"));
+      $("guard-uri").value = "";
+      show("held");
+      say("Guardian added. Save your new recovery kit");
+    }),
+  );
+
+  // ---- being a guardian: offer this device, keep the share that comes back.
+  $("guardian").addEventListener("click", () =>
+    run(async (Prism) => {
+      endLink();
+      const secret = newSecret();
+      const topic = await Prism.rendezvousTopic(secret);
+      const shared = awaitOn(Prism, topic, MSG.share, (m) => m.share?.kind === Prism.KIND.recoveryShare && m.share.guardian === held.device.id);
+      link = { stop: shared.stop };
+      await bus(Prism).publish(topic, json({ kind: MSG.offer, device: held.device.record }));
+      $("guardian-link").textContent = GUARDIAN + secret;
+      show("guardian");
+      panel.classList.remove("busy");
+      const { share } = await shared.found;
+      guarding = [...(await loadGuarding()).filter((s) => s.prism !== share.prism), share];
+      await saveGuarding(guarding);
+      await bus(Prism).publish(topic, json({ kind: MSG.kept, recovery: share.recovery }));
+      endLink();
+      show("held");
+      say("You are their guardian now");
+    }),
+  );
+  $("guardian-copy").addEventListener("click", () => copy($("guardian-copy"), $("guardian-link").textContent));
+
+  // ---- helping: find the request, show its code, release once.
+  let request = null;
+  $("help").addEventListener("click", () => {
+    request = null;
+    show("help");
+    $("help-uri").focus();
+  });
+  $("help-go").addEventListener("click", () =>
+    run(async (Prism) => {
+      endLink();
+      const topic = await Prism.rendezvousTopic(secretOf($("help-uri").value, HELP));
+      const asked = awaitOn(Prism, topic, MSG.help, () => true, 15000);
+      link = { stop: asked.stop };
+      const message = await asked.found;
+      Prism.checkDeviceRecord(message.device);
+      guarding = await loadGuarding();
+      const share = guarding.find((s) => s.prism === message.prism && s.recovery === message.recovery);
+      if (!share) deny("share", "You hold no share for that request: it was released already, or it is for someone else");
+      request = { topic, share, device: message.device };
+      $("help-code").textContent = await Prism.recoveryCode(message.prism, message.device);
+      $("help-check").hidden = false;
+    }),
+  );
+  $("help-release").addEventListener("click", () =>
+    run(async (Prism) => {
+      if (!request) return;
+      const released = await Prism.releaseShare(held.device, request.share, request.device);
+      // Released once: the share leaves this device, so a replay finds nothing here.
+      guarding = (await loadGuarding()).filter((s) => !(s.prism === request.share.prism && s.recovery === request.share.recovery));
+      await saveGuarding(guarding);
+      await bus(Prism).publish(request.topic, json({ kind: MSG.release, share: released }));
+      request = null;
+      $("help-uri").value = "";
+      endLink();
+      show("held");
+      say("Share released");
+    }),
+  );
   $("back").addEventListener("click", () => {
     endLink();
     show("held");
