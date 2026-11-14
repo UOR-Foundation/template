@@ -1,8 +1,12 @@
 // Prism ids: the frame's checks, each refused case failing closed, and the
-// whole flow in Chromium: a new id, a session on an app, a lost device
-// brought back with a recovery code, the same id on another app.
+// whole flow in Chromium across two apps (two origins): a new id with its
+// recovery kit, a session, a second app joining the same id by a link and a
+// six-digit code, a device removed, and every device lost and the id brought
+// back from the kit. Devices meet on stitch's relay, which a relay in memory
+// stands in for here, answering the browser as the relay does.
 //   node --test identity/test.mjs
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { after, before, describe, test } from "node:test";
 import { IdentityError, verifySession } from "../frame/panels.mjs";
 import * as Prism from "./prism-id.mjs";
@@ -12,12 +16,23 @@ const APP = "https://app.example";
 const DAY = 864e5;
 const key = () => Buffer.from(crypto.getRandomValues(new Uint8Array(65))).toString("base64url");
 
-// A session as the Prism id page signs one.
+// A session as the frame signs one.
 async function session(signer, { app = APP, action = "prism/session/1", expires = Date.now() + DAY, now = Date.now(), sessionKey = key() } = {}) {
   const envelope = await Prism.signAction(signer, action, { sessionKey, expires }, { now, audience: app });
   return { app, envelope, records: [...signer.log.values()] };
 }
 const refuses = (code) => (error) => error instanceof IdentityError && error.code === code;
+
+// Link a second device the way the panel does, without a relay.
+async function linked(id) {
+  const now = Date.now();
+  const { uri, pending } = await Prism.createLinkOffer(id, { now });
+  const offer = Prism.parseLinkUri(uri);
+  const device = await Prism.createDevice();
+  const request = await Prism.requestLink(device, offer);
+  const accepted = await Prism.acceptLinkRequest(id, pending, request, { now, confirmCode: await Prism.linkCode(offer.secret, device.record) });
+  return { first: accepted.session, second: await Prism.completeLink(device, offer, accepted.response) };
+}
 
 describe("the frame's checks", () => {
   test("a new id's session verifies and names the id", async () => {
@@ -65,12 +80,10 @@ describe("the frame's checks", () => {
   });
 
   test("a device removed from the id signs no session", async () => {
-    const id = await Prism.createPrism();
-    const made = await Prism.createRecovery(id, { now: Date.now() });
-    const phone = await Prism.recoverOnto(made.code, made.escrow, await Prism.createDevice(), { now: Date.now() });
-    const removed = await Prism.revokeDevice(phone, id.device.id);
-    const s = await session(made.session);
-    assert.equal((await verifySession(s)).account, id.prism);
+    const { first, second } = await linked(await Prism.createPrism());
+    const removed = await Prism.revokeDevice(first, second.device.id);
+    const s = await session(second);
+    assert.equal((await verifySession(s)).account, first.prism);
     await assert.rejects(verifySession({ ...s, records: [...removed.log.values()] }), refuses("signature"));
   });
 
@@ -84,21 +97,71 @@ describe("the frame's checks", () => {
   });
 });
 
+// The relay in memory, as the browser sees ntfy: POST /<topic> keeps a
+// message, GET /<topic>/json?poll=1 lists them, a WebSocket on /<topic>/ws
+// hears new ones.
+function relayStandIn(origin) {
+  const topics = new Map();
+  const sockets = new Set();
+  const nameOf = (url) => new URL(url).pathname.split("/")[1];
+  return {
+    topics,
+    async attach(context) {
+      await context.route(`${origin}/**`, async (route) => {
+        const request = route.request();
+        const name = nameOf(request.url());
+        const headers = { "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "GET, POST" };
+        if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers });
+        if (request.method() === "POST") {
+          const message = request.postData();
+          topics.set(name, [...(topics.get(name) ?? []), message]);
+          for (const socket of sockets) if (socket.name === name) socket.ws.send(JSON.stringify({ event: "message", message }));
+          return route.fulfill({ status: 200, headers, contentType: "application/json", body: "{}" });
+        }
+        const body = (topics.get(name) ?? []).map((message) => JSON.stringify({ event: "message", message })).join("\n");
+        return route.fulfill({ status: 200, headers, contentType: "application/x-ndjson", body });
+      });
+      await context.routeWebSocket(`${origin.replace(/^https:/, "wss:")}/**`, (ws) => {
+        const socket = { name: nameOf(ws.url().replace(/^wss:/, "https:")), ws };
+        sockets.add(socket);
+        ws.onClose(() => sockets.delete(socket));
+      });
+    },
+  };
+}
+
 describe("the flow in Chromium", () => {
   let browser;
-  let page;
   let running;
-  let recoveryCode = null;
+  let relay;
+  let context;
+  let first;
+  let second;
   let firstId = null;
+  let kitPath = null;
+
+  const account = (p) => p.locator("prism-frame").evaluate((frame) => frame.account);
+  const newContext = async () => {
+    const made = await browser.newContext({ acceptDownloads: true });
+    await relay.attach(made);
+    return made;
+  };
+  const signOut = async (p) => {
+    await p.locator("#account").click();
+    await p.locator("#account-out").click();
+    await p.locator("#account:not(.signed-in)").waitFor({ timeout: 10000 });
+  };
 
   before(async () => {
-    // PRISM_REGISTRY=<url> runs the flow against a real registry (a
-    // kappa-server with KAPPA_PASSKEY_ORIGINS=http://localhost:8792).
-    running = await start({ idPort: 8792, appPort: 8793, registry: process.env.PRISM_REGISTRY });
+    running = await start({ ports: [8793, 8794] });
+    relay = relayStandIn(running.relay);
     const { chromium } = await import("playwright");
     browser = await chromium.launch();
-    page = await (await browser.newContext()).newPage();
-    await page.goto(running.app);
+    context = await newContext();
+    first = await context.newPage();
+    second = await context.newPage();
+    await first.goto(running.apps[0]);
+    await second.goto(running.apps[1]);
   });
 
   after(async () => {
@@ -106,46 +169,34 @@ describe("the flow in Chromium", () => {
     await running?.close();
   });
 
-  const account = (p) => p.locator("prism-frame").evaluate((frame) => frame.account);
-  const openWindow = async (p, button = "#account-window") => {
-    const [popup] = await Promise.all([p.waitForEvent("popup"), p.locator(button).click()]);
-    await popup.waitForLoadState();
-    return popup;
-  };
-
   test("the icon sits after full screen and starts signed out", async () => {
-    const order = await page.locator("prism-frame").evaluate((frame) => [...frame.shadowRoot.querySelector(".end").querySelectorAll("button")].map((b) => b.id));
+    const order = await first.locator("prism-frame").evaluate((frame) => [...frame.shadowRoot.querySelector(".end").querySelectorAll("button")].map((b) => b.id));
     assert.deepEqual(order.slice(-2), ["fullscreen", "account"]);
-    assert.equal(await page.locator("#account").getAttribute("aria-label"), "Sign in");
-    assert.equal(await account(page), null);
+    assert.equal(await first.locator("#account").getAttribute("aria-label"), "Sign in");
+    assert.equal(await account(first), null);
   });
 
-  test("a new Prism id: no prompt, a recovery code, then signed in", async () => {
-    await page.locator("#account").click();
-    assert.equal(await page.locator("#account-title").textContent(), "Sign in");
-    const popup = await openWindow(page);
-    await popup.locator("#title", { hasText: "Sign in to 127.0.0.1:8793" }).waitFor({ timeout: 10000 });
-    await popup.locator("#create").click();
-    await popup.locator("#kit-code").waitFor({ timeout: 10000 });
-    recoveryCode = await popup.locator("#kit-code").textContent();
-    assert.match(recoveryCode, /^([0-9A-HJKMNP-TV-Z]{4} ){13}[0-9A-HJKMNP-TV-Z]{4}$/);
-    assert.equal(await popup.locator("#kit-kept").isHidden(), true);
-    await Promise.all([popup.waitForEvent("close"), popup.locator("#kit-done").click()]);
-    await page.locator("#account.signed-in").waitFor({ timeout: 10000 });
-    firstId = (await account(page)).id;
-    assert.match(firstId, /^sha256:[0-9a-f]{64}$/);
-    assert.equal(await page.locator("#account").getAttribute("aria-label"), "Prism account");
-    // The escrow and the devices' sync are in the mailbox, every one sealed.
-    if (!process.env.PRISM_REGISTRY) assert.ok(running.topics.size >= 2);
-    for (const [, messages] of running.topics) {
-      for (const m of messages) assert.ok(["prism/sealed/1", "prism/recovery-escrow/1"].includes(JSON.parse(Buffer.from(m, "base64url")).kind));
-    }
+  test("a new Prism id: no prompt, a recovery kit, then signed in", async () => {
+    await first.locator("#account").click();
+    assert.equal(await first.locator("#account-title").textContent(), "Sign in");
+    await first.locator("#account-create").click();
+    await first.locator("#account-kit-save").waitFor({ timeout: 10000 });
+    const [download] = await Promise.all([first.waitForEvent("download"), first.locator("#account-kit-save").click()]);
+    kitPath = await download.path();
+    const kit = JSON.parse(await readFile(kitPath, "utf8"));
+    assert.equal(kit.kind, "prism/recovery-kit/1");
+    assert.equal(kit.share.guardian, "paper");
+    await first.locator("#account-kit-done").click();
+    await first.locator("#account.signed-in").waitFor({ timeout: 10000 });
+    firstId = (await account(first)).id;
+    assert.equal(firstId, kit.prism);
+    assert.equal(await first.locator("#account").getAttribute("aria-label"), "Prism account");
   });
 
   test("the session survives a reload and signs for the id", async () => {
-    await page.reload();
-    await page.locator("#account.signed-in").waitFor({ timeout: 10000 });
-    const checked = await page.evaluate(async () => {
+    await first.reload();
+    await first.locator("#account.signed-in").waitFor({ timeout: 10000 });
+    const checked = await first.evaluate(async () => {
       const frame = document.querySelector("prism-frame");
       const data = new TextEncoder().encode("hello");
       const { signature, delegation } = await frame.sign(data);
@@ -155,134 +206,110 @@ describe("the flow in Chromium", () => {
       return { delegation, id: frame.account.id, valid: await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, key, sig, data) };
     });
     assert.equal(checked.valid, true);
-    assert.equal(checked.delegation.app, new URL(running.app).origin);
+    assert.equal(checked.delegation.app, new URL(running.apps[0]).origin);
     assert.equal((await verifySession(checked.delegation, { fresh: 0 })).account, checked.id);
   });
 
-  test("sign out, then sign in again: one click in the window, same id", async () => {
-    await page.locator("#account").click();
-    await page.locator("#account-out").click();
-    await page.locator("#account:not(.signed-in)").waitFor({ timeout: 10000 });
-    await page.locator("#account").click();
-    const popup = await openWindow(page);
-    await popup.locator("#id").waitFor({ timeout: 10000 });
-    await Promise.all([popup.waitForEvent("close"), popup.locator("#continue").click()]);
-    await page.locator("#account.signed-in").waitFor({ timeout: 10000 });
-    assert.equal((await account(page)).id, firstId);
+  test("sign out, then sign in again: one click, same id", async () => {
+    await signOut(first);
+    await first.locator("#account").click();
+    await first.locator("#account-continue").click();
+    await first.locator("#account.signed-in").waitFor({ timeout: 10000 });
+    assert.equal((await account(first)).id, firstId);
   });
 
   test("the session key and the device keys cannot be read out by script", async () => {
-    const appKey = await page.evaluate(
-      () =>
+    const keys = await first.evaluate(async () => {
+      const read = (name, store, id) =>
         new Promise((done) => {
-          const open = indexedDB.open("prism-identity");
+          const open = indexedDB.open(name);
           open.onsuccess = () => {
-            const get = open.result.transaction("session").objectStore("session").get("current");
-            get.onsuccess = () => done(get.result.privateKey.extractable);
+            const get = open.result.transaction(store).objectStore(store).get(id);
+            get.onsuccess = () => done(get.result);
           };
-        }),
-    );
-    assert.equal(appKey, false);
-    const idPage = await page.context().newPage();
-    await idPage.goto(`${running.accounts}/3/`);
-    const device = await idPage.evaluate(
-      () =>
-        new Promise((done) => {
-          const open = indexedDB.open("prism-id");
-          open.onsuccess = () => {
-            const get = open.result.transaction("prism").objectStore("prism").get("self");
-            get.onsuccess = () => done([get.result.device.signingKey.extractable, get.result.device.agreementKey.extractable]);
-          };
-        }),
-    );
-    assert.deepEqual(device, [false, false]);
-    await idPage.close();
+        });
+      const kept = await read("prism-identity", "session", "current");
+      const device = await read("prism-id", "prism", "self");
+      return [kept.privateKey.extractable, device.device.signingKey.extractable, device.device.agreementKey.extractable];
+    });
+    assert.deepEqual(keys, [false, false, false]);
   });
 
-  test("a lost device: the recovery code brings the same id to a new browser", async () => {
-    const fresh = await (await browser.newContext()).newPage();
-    await fresh.goto(running.app);
+  test("another app joins the same id: a link, then the six-digit code", async () => {
+    await second.locator("#account").click();
+    await second.locator("#account-join").click();
+    // On the first app: a link offer.
+    await first.locator("#account").click();
+    await first.locator("#account-link").click();
+    await first.locator("#account-offer").waitFor({ timeout: 10000 });
+    const uri = await first.locator("#account-offer").textContent();
+    assert.match(uri, /^prism-link:/);
+    await second.locator("#account-uri").fill(uri);
+    await second.locator("#account-join-go").click();
+    await second.locator("#account-join-code").waitFor({ timeout: 10000 });
+    const code = /(\d{6})/.exec(await second.locator("#account-join-code").textContent())[1];
+    await first.locator("#account-code").waitFor({ timeout: 10000 });
+    // A wrong code is refused, and the right one still works.
+    await first.locator("#account-code").fill(code === "000000" ? "111111" : "000000");
+    await first.locator("#account-accept").click();
+    await first.locator("#account-error", { hasText: "refused" }).waitFor({ timeout: 10000 });
+    await first.locator("#account-code").fill(code);
+    await first.locator("#account-accept").click();
+    await second.locator("#account.signed-in").waitFor({ timeout: 15000 });
+    assert.equal((await account(second)).id, firstId);
+    assert.notEqual((await account(second)).key, (await account(first)).key);
+  });
+
+  test("a removed app hears it on its next sign-in and signs nothing more", async () => {
+    await first.locator("#account").click();
+    await first.locator("#account-devices").click();
+    const rows = first.locator("#account-device-list li");
+    await rows.first().waitFor({ timeout: 10000 });
+    assert.equal(await rows.count(), 3);
+    assert.equal(await first.locator("#account-device-list li", { hasText: "(this one)" }).count(), 1);
+    assert.equal(await first.locator("#account-device-list li", { hasText: "Recovery kit" }).getByRole("button").count(), 0);
+    await first.locator("#account-device-list li", { hasText: "Browser" }).filter({ hasNotText: "(this one)" }).getByRole("button", { name: "Remove" }).click();
+    await first.locator("#account-device-list li").nth(2).waitFor({ state: "detached", timeout: 10000 });
+    await first.keyboard.press("Escape");
+
+    await signOut(second);
+    await second.locator("#account").click();
+    await second.locator("#account-continue").click();
+    await second.locator("#account-title", { hasText: "This device was removed" }).waitFor({ timeout: 10000 });
+    assert.equal(await account(second), null);
+  });
+
+  test("every device lost: the recovery kit brings the id back, and the kit is replaced", async () => {
+    const elsewhere = await newContext();
+    const fresh = await elsewhere.newPage();
+    await fresh.goto(running.apps[1]);
     await fresh.locator("#account").click();
-    const popup = await openWindow(fresh);
-    await popup.locator("#use-code").click();
-    await popup.locator("#code").fill("0000 0000");
-    await popup.locator("#recover-go").click();
-    await popup.locator("#error", { hasText: "56 letters" }).waitFor({ timeout: 10000 });
-    await popup.locator("#code").fill(recoveryCode.toLowerCase());
-    await Promise.all([popup.waitForEvent("close"), popup.locator("#recover-go").click()]);
+    await fresh.locator("#account-recover").click();
+    await fresh.locator("#account-kit-file").setInputFiles(kitPath);
+    await fresh.locator("#account-kit-save").waitFor({ timeout: 15000 });
+    const [download] = await Promise.all([fresh.waitForEvent("download"), fresh.locator("#account-kit-save").click()]);
+    const newKit = JSON.parse(await readFile(await download.path(), "utf8"));
+    assert.equal(newKit.prism, firstId);
+    assert.notEqual(newKit.share.recovery, JSON.parse(await readFile(kitPath, "utf8")).share.recovery);
+    await fresh.locator("#account-kit-done").click();
     await fresh.locator("#account.signed-in").waitFor({ timeout: 10000 });
     assert.equal((await account(fresh)).id, firstId);
-    // That browser makes its own new code; the old one keeps working.
-    await fresh.locator("#account").click();
-    const again = await openWindow(fresh, "#account-recovery");
-    await again.locator("#make-code").click();
-    await again.locator("#kit-code").waitFor({ timeout: 10000 });
-    assert.notEqual(await again.locator("#kit-code").textContent(), recoveryCode);
-    await Promise.all([again.waitForEvent("close"), again.locator("#kit-done").click()]);
-    await fresh.locator("#account-panel:not(:popover-open)").waitFor({ timeout: 10000 });
 
-    // The lost browser and every recovery code are retired from the new one.
-    const manage = await fresh.context().newPage();
-    await manage.goto(`${running.accounts}/3/`);
-    const rows = manage.locator("#device-list li");
-    await rows.first().waitFor({ timeout: 10000 });
-    assert.equal(await rows.count(), 4);
-    assert.equal(await manage.locator("#device-list li", { hasText: "(this browser)" }).count(), 1);
-    await manage.locator("#device-list li", { hasText: "Browser" }).filter({ hasNotText: "(this browser)" }).getByRole("button", { name: "Remove" }).click();
-    await manage.locator("#device-list li").nth(3).waitFor({ state: "detached", timeout: 10000 });
-    for (const left of [2, 1]) {
-      await manage.locator("#device-list li", { hasText: "Recovery code" }).first().getByRole("button", { name: "Remove" }).click();
-      await manage.locator("#device-list li").nth(left).waitFor({ state: "detached", timeout: 10000 });
-    }
-    assert.equal(await rows.count(), 1);
+    // Recovery removed every other device: the first app stops at its next sign-in.
+    await signOut(first);
+    await first.locator("#account").click();
+    await first.locator("#account-continue").click();
+    await first.locator("#account-title", { hasText: "This device was removed" }).waitFor({ timeout: 10000 });
 
-    // The removed browser hears it through the mailbox and signs nothing more.
-    await page.locator("#account").click();
-    await page.locator("#account-out").click();
-    await page.locator("#account:not(.signed-in)").waitFor({ timeout: 10000 });
-    await page.locator("#account").click();
-    const removed = await openWindow(page);
-    await removed.locator("#continue").click();
-    await removed.locator("#title", { hasText: "This device was removed" }).waitFor({ timeout: 10000 });
-    await removed.close();
-    assert.equal(await account(page), null);
-
-    // A retired code brings nothing back.
-    const third = await (await browser.newContext()).newPage();
-    await third.goto(`${running.accounts}/3/`);
-    await third.locator("#use-code").click();
-    await third.locator("#code").fill(recoveryCode);
-    await third.locator("#recover-go").click();
-    await third.locator("#error", { hasText: "removed" }).waitFor({ timeout: 10000 });
+    // The old kit brings nothing back.
+    const third = await (await newContext()).newPage();
+    await third.goto(running.apps[0]);
+    await third.locator("#account").click();
+    await third.locator("#account-recover").click();
+    await third.locator("#account-kit-file").setInputFiles(kitPath);
+    await third.locator("#account-error", { hasText: "already used" }).waitFor({ timeout: 15000 });
+    assert.equal(await account(third), null);
     await third.context().close();
-    await fresh.context().close();
-  });
-
-  test("a recovery file brings the id back with no registry copy", { skip: Boolean(process.env.PRISM_REGISTRY) && "needs the in-memory mailbox" }, async () => {
-    const owner = await (await browser.newContext({ acceptDownloads: true })).newPage();
-    await owner.goto(`${running.accounts}/3/`);
-    await owner.locator("#create").click();
-    await owner.locator("#kit-code").waitFor({ timeout: 10000 });
-    const [download] = await Promise.all([owner.waitForEvent("download"), owner.locator("#kit-save").click()]);
-    const path = await download.path();
-    const id = await owner.evaluate(() => document.getElementById("kit-code").textContent);
-    await owner.locator("#kit-done").click();
-    await owner.locator("#id").waitFor({ timeout: 10000 });
-    const prism = await owner.locator("#id").getAttribute("title");
-    running.topics.clear();
-    const other = await (await browser.newContext()).newPage();
-    await other.goto(`${running.accounts}/3/`);
-    await other.locator("#use-code").click();
-    await other.locator("#code").fill(id);
-    await other.locator("#recover-go").click();
-    await other.locator("#error", { hasText: "recovery file" }).waitFor({ timeout: 10000 });
-    await other.locator("#code").fill("");
-    await other.locator("#code-file").setInputFiles(path);
-    await other.locator("#code").evaluate((input) => input.value).then((value) => assert.equal(value, id));
-    await other.locator("#recover-go").click();
-    await other.locator("#id").waitFor({ timeout: 10000 });
-    assert.equal(await other.locator("#id").getAttribute("title"), prism);
-    await owner.context().close();
-    await other.context().close();
+    await elsewhere.close();
   });
 });

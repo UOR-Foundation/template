@@ -1,15 +1,16 @@
 #!/usr/bin/env node
-// Prism id comes from stitch (afflom/stitch), pinned by commit: the frame and
-// the sign-in page model their identity on stitch's prototype and follow it
-// as stitch's Prism model is refined. Stitch is not a Foundry component yet,
-// so nothing here edits it: this script copies it.
+// Prism id comes from stitch (afflom/stitch), pinned by commit: the frame runs
+// stitch's Prism id and follows it as stitch's Prism model is refined. Stitch
+// is not a Foundry component yet, so nothing here edits it: this script copies it.
 //
 // identity/prism-id.mjs is generated, one self-contained module: stitch's
-// src/prism-id.js with the part of its generated model it calls (every
-// Stitch.PrismId decision and what those call, and the model's evaluator).
-// The whole model is 1.2 MB; the part Prism id uses is a few KB, so the
-// frame can carry it. identity/stitch.lock names the commit and the hash of
-// every input and of the output.
+// src/prism-id.js, the stitch modules it imports (the relay framing its
+// substrate bus uses, and what that imports), and the part of stitch's
+// generated model they call (every decision they name, what those call, and
+// the model's evaluator). The whole model is 1.2 MB; the part used is a few
+// KB, so the frame can carry it. Each imported module keeps its own scope.
+// identity/stitch.lock names the commit and the hash of every input and of
+// the output.
 //
 //   node identity/stitch-sync.mjs <commit>          fetch that commit, write both
 //   node identity/stitch-sync.mjs <commit> <dir>    read a local stitch checkout at it
@@ -17,14 +18,15 @@
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, posix } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const LOCK = join(root, "identity/stitch.lock");
 const OUT = join(root, "identity/prism-id.mjs");
 const REPOSITORY = "afflom/stitch";
-const SOURCES = ["src/prism-id.js", "src/layer1-uor/generated-model.js"];
+const ENTRY = "src/prism-id.js";
+const MODEL = "src/layer1-uor/generated-model.js";
 const sha256 = (text) => createHash("sha256").update(text).digest("hex");
 
 const [first, dir] = process.argv.slice(2);
@@ -50,11 +52,29 @@ async function source(path) {
   if (!response.ok) throw new Error(`${REPOSITORY}@${commit}:${path} answered ${response.status}`);
   return response.text();
 }
-const [prismId, generated] = await Promise.all(SOURCES.map(source));
+
+// Every module prism-id.js reaches through its imports, dependencies first.
+const IMPORT = /^import\s*\{([^}]*)\}\s*from\s*'([^']+)';\n/gm;
+const sources = {};
+const order = [];
+async function load(path) {
+  if (path in sources) return;
+  sources[path] = null;
+  const text = await source(path);
+  sources[path] = text;
+  for (const [, , from] of text.matchAll(IMPORT)) {
+    const target = posix.join(posix.dirname(path), from);
+    if (target !== MODEL) await load(target);
+  }
+  order.push(path);
+}
+await load(ENTRY);
+const generated = await source(MODEL);
+sources[MODEL] = generated;
 
 // The generated model: `const definitions = {...};`, `const types = {...};`
 // (both JSON), then the digests and sources, then the evaluator from
-// `const qualify` to `export const model=`.
+// `const qualify` to `export const model=`, then named bindings.
 const lines = generated.split("\n");
 const block = (head) => {
   const start = lines.indexOf(`const ${head} = {`);
@@ -67,14 +87,17 @@ const types = block("types");
 const evalStart = lines.findIndex((line) => line.startsWith("const qualify = "));
 const evalEnd = lines.findIndex((line) => line.startsWith("export const model="));
 if (evalStart < 0 || evalEnd < evalStart) throw new Error("the generated model's evaluator moved");
-const evaluator = lines.slice(evalStart, evalEnd + 1).join("\n").replace("export const model=", "const model=");
+const evaluator = lines.slice(evalStart, evalEnd + 1).join("\n");
+const bindings = Object.fromEntries([...generated.matchAll(/^export const (\w+) = model\["([\w.]+)"\];$/gm)].map(([, name, id]) => [name, id]));
 
-// Every decision prism-id.js calls, and everything those call.
+// Every decision the copied modules name, and everything those call:
+// model['Id'], call('name') for relay framing's Stitch.Relay, and the model's
+// named bindings a module imports.
 const qualify = (module, name) => (name.includes("::") ? name.replace("::", ".") : `${module}.${name}`);
 const used = new Set();
 const visit = (id) => {
   if (used.has(id)) return;
-  const definition = definitions[id] ?? (() => { throw new Error(`prism-id.js calls ${id}, which the model lacks`); })();
+  const definition = definitions[id] ?? (() => { throw new Error(`stitch calls ${id}, which the model lacks`); })();
   used.add(id);
   const walk = (node) => {
     if (!node || typeof node !== "object") return;
@@ -83,7 +106,22 @@ const visit = (id) => {
   };
   walk(definition.body);
 };
-for (const [, id] of prismId.matchAll(/model\['([\w.]+)'\]/g)) visit(id);
+const named = new Set();
+for (const path of order) {
+  const text = sources[path];
+  for (const [, id] of text.matchAll(/model\['([\w.]+)'\]/g)) visit(id);
+  const prefix = /model\[`(Stitch\.\w+)\.\$\{name\}`\]/.exec(text)?.[1];
+  if (prefix) for (const [, name] of text.matchAll(/call\('(\w+)'/g)) visit(`${prefix}.${name}`);
+  for (const [, names, from] of text.matchAll(IMPORT)) {
+    if (posix.join(posix.dirname(path), from) !== MODEL) continue;
+    for (const name of names.split(",").map((n) => n.trim()).filter(Boolean)) {
+      if (name === "model") continue;
+      if (!bindings[name]) throw new Error(`${path} imports ${name}, which the model does not bind`);
+      named.add(name);
+      visit(bindings[name]);
+    }
+  }
+}
 const usedTypes = new Set();
 const typeOf = (module, type) => {
   if (!type || ["Nat", "Bool", "Bytes", "String"].includes(type.kind)) return;
@@ -97,25 +135,42 @@ for (const id of used) {
   typeOf(definitions[id].module, definitions[id].result);
 }
 const pick = (all, ids) => Object.fromEntries([...ids].sort().map((id) => [id, all[id]]));
-
-const IMPORT = "import { model } from './layer1-uor/generated-model.js';";
-if (!prismId.includes(IMPORT)) throw new Error("src/prism-id.js no longer imports the model as expected");
-const output = `// GENERATED by identity/stitch-sync.mjs from ${REPOSITORY}@${commit}. DO NOT EDIT.
-// src/prism-id.js with the ${used.size} model decisions it calls
-// (src/layer1-uor/generated-model.js); identity/stitch.lock pins both.
-// Change Prism id in stitch, then run node identity/stitch-sync.mjs <commit>.
-const definitions = ${JSON.stringify(pick(definitions, used))};
+const modelModule = `const definitions = ${JSON.stringify(pick(definitions, used))};
 const types = ${JSON.stringify(pick(types, usedTypes))};
 ${evaluator}
+${[...named].sort().map((name) => `export const ${name} = model["${bindings[name]}"];`).join("\n")}
+`;
 
-${prismId.replace(IMPORT, "")}`;
+// Each module but prism-id.js keeps its own scope: its imports become reads
+// of the modules it names, its exports the object it returns. prism-id.js
+// stays the top level, so its exports are this module's.
+const scopeName = (path) => `stitch$${path.replace(/^src\//, "").replace(/\.js$/, "").replace(/[^\w]/g, "_")}`;
+const EXPORT = /^export (?:async function\*?|function\*?|class|const|let) (\w+)/gm;
+function rewrite(path, text) {
+  return text.replace(IMPORT, (_, names, from) => {
+    const fields = names.split(",").map((n) => n.trim()).filter(Boolean).map((n) => n.replace(/\s+as\s+/, ": "));
+    return `const { ${fields.join(", ")} } = ${scopeName(posix.join(posix.dirname(path), from))};\n`;
+  });
+}
+function scoped(path, text) {
+  if (/^export (?!(?:async function\*?|function\*?|class|const|let) \w)/m.test(text)) throw new Error(`${path} exports in a form this copy does not handle`);
+  const exported = [...text.matchAll(EXPORT)].map(([, name]) => name);
+  const body = rewrite(path, text).replace(/^export (?=(?:async function|function|class|const|let) )/gm, "");
+  return `const ${scopeName(path)} = (() => {\n${body}\nreturn { ${exported.join(", ")} };\n})();\n`;
+}
+const parts = [scoped(MODEL, modelModule), ...order.filter((p) => p !== ENTRY).map((p) => scoped(p, sources[p])), rewrite(ENTRY, sources[ENTRY])];
+const output = `// GENERATED by identity/stitch-sync.mjs from ${REPOSITORY}@${commit}. DO NOT EDIT.
+// src/prism-id.js, the stitch modules it imports (${order.filter((p) => p !== ENTRY).join(", ")}),
+// and the ${used.size} model decisions they call (${MODEL}); identity/stitch.lock pins them.
+// Change Prism id in stitch, then run node identity/stitch-sync.mjs <commit>.
+${parts.join("\n")}`;
 await writeFile(OUT, output);
 const lock = {
   repository: REPOSITORY,
   commit,
-  sources: Object.fromEntries(SOURCES.map((path, i) => [path, sha256([prismId, generated][i])])),
+  sources: Object.fromEntries([...order, MODEL].sort().map((path) => [path, sha256(sources[path])])),
   decisions: [...used].sort(),
   output: { path: "identity/prism-id.mjs", sha256: sha256(output) },
 };
 await writeFile(LOCK, JSON.stringify(lock, null, 2) + "\n");
-console.log(`prism id: stitch ${commit.slice(0, 12)}, ${used.size} decisions, ${output.length} bytes -> identity/prism-id.mjs`);
+console.log(`prism id: stitch ${commit.slice(0, 12)}, ${order.length} modules, ${used.size} decisions, ${output.length} bytes -> identity/prism-id.mjs`);

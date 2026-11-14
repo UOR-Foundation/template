@@ -1,28 +1,55 @@
 {
   "repository": "afflom/stitch",
-  "commit": "78159ba712d33a9c94266967099da2c2899295f3",
+  "commit": "e3efc6ee8b7de24db0e33dd17ea1413d02f82ae5",
   "sources": {
-    "src/prism-id.js": "9cce41fa322f9fcffa9292de3ddc5ea7e0aa614ba4357d10f24872d5fe2884a7",
-    "src/layer1-uor/generated-model.js": "78f124de8b28b8bf51734e6655325333bf872b7c4ac38148a9956af2a33ef452"
+    "src/layer1-uor/contracts.js": "94c67e0811f78029b251c55edbf365b2335040106b8125fa5298e59315d2c2d3",
+    "src/layer1-uor/custody.js": "597b34d6740b6b371e30af24ee18cd10f8c4142da38e616b9ec5e04d042ab74c",
+    "src/layer1-uor/generated-model.js": "5e6f9974741e6079400d75bd1632ccd2334ad640fd1735554e0a6cf88fb805b7",
+    "src/layer2-schedulers/policy.js": "8f2074f8fe07a7b1fda51896d78f11a797564afb64accebc7291261e5c00639f",
+    "src/layer5-transport/relay-framing.js": "35672c5720f5f1e5d009f1875a1c63de3a6badea2546d66baf73c77fb7c90ae0",
+    "src/prism-id.js": "556e725270602f5706a61d5682fe5fdb50aa699c174a19d5cd900db09b719b74"
   },
   "decisions": [
+    "Stitch.Budget.reserveAllowed",
+    "Stitch.Budget.settlementAllowed",
     "Stitch.PrismId.actionAllowed",
     "Stitch.PrismId.actionFresh",
     "Stitch.PrismId.actionGate",
+    "Stitch.PrismId.attestationBinds",
     "Stitch.PrismId.bindAllowed",
     "Stitch.PrismId.boundaryKeyAdmitted",
     "Stitch.PrismId.boundaryShared",
     "Stitch.PrismId.boundaryVisibleTo",
     "Stitch.PrismId.deviceMaySign",
     "Stitch.PrismId.hostAdmitsDevice",
+    "Stitch.PrismId.hybridWrapRequired",
     "Stitch.PrismId.linkGate",
     "Stitch.PrismId.linkOfferAccepted",
     "Stitch.PrismId.mayAdminister",
+    "Stitch.PrismId.mayShareBoundary",
     "Stitch.PrismId.receivesPrivateBoundary",
-    "Stitch.PrismId.scopeAdmits"
+    "Stitch.PrismId.recoveryBindAllowed",
+    "Stitch.PrismId.revocationCounts",
+    "Stitch.PrismId.scopeAdmits",
+    "Stitch.PrismId.thresholdMet",
+    "Stitch.Relay.admissionAllowed",
+    "Stitch.Relay.admitCapacity",
+    "Stitch.Relay.append",
+    "Stitch.Relay.appendAllowed",
+    "Stitch.Relay.assemblyCurrent",
+    "Stitch.Relay.beginVerification",
+    "Stitch.Relay.deliveryAllowed",
+    "Stitch.Relay.effectAllowed",
+    "Stitch.Relay.frameAllowed",
+    "Stitch.Relay.limits",
+    "Stitch.Relay.ready",
+    "Stitch.Relay.release",
+    "Stitch.Relay.sameIdentity",
+    "Stitch.Relay.signalLifetime",
+    "Stitch.Relay.warmLifetime"
   ],
   "output": {
     "path": "identity/prism-id.mjs",
-    "sha256": "a7f5cea26a47319abbddb0684a7c80f5c92b51bd49c57509ebcf99fa147c2ce7"
+    "sha256": "262418eee8fcfbc3300b8c1a2f903662dee5a01b0467b522d37f6644bd0ef718"
   }
 }
