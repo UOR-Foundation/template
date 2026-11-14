@@ -11,8 +11,10 @@ import { access, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DEFAULT_REGISTRY } from "./register.mjs";
+import { prepareWorkerRuntime } from "./worker-runtime.mjs";
 
 const site = process.argv[2] ?? "site";
+await prepareWorkerRuntime(site, fileURLToPath(new URL("../try/vendor", import.meta.url)));
 const read = (path) => readFile(join(site, path), "utf8");
 
 const escape = (text) =>
@@ -93,7 +95,7 @@ for (const icon of ["icon-192.png", "icon-512.png", "maskable-512.png", "apple-t
 const live = new URL(meta.live);
 // Holo Search: the top bar's home, and where its address bar resolves a name,
 // a hash or a link, fetches the app and verifies it before opening it.
-const holoSearch = new URL("https://humuhumu33.github.io/holo-search/");
+const holoSearch = new URL("https://uor-foundation.github.io/holo-search/");
 // The Prism registry: the canonical kappa registry, whose index lists every
 // Prism app by its self-verifying address, with its stars.
 const prismRegistry = new URL(`https://${DEFAULT_REGISTRY}/`);
