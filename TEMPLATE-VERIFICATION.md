@@ -26,6 +26,8 @@ or test is added without the other two.
 | Gate | Planted defect | Result |
 | --- | --- | --- |
 | `check-model` | `CONFORMANCE.md` disagrees with the register | rejected |
+| `check-model` | an authority's committed artifact with no recorded checksum; one whose checksum no longer matches (a file altered, added or removed); a checksum with no artifact to check it against; an artifact that is missing, outside the repository, empty, or whose checksum is not a SHA-256 | all rejected |
+
 | `audit-limits` | a shipped crate returns `Result<_, E>` for an `E` no register row declares; a declared `E` whose negative test does not exist; one whose negative test is not a registered ID | all rejected |
 | `audit-deferral` | a deferral marker in a crate and in the gate's own source | both rejected |
 | honesty meta-gate | an ID with no test | rejected |
@@ -34,6 +36,13 @@ or test is added without the other two.
 | `audit-bootstrap` | a floating/copied action, mutable SDK tag, changed universal file, narrowed boundary, shallow/credential-retaining checkout, copied project renderer, omitted standards lock, acceptance bypass, deploy-job signing privilege, incomplete release lifecycle, or a bootstrap that drops a native architecture from main or tags, cancels or replaces a main run, or skips runs by path, condition or matrix exclusion | all rejected |
 | `audit-bootstrap` (`proof_reuse_is_confined`) | a cache key that omits any one of its eight proof inputs, the SDK digest named by a constant, the Lean toolchain read from another file, the ref spliced into the script or dropped, the event line removed, reuse on a tag or on any event, reuse without the read-time check, a stale kept proof surviving a full proof, a recipe that stops proving or keeps a proof without its inputs, a second use of the event, an early exit, and the `merge_group` trigger dropped | all rejected |
 | `xtask proof-reuse` (`binds`) | an attestation ID that does not resolve, a manifest, LexLean attestation or acceptance changed after sealing, a verdict that is not verified, an acceptance of another attestation, a changed model or meaning, another Lean, Lake, architecture or SDK image, a changed Lake workspace file, a modified input, inputs recorded for another attestation, and a Lake path outside `app/` | all proved again |
+
+An authority's artifact may be committed when its row names it and records a
+SHA-256 over it, which `check-model` recomputes. The template cites no
+authority, so the fixtures build throwaway repositories with one; the rule is
+stated once, in `AUTHORITY_RULE`, and a test holds the doc comment of
+`AuthorityRow`, the header of `model/authorities.toml` and the generated
+`CONFORMANCE.md` to that text.
 
 `audit-limits` reads the sanctioned error types from `failure` and `negative` on
 register rows and has no list of its own. The template's register is empty, so
