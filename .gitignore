@@ -30,3 +30,7 @@ site/manifest.webmanifest
 # Brand kit sources fetched by bootstrap/brand-sync.mjs for brand-fonts.py.
 .brand-src/
 screens/
+
+# The proof `just app` keeps for bootstrap.yml to cache (see Justfile).
+.prism-proof/
+.prism-proof.log
