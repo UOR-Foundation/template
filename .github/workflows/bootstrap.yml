@@ -59,6 +59,15 @@ jobs:
         with:
           path: .prism-proof
           key: prism-proof-${{ runner.os }}-${{ runner.arch }}-sdk-${{ steps.proof-inputs.outputs.sdk }}-lean-${{ steps.proof-inputs.outputs.lean }}-${{ hashFiles('app/**', 'prismpm.lock', 'Justfile', 'rust-toolchain.toml') }}
+
+      - name: Reserve disk for the locked SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ${RUNNER_ENVIRONMENT:-} == github-hosted && ${RUNNER_OS:-} == Linux ]]; then
+            sudo rm -rf -- /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+          fi
+          df -h / /var/lib/docker
       - name: Run the template gate through the locked SDK
         shell: bash
         # A ref is passed through the environment, never spliced into the script.
