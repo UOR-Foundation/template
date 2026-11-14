@@ -11,6 +11,7 @@
 
 #![deny(missing_docs)]
 
+pub mod artifact;
 pub mod codegen;
 pub mod registry;
 
@@ -118,6 +119,41 @@ impl Model {
             if a.citation.trim().is_empty() {
                 return Err(bad(format!("{}: an authority with no citation", a.id)));
             }
+            match (&a.artifact, a.checksum.as_str()) {
+                (Some(artifact), "none") => {
+                    return Err(bad(format!(
+                        "{}: artifact `{artifact}` is committed but the row records no \
+                         checksum. An authority's artifact may be committed only with a \
+                         checksum that `check-model` recomputes (R6)",
+                        a.id
+                    )))
+                }
+                (None, checksum) if checksum != "none" => {
+                    return Err(bad(format!(
+                        "{}: records a checksum but names no `artifact`, so nothing is \
+                         checked against it. A checksum is recorded and checked, or it is \
+                         `none` with a reason (R6)",
+                        a.id
+                    )))
+                }
+                _ => {}
+            }
+            if let Some(artifact) = &a.artifact {
+                if !artifact::is_inside(artifact) {
+                    return Err(bad(format!(
+                        "{}: artifact `{artifact}` must be a relative path inside the \
+                         repository",
+                        a.id
+                    )));
+                }
+                if !artifact::is_sha256(&a.checksum) {
+                    return Err(bad(format!(
+                        "{}: checksum `{}` of artifact `{artifact}` must be 64 lowercase hex \
+                         digits (a SHA-256)",
+                        a.id, a.checksum
+                    )));
+                }
+            }
             if a.checksum == "none" && a.checksum_reason.trim().is_empty() {
                 return Err(bad(format!(
                     "{}: no checksum and no reason. A missing checksum must be a stated \
@@ -211,5 +247,49 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// Prose with its comment markers removed and its lines joined.
+    fn words(text: &str, markers: &[&str]) -> String {
+        text.lines()
+            .map(|line| {
+                let line = line.trim();
+                markers
+                    .iter()
+                    .find_map(|m| line.strip_prefix(m))
+                    .unwrap_or(line)
+                    .trim()
+            })
+            .collect::<Vec<_>>()
+            .join(" ")
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+
+    /// The rule for an authority and its artifact is stated in three places ---
+    /// the doc comment of `AuthorityRow`, the header of `model/authorities.toml`
+    /// and the generated `CONFORMANCE.md` --- and they say the same thing. The
+    /// issue this closes was two of them disagreeing.
+    #[test]
+    fn the_authority_rule_is_one_rule() {
+        let rule = words(registry::AUTHORITY_RULE, &[]);
+        let root = repo_root();
+        let doc = words(include_str!("registry.rs"), &["///"]);
+        assert!(
+            doc.contains(&rule),
+            "the doc comment of `AuthorityRow` must state AUTHORITY_RULE"
+        );
+        let header = std::fs::read_to_string(root.join("model/authorities.toml"))
+            .expect("authorities.toml reads");
+        assert!(
+            words(&header, &["# ", "#"]).contains(&rule),
+            "the header of model/authorities.toml must state AUTHORITY_RULE"
+        );
+        let generated = codegen::render_conformance(&Model::load_from_repo_root().expect("loads"));
+        assert!(
+            words(&generated, &[]).contains(&rule),
+            "CONFORMANCE.md is generated from AUTHORITY_RULE"
+        );
     }
 }

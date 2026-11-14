@@ -1,9 +1,20 @@
 # model/authorities.toml --- what this repository cites rather than proves.
 #
-# A `some-true` claim is reproduced from an authority and is not established
-# here. This file is where the authority is named well enough for a third party
-# to find it, with a checksum over the committed artifact when there is one and
-# a stated reason when there is not.
+# An authority is cited, never re-derived, and never gated on: what it states is
+# not claimed as established here, so the claim that reproduces it stays
+# `some-true`, and that is all "gated on" excludes. Its artifact (a standard's
+# text, a corpus) may be committed when its row names the path in `artifact` and
+# records in `checksum` a SHA-256 over the committed bytes, which
+# `cargo xtask check-model` recomputes; a conformance test may then use a
+# committed corpus as its oracle, as evidence for a `build` claim. With nothing
+# committed, `checksum` is `none` and `checksum_reason` says why.
+#
+# A file's checksum is the SHA-256 of its bytes. A directory's is the SHA-256 of
+# its manifest: one `<sha256 of file>  <path>` line per file, the path relative
+# to the directory, in byte order of the paths. Both are 64 lowercase hex digits.
+#
+# This file is where the authority is named well enough for a third party to find
+# it.
 #
 # `realized_by` lists the conformance IDs that are *evidence* this repository
 # realizes the cited fact. Evidence is not proof, and the meta-gate fails the
