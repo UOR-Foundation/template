@@ -7,7 +7,7 @@
 // as data: images on any page. Nothing here is a secret but the key.
 //
 //   GET  /search?q=<words>&page=<n>   nine landscape photos; no words: wallpapers
-//   GET  /image?src=<images.unsplash.com URL>&w=<px>[&h=<px>]   the photo's bytes
+//   GET  /image?src=<images.unsplash.com URL>&w=<px>[&h=<px>][&q=<40-95>][&fm=jpg|webp|avif]   the photo's bytes
 //   POST /use?id=<photo id>           Unsplash's download event, when one is chosen
 //
 // Deploy (frame/unsplash/README.md): wrangler secret put UNSPLASH_ACCESS_KEY,
@@ -24,6 +24,10 @@ const CORS = {
 
 const json = (body, status = 200, headers = {}) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json; charset=utf-8", ...CORS, ...headers } });
+// The widest side a photo is served at: a 5K screen's width, so any screen gets one image pixel per pixel.
+const MAX_SIDE = 5120;
+// The formats Unsplash renders; the caller picks one its browser decodes (jpg when it says nothing).
+const FORMATS = new Set(["jpg", "webp", "avif"]);
 const clamp = (text, low, high, fallback) => Math.min(Math.max(Number.parseInt(text ?? "", 10) || fallback, low), high);
 
 // What the frame needs of a photo, and nothing else: it stores this, so the
@@ -84,11 +88,15 @@ async function image(url) {
     throw new Failure("src is not a URL", 400);
   }
   if (source.protocol !== "https:" || source.host !== IMAGES) throw new Failure("src is not an Unsplash image", 400);
-  const width = clamp(url.searchParams.get("w"), 16, 2560, 2400);
-  const height = url.searchParams.has("h") ? clamp(url.searchParams.get("h"), 16, 2560, 150) : null;
-  source.searchParams.set("fm", "jpg");
-  source.searchParams.set("fit", "crop");
-  source.searchParams.set("q", height ? "60" : "72");
+  const width = clamp(url.searchParams.get("w"), 16, MAX_SIDE, 2400);
+  const height = url.searchParams.has("h") ? clamp(url.searchParams.get("h"), 16, MAX_SIDE, 150) : null;
+  const format = FORMATS.has(url.searchParams.get("fm")) ? url.searchParams.get("fm") : "jpg";
+  const quality = url.searchParams.has("q") ? clamp(url.searchParams.get("q"), 40, 95, 72) : height ? 60 : 72;
+  source.searchParams.set("fm", format);
+  // With a height the photo is cropped to the box (a thumbnail); with a width alone it is scaled, never past
+  // its own size, so asking for a screen wider than the original returns the original's every pixel.
+  source.searchParams.set("fit", height ? "crop" : "max");
+  source.searchParams.set("q", String(quality));
   source.searchParams.set("w", String(width));
   if (height) source.searchParams.set("h", String(height));
   const response = await fetch(source, { cf: { cacheEverything: true, cacheTtl: 2592000 } });
