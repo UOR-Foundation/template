@@ -10,7 +10,15 @@
 // an unchanged deploy is not. Every file but index.html is immutable per
 // deploy (the holo is content-addressed), so the cache is the source and the
 // network the fallback; index.html goes to the network first, so a new deploy
-// is seen on the next visit, and the new worker then tells the page once.
+// is seen on the next visit.
+//
+// This file's bytes are the same in every deploy, so the browser never installs
+// a new worker for one: the worker that kept the first visit's files would serve
+// them forever, under every later index.html. So each navigation that reaches
+// the network also asks precache.json for the deploy's version, and a version
+// this worker does not keep becomes its cache before the page is answered: the
+// page's own files then come from the network into the new cache, and the
+// earlier deploy's cache is dropped.
 const MANIFEST = "./precache.json";
 let cacheName = null;
 
@@ -27,16 +35,39 @@ async function currentCacheName() {
   return cacheName;
 }
 
+// Opens the cache for this deploy's manifest and keeps its eager files there.
+async function keep(list) {
+  const cache = await caches.open(`prism-${list.version}`);
+  await cache.put(MANIFEST, new Response(JSON.stringify(list), { headers: { "content-type": "application/json" } }));
+  const eager = list.files.filter((file) => file.eager).map((file) => new Request(file.path, { cache: "reload" }));
+  await cache.addAll(eager);
+}
+
 self.addEventListener("install", (event) => {
   event.waitUntil((async () => {
     const list = await manifest();
+    await keep(list);
     cacheName = `prism-${list.version}`;
-    const cache = await caches.open(cacheName);
-    await cache.put(MANIFEST, new Response(JSON.stringify(list), { headers: { "content-type": "application/json" } }));
-    const eager = list.files.filter((file) => file.eager).map((file) => new Request(file.path, { cache: "reload" }));
-    await cache.addAll(eager);
   })());
 });
+
+// A deploy this worker does not keep becomes its cache, once, however many
+// navigations ask at the same time. Offline, or with no manifest, the kept
+// deploy stays.
+let moving = null;
+function follow() {
+  moving ??= (async () => {
+    const list = await manifest();
+    const name = `prism-${list.version}`;
+    if (name === (await currentCacheName())) return;
+    await keep(list);
+    cacheName = name;
+    for (const old of await caches.keys()) {
+      if (old.startsWith("prism-") && old !== name) await caches.delete(old);
+    }
+  })().catch(() => {}).finally(() => { moving = null; });
+  return moving;
+}
 
 self.addEventListener("activate", (event) => {
   event.waitUntil((async () => {
@@ -85,17 +116,24 @@ self.addEventListener("fetch", (event) => {
   if (url.pathname.endsWith("/precache.json")) return;
   const isPage = event.request.mode === "navigate" || url.pathname.endsWith("/") || url.pathname.endsWith("/index.html");
   event.respondWith((async () => {
-    const name = await currentCacheName();
-    const cache = name ? await caches.open(name) : null;
     if (isPage) {
+      let fresh = null;
       try {
-        const fresh = await fetch(event.request);
-        if (fresh.ok && cache) await cache.put("./", fresh.clone());
-        return fresh;
+        fresh = await fetch(event.request);
       } catch {
+        const name = await currentCacheName();
+        const cache = name ? await caches.open(name) : null;
         return (cache && ((await cache.match("./")) ?? (await cache.match(event.request)))) ?? Response.error();
       }
+      if (fresh.ok) {
+        await follow();
+        const name = await currentCacheName();
+        if (name) await (await caches.open(name)).put("./", fresh.clone());
+      }
+      return fresh;
     }
+    const name = await currentCacheName();
+    const cache = name ? await caches.open(name) : null;
     const hit = cache && (await cache.match(event.request, { ignoreSearch: true }));
     if (hit) return hit;
     const fresh = await fetch(event.request);

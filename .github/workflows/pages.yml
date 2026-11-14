@@ -36,6 +36,9 @@ jobs:
       contents: read
       id-token: write
       attestations: write
+      # The input-addressed holo cache (ci/kappa-cache.mjs) stores this app's
+      # verified holos in its own ghcr.io package.
+      packages: write
     steps:
       - name: Check out the exact event revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -49,7 +52,17 @@ jobs:
           node bootstrap/brand-sync.mjs --check
           python3 -I bootstrap/brand-fonts.py --check
           node bootstrap/frame-sync.mjs --check
+      - name: Look up this build by its input kappa
+        # A holo is a pure function of app/, the Justfile recipe that builds it
+        # and the SDK prismpm.lock pins. When this owner already built those
+        # exact bytes, the signed, replayed holo is used and the build skipped.
+        id: cache
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node ci/kappa-cache.mjs restore app/.prism/build/kappa/app.holo app Justfile prismpm.lock
       - name: Build and verify the holo through the locked SDK
+        if: steps.cache.outputs.hit != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -59,12 +72,17 @@ jobs:
             exit 64
           fi
           docker_config=$(mktemp -d)
-          trap 'rm -rf "$docker_config"' EXIT
+          # The SDK's /tmp is a private directory on the runner's own disk, so the
+          # build's scratch space is bounded by the disk the runner has, not by a
+          # fixed size; it is removed with the credentials when the step ends.
+          scratch=$(mktemp -d)
+          mkdir -p "$scratch/prismpm-home/.docker"
+          trap 'rm -rf "$docker_config" "$scratch"' EXIT
           printf '{}\n' >"$docker_config/config.json"
           docker run --rm \
             --user "$(id -u):$(id -g)" \
             --group-add "$(stat -c '%g' /var/run/docker.sock)" \
-            --tmpfs /tmp:rw,exec,nosuid,size=2g \
+            --volume "$scratch:/tmp" \
             --volume "$PWD:$PWD" \
             --volume /var/run/docker.sock:/var/run/docker.sock \
             --volume "$docker_config:/tmp/prismpm-home/.docker:ro" \
@@ -85,17 +103,47 @@ jobs:
             printf 'expected one holo, found %d\n' "${#holos[@]}" >&2
             exit 64
           fi
-          fingerprint=$(node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).archive_fingerprint)' "$(dirname "${holos[0]}")/application/holo-identities.json")
+          # The archive fingerprint is the holo's last 32 bytes, the BLAKE3 of
+          # the rest, so a cached holo carries it as surely as a fresh one.
+          fingerprint=$(node -e 'const b=require("fs").readFileSync(process.argv[1]);process.stdout.write(b.subarray(b.length-32).toString("hex"))' "${holos[0]}")
+          identities="$(dirname "${holos[0]}")/application/holo-identities.json"
+          if [[ -f $identities ]]; then
+            recorded=$(node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).archive_fingerprint)' "$identities")
+            if [[ $recorded != "$fingerprint" ]]; then
+              echo "fingerprint $fingerprint differs from the recorded $recorded" >&2
+              exit 1
+            fi
+          fi
           {
             echo "path=${holos[0]}"
             echo "fingerprint=$fingerprint"
           } >>"$GITHUB_OUTPUT"
+      - name: Store this build under its input kappa
+        if: steps.cache.outputs.hit != 'true'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          HOLO: ${{ steps.holo.outputs.path }}
+          KAPPA: ${{ steps.cache.outputs.kappa }}
+        run: node ci/kappa-cache.mjs save "$HOLO"
       - name: Sign the holo's provenance as this repository's workflow
         id: attest
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: ${{ steps.holo.outputs.path }}
           show-summary: false
+      - name: Draw the social image and the icons for this app.json
+        # page.mjs refuses an og.png or icon not drawn for this app.json. Drawing
+        # them here, with Pillow pinned by hash, means a new app needs neither
+        # Python nor Pillow on its author's machine; the committed images only
+        # serve a local preview.
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/draw"
+          "$RUNNER_TEMP/draw/bin/pip" install --quiet --no-deps --only-binary :all: --require-hashes -r bootstrap/draw-requirements.txt
+          "$RUNNER_TEMP/draw/bin/python" -I bootstrap/og.py
+          "$RUNNER_TEMP/draw/bin/python" -I bootstrap/icons.py
       - name: Assemble the page
         shell: bash
         env:
@@ -132,17 +180,22 @@ jobs:
           npm install --no-audit --no-fund --global playwright@1.56.1
           playwright install --with-deps chromium
           node bootstrap/screens.mjs site screens
+      - name: A first visit's weight, counted once the page has started (FR-03)
+        shell: bash
+        run: |
+          set -euo pipefail
+          node bootstrap/weight.mjs site
       - name: Keep the screens
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: screens
           path: screens
           if-no-files-found: ignore
       - name: Configure Pages
-        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d
       - name: Upload the page
-        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9
         with:
           path: site
 
@@ -160,4 +213,4 @@ jobs:
     steps:
       - name: Deploy
         id: deployment
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346
