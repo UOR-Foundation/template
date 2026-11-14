@@ -10,9 +10,6 @@
 //                                    theme panel and the photos
 //                                    (frame/panels.mjs, frame/panels.css),
 //                                    whose hash the frame carries
-//   <out>/<sha256>/prism-id.mjs      immutable: Prism id (identity/prism-id.mjs,
-//                                    pinned to stitch), whose hash the
-//                                    panels module carries
 //   <out>/current.json               the pointer: { spec, sha256, module, source }
 //   <out>/backdrops/<id>.jpg         the immersive photos, and <id>-thumb.jpg
 //
@@ -48,17 +45,9 @@ const minified = async (source, what) => {
   return Buffer.from(result.code, "utf8");
 };
 
-// Prism id first: the panels module carries its hash.
-const prismBytes = await minified(await read("identity/prism-id.mjs"), "prism id");
-const prismSha = named(prismBytes);
-await mkdir(join(out, prismSha), { recursive: true });
-await writeFile(join(out, prismSha, "prism-id.mjs"), prismBytes);
-
-// The panels module next: the frame carries its hash.
+// The panels module first: the frame carries its hash.
 const themeSource = await read("frame/panels.mjs");
-let themeModule = bake(at(themeSource), '"/*PANELS_CSS*/"', minify(await read("frame/panels.css")), "frame/panels.mjs");
-themeModule = bake(themeModule, '"/*PRISM_ID*/"', prismSha, "frame/panels.mjs");
-const themeBytes = await minified(themeModule, "panels");
+const themeBytes = await minified(bake(at(themeSource), '"/*PANELS_CSS*/"', minify(await read("frame/panels.css")), "frame/panels.mjs"), "panels");
 const themeSha = named(themeBytes);
 await mkdir(join(out, themeSha), { recursive: true });
 await writeFile(join(out, themeSha, "prism-panels.mjs"), themeBytes);
@@ -86,4 +75,4 @@ for (const [, id] of themeSource.matchAll(/\bid: "([\w-]+)",\s*\n\s*image: "http
 if (!photos) throw new Error("frame/panels.mjs names no built-in photo");
 const pointer = { spec: "prism/frame/1", sha256, module: `${sha256}/prism-frame.mjs`, source: { repository: "UOR-Foundation/template", commit } };
 await writeFile(join(out, "current.json"), JSON.stringify(pointer, null, 2) + "\n");
-console.log(`frame: ${sha256} (${bytes.length} bytes), panels ${themeSha} (${themeBytes.length} bytes), prism id ${prismSha} (${prismBytes.length} bytes), ${photos} photos -> ${out}/current.json`);
+console.log(`frame: ${sha256} (${bytes.length} bytes), panels ${themeSha} (${themeBytes.length} bytes), ${photos} photos -> ${out}/current.json`);
