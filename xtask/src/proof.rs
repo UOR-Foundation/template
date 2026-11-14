@@ -94,6 +94,20 @@ fn workspace_paths(lexlean: &Value) -> Result<Vec<String>, String> {
         .collect()
 }
 
+/// The digest the manifest binds for the acceptance document. PrismPM 0.4.0
+/// keeps `browser_timing`, a per-run measurement, out of it: the manifest
+/// hashes the canonical JSON of the acceptance without that field (sorted
+/// keys, no whitespace), so two runs of one build share an attestation ID.
+fn acceptance_digest(acceptance: &Value) -> Result<String, String> {
+    let mut comparable = acceptance.clone();
+    if let Some(object) = comparable.as_object_mut() {
+        object.remove("browser_timing");
+    }
+    serde_json::to_vec(&comparable)
+        .map(|bytes| hex(&bytes))
+        .map_err(|error| format!("application-acceptance.json: {error}"))
+}
+
 /// The whole read-time check. Pure, so each planted defect is a unit test.
 fn binds(kept: &Kept, observed: &Observed) -> Result<(), String> {
     if !is_id(&kept.attestation) {
@@ -123,10 +137,14 @@ fn binds(kept: &Kept, observed: &Observed) -> Result<(), String> {
         text(&manifest, "/lexlean_attestation_sha256")?,
         &hex(&kept.lexlean),
     )?;
+    // PrismPM's own verifier reads the acceptance only in canonical framing.
+    if serde_json::to_vec(&acceptance).ok().as_deref() != Some(kept.acceptance.as_slice()) {
+        return Err("the application acceptance is not canonical JSON".into());
+    }
     same(
         "the application acceptance",
         text(&manifest, "/acceptance_sha256")?,
-        &hex(&kept.acceptance),
+        &acceptance_digest(&acceptance)?,
     )?;
     same("the LexLean status", text(&lexlean, "/status")?, "verified")?;
     same(
@@ -335,7 +353,7 @@ pub fn keep(root: &Path, attestation: &str) -> Result<(), Fail> {
 
 #[cfg(test)]
 mod tests {
-    use super::{binds, hex, Kept, Observed};
+    use super::{acceptance_digest, binds, hex, Kept, Observed};
     use serde_json::json;
 
     const LEAN: &str = "e8baaa71855a616dc351028f3ad2200051b0671f423a1696a100e809302d5550";
@@ -381,7 +399,7 @@ mod tests {
         let lexlean = serde_json::to_vec(&proof.lexlean).unwrap();
         let acceptance = serde_json::to_vec(&proof.acceptance).unwrap();
         let manifest = serde_json::to_vec(&json!({
-            "acceptance_sha256": hex(&acceptance),
+            "acceptance_sha256": acceptance_digest(&proof.acceptance).unwrap(),
             "build_id": "2".repeat(64),
             "lexlean_attestation_sha256": hex(&lexlean),
             "schema": "prismpm/application-verification-manifest/2"
@@ -412,6 +430,30 @@ mod tests {
     #[test]
     fn a_proof_of_these_exact_inputs_is_reused() {
         assert_eq!(binds(&seal(&proof()), &observed()), Ok(()));
+    }
+
+    /// PrismPM 0.4.0 publishes per-run `browser_timing` in the acceptance and
+    /// leaves it out of the manifest's digest: such a proof still reads back,
+    /// and any other change to the acceptance still does not.
+    #[test]
+    fn browser_timing_is_outside_the_acceptance_digest() {
+        let mut timed = proof();
+        timed.acceptance["browser_timing"] = json!({"engine": "chromium", "vectors": []});
+        let kept = seal(&timed);
+        assert_ne!(
+            hex(&kept.acceptance),
+            acceptance_digest(&timed.acceptance).unwrap()
+        );
+        assert_eq!(binds(&kept, &observed()), Ok(()));
+
+        let mut changed = seal(&timed);
+        let mut acceptance: serde_json::Value =
+            serde_json::from_slice(&changed.acceptance).unwrap();
+        acceptance["build_id"] = json!("3".repeat(64));
+        changed.acceptance = serde_json::to_vec(&acceptance).unwrap();
+        assert!(binds(&changed, &observed())
+            .unwrap_err()
+            .starts_with("the application acceptance differs"));
     }
 
     #[test]
