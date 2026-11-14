@@ -346,9 +346,14 @@ first. Every instance gets the same page; an app edits one file.
   deploy shows one "Update available" chip and reloads only when asked.
 - **The gate.** `lighthouserc.json` asserts 100 in performance, accessibility,
   best practices and SEO on the mobile profile, LCP under 1.5 s, TBT under
-  100 ms, CLS 0, under 120 KiB and at most two third-party requests (the
-  frame's pointer and module); `pages.yml` runs
-  Lighthouse CI on the assembled site before anything is deployed.
+  100 ms, CLS 0 and at most two third-party requests (the frame's pointer
+  and module); `pages.yml` runs Lighthouse CI on the assembled site before
+  anything is deployed. The weight is `bootstrap/weight.mjs` (FR-03): a first
+  visit on a phone with no worker, counted once the frame is running and the
+  shield has replayed every example, so every run counts the same page. The
+  frame's bytes (its host, the frame-locked site files, the fonts and the
+  worker runtime) are held to 100 KiB, the app's (everything else, from the
+  page to the holo) to 120 KiB, and the visit to 28 requests.
 
 `.github/workflows/pages.yml` checks the brand wiring on every push to
 `main`, builds and verifies the holo through the locked SDK, signs its

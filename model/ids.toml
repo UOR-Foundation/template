@@ -32,3 +32,15 @@ id = "FR-01"
 level = "build"
 suite = "frame"
 statement = "With a working worker, the page loads and verifies the archive only in that worker before using its identities or guest"
+
+[[id]]
+id = "FR-02"
+level = "build"
+suite = "frame"
+statement = "A returning browser whose worker kept an earlier deploy serves this deploy from the navigation that brings its page"
+
+[[id]]
+id = "FR-03"
+level = "build"
+suite = "frame"
+statement = "A first visit's bytes are counted once the page has started, the frame's and the app's each within its own budget"

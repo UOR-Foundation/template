@@ -29,6 +29,8 @@ model does not sanction.
 | ID | Level | Statement |
 | --- | --- | --- |
 | `FR-01` | `build` | With a working worker, the page loads and verifies the archive only in that worker before using its identities or guest |
+| `FR-02` | `build` | A returning browser whose worker kept an earlier deploy serves this deploy from the navigation that brings its page |
+| `FR-03` | `build` | A first visit's bytes are counted once the page has started, the frame's and the app's each within its own budget |
 
 ## Cited authorities
 

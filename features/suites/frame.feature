@@ -25,3 +25,27 @@ Feature: frame
     And every runtime module keeps its locked bytes except that one import specifier
     And an unknown bare import refuses worker runtime assembly
     And fresh scaffold rendering packages from the explicit locked source without requiring a staged vendor directory
+
+  @FR-02 @build
+  Scenario: A returning browser whose worker kept an earlier deploy serves this deploy from the navigation that brings its page
+    Given the production service worker with a browser's caches and network stood in
+    And a browser whose worker kept an earlier deploy, while the network serves a newer one
+    When the page is navigated to
+    Then the navigation asks precache.json for the deploy's version
+    And a version the worker does not keep becomes its cache before the page is answered
+    And the page's modules then come from this deploy, not the kept one
+    And the earlier deploy's cache is dropped
+    And the same deploy is served from its cache without fetching a kept file again
+    And offline, the kept deploy answers the navigation and stays
+    And navigations at the same time move to the new deploy once
+    And a fresh install keeps its deploy and later navigations do not move it
+
+  @FR-03 @build
+  Scenario: A first visit's bytes are counted once the page has started, the frame's and the app's each within its own budget
+    Given a first visit to the assembled site on a phone, with no service worker
+    When the canonical frame is running and the shield has replayed every example, and the network is quiet
+    Then every byte over the wire is counted, the page's workers included
+    And the frame's host, the frame-locked site files, the fonts and the worker runtime count as the frame's
+    And everything else counts as the app's
+    And the frame's bytes, the app's bytes and the requests are each held to their own budget
+    And a blob or data URL is not counted again
