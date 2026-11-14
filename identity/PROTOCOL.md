@@ -30,12 +30,16 @@ build reads `PRISM_RELAY` from the live frame. A page that does not admit the
 relay keeps the id on its device: creating, signing in and recovery work, but
 linking and sync do not.
 
-## Sign-in
+## The session, made without asking
+
+There is no sign-in. On the visitor's first touch of the page (or reach for
+the icon), the frame makes this origin's device and a new id if it has none,
+then this app's session if it has none or it expired:
 
 1. The frame takes in the sync messages the relay holds for every boundary
-   key it has, so a device removed elsewhere stops here
-   (`canSign` is false: the panel says "This device was removed" and forgets
-   the device).
+   key it has, and the id's public log, so a device removed elsewhere stops
+   here (`canSign` is false: it drops the session, forgets the device and
+   makes a new id). It checks this once per page load even with a session.
 2. It makes a non-extractable P-256 session key and signs
    `signAction(device, "prism/session/1", {sessionKey, expires}, {audience: location.origin})`.
    `expires` is 7 days away; the most allowed is 8.
@@ -54,7 +58,8 @@ its expiry.
 
 `createPrism`, then `createRecovery(session, {threshold: 1, guardians: [{paper: true}]})`.
 The recovery kit is `{kind: "prism/recovery-kit/1", prism, share, records}`,
-with the paper share and the log, downloaded as JSON.
+with the paper share and the log. It waits in this origin's `prism-id` store
+(key `kit`) until the visitor saves it from the panel, as JSON.
 
 ## Linking
 
@@ -67,7 +72,7 @@ Stitch's out-of-band link, over the relay:
 3. The person types those six digits into the first device, which calls
    `acceptLinkRequest` with them as `confirmCode` and publishes the answer.
    A wrong code is refused and the offer stays usable until it expires.
-4. New device: `completeLink`, then sign-in.
+4. New device: `completeLink`, then its session. The id it made on its own is dropped.
 
 ## Recovery
 
@@ -91,7 +96,7 @@ recovering), it also publishes the id's public log with `publishLog`, on a
 topic derived from the prism id alone. `verifySession` passes the relay to
 `verifyAction` (`{bus}`), which merges what that topic holds (`heardLog`), so
 a session from a device removed elsewhere is refused even when that device
-never synced. Sign-in and recovery check the same merged log.
+never synced. Making the session and recovery check the same merged log.
 
 ## Not yet (stitch's to define, its docs/prism-id.md "Open")
 
