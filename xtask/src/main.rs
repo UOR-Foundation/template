@@ -12,6 +12,7 @@ use repo_model::{codegen, Model};
 
 mod audit;
 mod bootstrap;
+mod proof;
 mod scaffold;
 
 fn main() -> ExitCode {
@@ -28,6 +29,8 @@ fn main() -> ExitCode {
         "audit-bootstrap" => bootstrap::audit(&root),
         "audit-dependency-updates" => bootstrap::audit_dependency_updates(&root),
         "validate" => validate(&root),
+        "proof-reuse" => proof::reuse(&root),
+        "proof-keep" => proof::keep(&root, &std::env::args().nth(2).unwrap_or_default()),
         "new-capability" => {
             let args: Vec<String> = std::env::args().skip(2).collect();
             scaffold::new_capability(&root, &args)
@@ -42,6 +45,8 @@ fn main() -> ExitCode {
                  audit-bootstrap   immutable SDK and least-privilege workflow trust root\n\
                  audit-dependency-updates   SDK ownership and ordinary dependency maintenance\n\
                  validate          run every gate above\n\
+                 proof-reuse       succeed only if the kept proof binds these exact proof inputs\n\
+                 proof-keep <ID>   keep the proof prismpm verify just published, with its inputs\n\
                  new-capability <ID> <level> <suite> <statement>\n\
                                    R3: write the register row, scenario and failing test\n\
                  \n\

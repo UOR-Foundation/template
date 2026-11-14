@@ -3,7 +3,7 @@
   "files": [
     {
       "path": "bootstrap/frame-sync.mjs",
-      "sha256": "c7df2d026b14ec0783a068a3fcb87a1eaabf2ea7f55ac6b61cb96b96e21e7957"
+      "sha256": "5d874908a8f5813b6f7c1004ec0e73ec03584139bf7ac8ffabb2ad5c0eeee7af"
     },
     {
       "path": "bootstrap/icons.py",
@@ -15,7 +15,7 @@
     },
     {
       "path": "bootstrap/page.mjs",
-      "sha256": "294f498e4a3aaa17afdcc55a30f3bff2f2008e85777a44b33222ab6697732930"
+      "sha256": "2df4ef057d37e778b04f67e4f63d862c7da6a77c301d0862b2bb8681fc8ec9d4"
     },
     {
       "path": "bootstrap/precache.mjs",
@@ -30,16 +30,24 @@
       "sha256": "c9787ebf5ad8e8b649034ec3e43f8812ba51777ba59eb11f1f51ca084a395b67"
     },
     {
+      "path": "bootstrap/weight.mjs",
+      "sha256": "de432422e9931b4adf0f422a2030d7b38097a60a4d8fc9ed62fd20fe0c468373"
+    },
+    {
+      "path": "bootstrap/worker-runtime.mjs",
+      "sha256": "0f9fbb6ec4db48fb7f7c4b779a0494e95d5411e868b36e1e163e5173fcc34557"
+    },
+    {
       "path": "lighthouserc.json",
-      "sha256": "0145d04da93193801b0d8736ceba7e0df94b9b15f183b07a16e6feda16d72082"
+      "sha256": "85aa0f6219cb8396b34f5b461c1d4d7b149e4cc1674cbd2f0100c5b5e16636d9"
     },
     {
       "path": "site/app.mjs",
-      "sha256": "7a54aecef87c300cbff8d6d578e146d7f508dbe5ea73e5775edcd4cd36a3363a"
+      "sha256": "b5b30e78ab9b693fd6d29b89b9d2b74542340542864e99e4533a9ced2d987ee0"
     },
     {
       "path": "site/guest-worker.mjs",
-      "sha256": "0aae31bd459646dfa3a9b8f5f1e9139a34f2fc86154342c14ad5601ec9876d7e"
+      "sha256": "fb7c63cca4f503ca6a3e11e4393a989f94a3c993e0e1dbde2e13f458690b1821"
     },
     {
       "path": "site/page.template.html",
@@ -59,7 +67,7 @@
     },
     {
       "path": "site/sw.js",
-      "sha256": "b4d4eb5c8314f5abed013ea9d172e7352dbdfa5aa2b503901df364ebcfbf11f7"
+      "sha256": "baf0fbd7da2fa0b33124951bbd1218aa6658c342340fb24415c636f220c9ea74"
     },
     {
       "path": "site/theme.js",
