@@ -1,163 +1,167 @@
-// Prism accounts: the frame's checks, each refused case failing closed, and
-// the whole flow in Chromium with a virtual passkey authenticator.
+// Prism ids: the frame's checks, each refused case failing closed, and the
+// whole flow in Chromium across two apps (two origins): a new id with its
+// recovery kit, a session, a second app joining the same id by a link and a
+// six-digit code, a device removed, and every device lost and the id brought
+// back from the kit. Devices meet on stitch's relay, which a relay in memory
+// stands in for here, answering the browser as the relay does.
 //   node --test identity/test.mjs
 import assert from "node:assert/strict";
-import { webcrypto as crypto } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { after, before, describe, test } from "node:test";
-import { IdentityError, acceptRecord, originsOf, verifySession, verifySigned } from "../frame/panels.mjs";
+import { IdentityError, verifySession } from "../frame/panels.mjs";
+import * as Prism from "./prism-id.mjs";
 import { start } from "./dev.mjs";
 
-const enc = new TextEncoder();
-const b64u = (bytes) => Buffer.from(bytes).toString("base64url");
-const sha = async (bytes) => new Uint8Array(await crypto.subtle.digest("SHA-256", typeof bytes === "string" ? enc.encode(bytes) : bytes));
-const ACCOUNTS = "https://id.uor.foundation";
-const ORIGINS = originsOf(ACCOUNTS);
+const APP = "https://app.example";
+const DAY = 864e5;
+const key = () => Buffer.from(crypto.getRandomValues(new Uint8Array(65))).toString("base64url");
 
-// WebCrypto's r||s as WebAuthn's DER.
-function der(raw) {
-  const int = (bytes) => {
-    let b = [...bytes];
-    while (b.length > 1 && b[0] === 0) b.shift();
-    if (b[0] & 0x80) b.unshift(0);
-    return [0x02, b.length, ...b];
-  };
-  const body = [...int(raw.slice(0, 32)), ...int(raw.slice(32))];
-  return new Uint8Array([0x30, body.length, ...body]);
+// A session as the frame signs one.
+async function session(signer, { app = APP, action = "prism/session/1", expires = Date.now() + DAY, now = Date.now(), sessionKey = key() } = {}) {
+  const envelope = await Prism.signAction(signer, action, { sessionKey, expires }, { now, audience: app });
+  return { app, envelope, records: [...signer.log.values()] };
 }
-
-async function passkey() {
-  const keys = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
-  const spki = new Uint8Array(await crypto.subtle.exportKey("spki", keys.publicKey));
-  const key = b64u(await sha(spki));
-  return { keys, spki: b64u(spki), key, credential: b64u(crypto.getRandomValues(new Uint8Array(16))) };
-}
-
-async function assertion(pk, message, { origin = ACCOUNTS, rp = "id.uor.foundation", flags = 0x05, type = "webauthn.get" } = {}) {
-  const clientDataJSON = enc.encode(JSON.stringify({ type, challenge: b64u(await sha(message)), origin, crossOrigin: true }));
-  const authenticatorData = new Uint8Array([...(await sha(rp)), flags, 0, 0, 0, 0]);
-  const raw = new Uint8Array(await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, pk.keys.privateKey, new Uint8Array([...authenticatorData, ...(await sha(clientDataJSON))])));
-  return { credential: pk.credential, clientDataJSON: b64u(clientDataJSON), authenticatorData: b64u(authenticatorData), signature: b64u(der(raw)) };
-}
-
-const recordOf = (pk, account = pk.key, binding = null) => ({ spec: "prism/identity/key/1", key: pk.key, account, credential: pk.credential, alg: -7, spki: pk.spki, origin: ACCOUNTS, created: 0, binding });
-
-async function session(pk, records, overrides = {}) {
-  const s = { app: "https://app.example", nonce: b64u(crypto.getRandomValues(new Uint8Array(32))), sessionKey: "k", expires: Date.now() + 60000, records, ...overrides };
-  s.assertion = await assertion(pk, `prism/identity/session/1\n${s.app}\n${s.nonce}\n${s.sessionKey}\n${s.expires}`, overrides.signing);
-  delete s.signing;
-  return s;
-}
-
 const refuses = (code) => (error) => error instanceof IdentityError && error.code === code;
 
+// Link a second device the way the panel does, without a relay.
+async function linked(id) {
+  const now = Date.now();
+  const { uri, pending } = await Prism.createLinkOffer(id, { now });
+  const offer = Prism.parseLinkUri(uri);
+  const device = await Prism.createDevice();
+  const request = await Prism.requestLink(device, offer);
+  const accepted = await Prism.acceptLinkRequest(id, pending, request, { now, confirmCode: await Prism.linkCode(offer.secret, device.record) });
+  return { first: accepted.session, second: await Prism.completeLink(device, offer, accepted.response) };
+}
+
 describe("the frame's checks", () => {
-  test("a first passkey's session verifies and names its account", async () => {
-    const pk = await passkey();
-    const who = await verifySession(await session(pk, [recordOf(pk)]), ORIGINS);
-    assert.equal(who.account, pk.key);
+  test("a new id's session verifies and names the id", async () => {
+    const id = await Prism.createPrism();
+    const who = await verifySession(await session(id));
+    assert.equal(who.account, id.prism);
+    assert.equal(who.key, id.device.id);
+    assert.match(who.account, /^sha256:[0-9a-f]{64}$/);
   });
 
-  test("a session signed for another request is refused", async () => {
-    const pk = await passkey();
-    const s = await session(pk, [recordOf(pk)]);
-    s.nonce = b64u(crypto.getRandomValues(new Uint8Array(32)));
-    await assert.rejects(verifySession(s, ORIGINS), refuses("challenge"));
+  test("a session for another app is refused", async () => {
+    const id = await Prism.createPrism();
+    const s = await session(id, { app: "https://other.example" });
+    await assert.rejects(verifySession({ ...s, app: APP }), refuses("signature"));
   });
 
-  test("a signature made on another site is refused", async () => {
-    const pk = await passkey();
-    await assert.rejects(verifySession(await session(pk, [recordOf(pk)], { signing: { origin: "https://evil.example" } }), ORIGINS), refuses("origin"));
+  test("a changed session key or expiry breaks the signature", async () => {
+    const id = await Prism.createPrism();
+    const s = await session(id);
+    const swapped = structuredClone(s);
+    swapped.envelope.body.payload.sessionKey = key();
+    await assert.rejects(verifySession(swapped), refuses("signature"));
+    const longer = structuredClone(s);
+    longer.envelope.body.payload.expires += DAY;
+    await assert.rejects(verifySession(longer), refuses("signature"));
   });
 
-  test("a passkey of another rpId is refused", async () => {
-    const pk = await passkey();
-    await assert.rejects(verifySession(await session(pk, [recordOf(pk)], { signing: { rp: "uor.foundation" } }), ORIGINS), refuses("rp"));
+  test("an expired, overlong or stale session is refused", async () => {
+    const id = await Prism.createPrism();
+    await assert.rejects(verifySession(await session(id, { expires: Date.now() - 1 })), refuses("expired"));
+    await assert.rejects(verifySession(await session(id, { expires: Date.now() + 9 * DAY })), refuses("expired"));
+    await assert.rejects(verifySession(await session(id, { now: Date.now() - 5 * 60000 })), refuses("signature"));
   });
 
-  test("a device that did not verify its user is refused", async () => {
-    const pk = await passkey();
-    await assert.rejects(verifySession(await session(pk, [recordOf(pk)], { signing: { flags: 0x01 } }), ORIGINS), refuses("flags"));
+  test("a kept session checks later, as of its signing", async () => {
+    const id = await Prism.createPrism();
+    const s = await session(id, { now: Date.now() - 3 * DAY });
+    await assert.rejects(verifySession(s), refuses("signature"));
+    assert.equal((await verifySession(s, { fresh: 0 })).account, id.prism);
   });
 
-  test("a registration ceremony is not a sign-in", async () => {
-    const pk = await passkey();
-    await assert.rejects(verifySession(await session(pk, [recordOf(pk)], { signing: { type: "webauthn.create" } }), ORIGINS), refuses("type"));
+  test("an action that is not a session is refused", async () => {
+    const id = await Prism.createPrism();
+    await assert.rejects(verifySession(await session(id, { action: "prism/pay/1" })), refuses("action"));
   });
 
-  test("a signature by another key is refused", async () => {
-    const pk = await passkey();
-    const other = await passkey();
-    const s = await session({ ...other, credential: pk.credential }, [recordOf(pk)]);
-    await assert.rejects(verifySession(s, ORIGINS), refuses("signature"));
+  test("a device removed from the id signs no session", async () => {
+    const { first, second } = await linked(await Prism.createPrism());
+    const removed = await Prism.revokeDevice(first, second.device.id);
+    const s = await session(second);
+    assert.equal((await verifySession(s)).account, first.prism);
+    await assert.rejects(verifySession({ ...s, records: [...removed.log.values()] }), refuses("signature"));
   });
 
-  test("a record whose name is not its key's hash is refused", async () => {
-    const pk = await passkey();
-    const other = await passkey();
-    const forged = { ...recordOf(pk), spki: other.spki };
-    await assert.rejects(verifySession(await session(pk, [forged]), ORIGINS), refuses("key"));
-  });
-
-  test("an expired session is refused", async () => {
-    const pk = await passkey();
-    const s = await session(pk, [recordOf(pk)]);
-    await assert.rejects(verifySession(s, ORIGINS, s.expires + 1), refuses("expired"));
-  });
-
-  test("a second device bound by the account's passkey signs for the account", async () => {
-    const first = await passkey();
-    const second = await passkey();
-    const binding = await assertion(first, `prism/identity/bind/1\n${first.key}\n${second.key}`);
-    const records = [recordOf(second, first.key, binding), recordOf(first)];
-    const who = await verifySession(await session(second, records), ORIGINS);
-    assert.equal(who.account, first.key);
-  });
-
-  test("a key bound by another account cannot join it", async () => {
-    const victim = await passkey();
-    const attacker = await passkey();
-    const mine = await passkey();
-    const binding = await assertion(attacker, `prism/identity/bind/1\n${victim.key}\n${mine.key}`);
-    const records = [recordOf(mine, victim.key, binding), recordOf(attacker)];
-    await assert.rejects(acceptRecord(mine.credential, records, ORIGINS), refuses("binding"));
-  });
-
-  test("a binding signed for another key is refused", async () => {
-    const first = await passkey();
-    const second = await passkey();
-    const binding = await assertion(first, `prism/identity/bind/1\n${first.key}\nsomeone-else`);
-    await assert.rejects(acceptRecord(second.credential, [recordOf(second, first.key, binding), recordOf(first)], ORIGINS), refuses("challenge"));
-  });
-
-  test("an account's first key may not carry a binding", async () => {
-    const pk = await passkey();
-    await assert.rejects(verifySigned(recordOf(pk), await assertion(pk, "m"), "other", ORIGINS), refuses("challenge"));
-    await assert.rejects(acceptRecord(pk.credential, [recordOf(pk, pk.key, await assertion(pk, "m"))], ORIGINS), refuses("binding"));
+  test("a device of another id cannot sign for this one", async () => {
+    const id = await Prism.createPrism();
+    const other = await Prism.createPrism();
+    const s = await session(other);
+    s.envelope.body.prism = id.prism;
+    await assert.rejects(verifySession({ ...s, records: [...id.log.values(), ...other.log.values()] }), refuses("signature"));
+    await assert.rejects(verifySession({ ...(await session(other)), records: [...id.log.values()] }), refuses("log"));
   });
 });
 
-describe("the flow in Chromium, with a virtual passkey", () => {
+// The relay in memory, as the browser sees ntfy: POST /<topic> keeps a
+// message, GET /<topic>/json?poll=1 lists them, a WebSocket on /<topic>/ws
+// hears new ones.
+function relayStandIn(origin) {
+  const topics = new Map();
+  const sockets = new Set();
+  const nameOf = (url) => new URL(url).pathname.split("/")[1];
+  return {
+    topics,
+    async attach(context) {
+      await context.route(`${origin}/**`, async (route) => {
+        const request = route.request();
+        const name = nameOf(request.url());
+        const headers = { "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "GET, POST" };
+        if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers });
+        if (request.method() === "POST") {
+          const message = request.postData();
+          topics.set(name, [...(topics.get(name) ?? []), message]);
+          for (const socket of sockets) if (socket.name === name) socket.ws.send(JSON.stringify({ event: "message", message }));
+          return route.fulfill({ status: 200, headers, contentType: "application/json", body: "{}" });
+        }
+        const body = (topics.get(name) ?? []).map((message) => JSON.stringify({ event: "message", message })).join("\n");
+        return route.fulfill({ status: 200, headers, contentType: "application/x-ndjson", body });
+      });
+      await context.routeWebSocket(`${origin.replace(/^https:/, "wss:")}/**`, (ws) => {
+        const socket = { name: nameOf(ws.url().replace(/^wss:/, "https:")), ws };
+        sockets.add(socket);
+        ws.onClose(() => sockets.delete(socket));
+      });
+    },
+  };
+}
+
+describe("the flow in Chromium", () => {
   let browser;
-  let page;
   let running;
-  let cdp;
-  let authenticator;
-  // A Windows browser, whichever system runs the tests, so the page names its authenticator.
-  const WINDOWS = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36";
+  let relay;
+  let context;
+  let first;
+  let second;
+  let firstId = null;
+  let kitPath = null;
+
+  const account = (p) => p.locator("prism-frame").evaluate((frame) => frame.account);
+  const newContext = async () => {
+    const made = await browser.newContext({ acceptDownloads: true });
+    await relay.attach(made);
+    return made;
+  };
+  const signOut = async (p) => {
+    await p.locator("#account").click();
+    await p.locator("#account-out").click();
+    await p.locator("#account:not(.signed-in)").waitFor({ timeout: 10000 });
+  };
 
   before(async () => {
-    running = await start({ idPort: 8792, appPort: 8793 });
+    running = await start({ ports: [8793, 8794] });
+    relay = relayStandIn(running.relay);
     const { chromium } = await import("playwright");
-    // One renderer for the page and its sign-in iframe, so one virtual
-    // authenticator serves both.
-    browser = await chromium.launch({ args: ["--disable-site-isolation-trials", "--disable-features=IsolateOrigins,site-per-process"] });
-    page = await browser.newPage({ userAgent: WINDOWS });
-    cdp = await page.context().newCDPSession(page);
-    await cdp.send("WebAuthn.enable");
-    ({ authenticatorId: authenticator } = await cdp.send("WebAuthn.addVirtualAuthenticator", {
-      options: { protocol: "ctap2", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
-    }));
-    await page.goto(running.app);
+    browser = await chromium.launch();
+    context = await newContext();
+    first = await context.newPage();
+    second = await context.newPage();
+    await first.goto(running.apps[0]);
+    await second.goto(running.apps[1]);
   });
 
   after(async () => {
@@ -165,125 +169,147 @@ describe("the flow in Chromium, with a virtual passkey", () => {
     await running?.close();
   });
 
-  const signIn = page2 => page2.locator("prism-frame").evaluate((frame) => frame.account);
-  const ceremony = () => page.frameLocator("prism-frame >> iframe");
-
   test("the icon sits after full screen and starts signed out", async () => {
-    const order = await page.locator("prism-frame").evaluate((frame) => [...frame.shadowRoot.querySelector(".end").querySelectorAll("button")].map((b) => b.id));
+    const order = await first.locator("prism-frame").evaluate((frame) => [...frame.shadowRoot.querySelector(".end").querySelectorAll("button")].map((b) => b.id));
     assert.deepEqual(order.slice(-2), ["fullscreen", "account"]);
-    assert.equal(await page.locator("#account").getAttribute("aria-label"), "Sign in");
-    assert.equal(await signIn(page), null);
+    assert.equal(await first.locator("#account").getAttribute("aria-label"), "Sign in");
+    assert.equal(await account(first), null);
   });
 
-  test("a click the bar is redrawn under still opens the panel", async () => {
-    // An app sets the frame's attributes as it loads, and each redraws the
-    // bar; a click whose panel was still loading must open the new one.
-    await page.locator("prism-frame").evaluate((frame) => {
-      frame.shadowRoot.querySelector("#account").click();
-      frame.setAttribute("purpose", "Redrawn while the panel loads.");
-    });
-    await page.locator("#account-panel:popover-open").waitFor({ timeout: 10000 });
-    await page.keyboard.press("Escape");
-    await page.locator("#account-panel:not(:popover-open)").waitFor({ timeout: 10000 });
+  test("a new Prism id: no prompt, a recovery kit, then signed in", async () => {
+    await first.locator("#account").click();
+    assert.equal(await first.locator("#account-title").textContent(), "Sign in");
+    await first.locator("#account-create").click();
+    await first.locator("#account-kit-save").waitFor({ timeout: 10000 });
+    const [download] = await Promise.all([first.waitForEvent("download"), first.locator("#account-kit-save").click()]);
+    kitPath = await download.path();
+    const kit = JSON.parse(await readFile(kitPath, "utf8"));
+    assert.equal(kit.kind, "prism/recovery-kit/1");
+    assert.equal(kit.share.guardian, "paper");
+    await first.locator("#account-kit-done").click();
+    await first.locator("#account.signed-in").waitFor({ timeout: 10000 });
+    firstId = (await account(first)).id;
+    assert.equal(firstId, kit.prism);
+    assert.equal(await first.locator("#account").getAttribute("aria-label"), "Prism account");
   });
 
-  test("creating an account signs in, verified in the page", async () => {
-    await page.locator("#account").click();
-    // A centred dialog titled for what it does, its one button naming the
-    // device's own authenticator.
-    assert.equal(await page.locator("#account-title").textContent(), "Sign in");
-    await ceremony().locator("#go-label", { hasText: "Continue with Windows Hello" }).waitFor({ timeout: 10000 });
-    const box = await page.locator("#account-panel").boundingBox();
-    const view = page.viewportSize();
-    assert.ok(Math.abs(box.x + box.width / 2 - view.width / 2) <= 1, "the dialog is centred");
-    // One button: a device with no passkey turns Sign in into Create account.
-    await ceremony().locator("#go:enabled").click();
-    await ceremony().locator("#go-label", { hasText: "Create account" }).waitFor({ timeout: 10000 });
-    await ceremony().locator("#go:enabled").click();
-    await page.locator("#account.signed-in").waitFor({ timeout: 10000 });
-    const account = await signIn(page);
-    assert.match(account.id, /^[\w-]{43}$/);
-    assert.equal(running.records.size, 1);
-    assert.equal(await page.locator("#account").getAttribute("aria-label"), "Prism account");
-  });
-
-  test("the session survives a reload and signs for the account", async () => {
-    await page.reload();
-    await page.locator("#account.signed-in").waitFor({ timeout: 10000 });
-    const checked = await page.evaluate(async () => {
+  test("the session survives a reload and signs for the id", async () => {
+    await first.reload();
+    await first.locator("#account.signed-in").waitFor({ timeout: 10000 });
+    const checked = await first.evaluate(async () => {
       const frame = document.querySelector("prism-frame");
-      const { verifySession, originsOf } = await import("/panels.mjs");
       const data = new TextEncoder().encode("hello");
       const { signature, delegation } = await frame.sign(data);
-      const who = await verifySession(delegation, originsOf(frame.getAttribute("accounts")));
-      const raw = Uint8Array.from(atob(delegation.sessionKey.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+      const raw = Uint8Array.from(atob(delegation.envelope.body.payload.sessionKey.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
       const key = await crypto.subtle.importKey("raw", raw, { name: "ECDSA", namedCurve: "P-256" }, false, ["verify"]);
       const sig = Uint8Array.from(atob(signature.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
-      return { same: who.account === frame.account.id, valid: await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, key, sig, data), app: delegation.app };
+      return { delegation, id: frame.account.id, valid: await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, key, sig, data) };
     });
-    assert.deepEqual(checked, { same: true, valid: true, app: new URL(running.app).origin });
+    assert.equal(checked.valid, true);
+    assert.equal(checked.delegation.app, new URL(running.apps[0]).origin);
+    assert.equal((await verifySession(checked.delegation, { fresh: 0 })).account, checked.id);
   });
 
-  test("sign out, then sign in again with the same passkey", async () => {
-    const before = (await signIn(page)).id;
-    await page.locator("#account").click();
-    await page.locator("#account-out").click();
-    await page.locator("#account:not(.signed-in)").waitFor({ timeout: 10000 });
-    assert.equal(await signIn(page), null);
-    await page.locator("#account").click();
-    // This device signed in before: the page asks for that passkey only, no chooser.
-    await ceremony().locator("#go-label", { hasText: "Continue with Windows Hello" }).waitFor({ timeout: 10000 });
-    await ceremony().locator("#go:enabled").click();
-    await page.locator("#account.signed-in").waitFor({ timeout: 10000 });
-    assert.equal((await signIn(page)).id, before);
+  test("sign out, then sign in again: one click, same id", async () => {
+    await signOut(first);
+    await first.locator("#account").click();
+    await first.locator("#account-continue").click();
+    await first.locator("#account.signed-in").waitFor({ timeout: 10000 });
+    assert.equal((await account(first)).id, firstId);
   });
 
-  test("a page whose policy will not frame the sign-in page signs in through a window", async () => {
-    const strict = await (await browser.newContext()).newPage();
-    await strict.goto(new URL("strict", running.app).href);
-    await strict.locator("#account").click();
-    await strict.locator("#account-window:visible").waitFor({ timeout: 10000 });
-    const [popup] = await Promise.all([strict.waitForEvent("popup"), strict.locator("#account-window").click()]);
-    const cdp = await strict.context().newCDPSession(popup);
-    await cdp.send("WebAuthn.enable");
-    await cdp.send("WebAuthn.addVirtualAuthenticator", {
-      options: { protocol: "ctap2", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
-    });
-    await popup.locator("#go:enabled").click();
-    await popup.locator("#go-label", { hasText: "Create account" }).waitFor({ timeout: 10000 });
-    await popup.locator("#go:enabled").click();
-    await strict.locator("#account.signed-in").waitFor({ timeout: 10000 });
-    assert.match((await signIn(strict)).id, /^[\w-]{43}$/);
-    await strict.close();
-  });
-
-  test("the session key cannot be read out by script", async () => {
-    const extractable = await page.evaluate(
-      () =>
+  test("the session key and the device keys cannot be read out by script", async () => {
+    const keys = await first.evaluate(async () => {
+      const read = (name, store, id) =>
         new Promise((done) => {
-          const open = indexedDB.open("prism-identity");
+          const open = indexedDB.open(name);
           open.onsuccess = () => {
-            const get = open.result.transaction("session").objectStore("session").get("current");
-            get.onsuccess = () => done(get.result.privateKey.extractable);
+            const get = open.result.transaction(store).objectStore(store).get(id);
+            get.onsuccess = () => done(get.result);
           };
-        }),
-    );
-    assert.equal(extractable, false);
+        });
+      const kept = await read("prism-identity", "session", "current");
+      const device = await read("prism-id", "prism", "self");
+      return [kept.privateKey.extractable, device.device.signingKey.extractable, device.device.agreementKey.extractable];
+    });
+    assert.deepEqual(keys, [false, false, false]);
   });
 
-  test("a remembered passkey that is gone asks for any passkey, never straight to a new account", async () => {
-    await page.locator("#account").click();
-    await page.locator("#account-out").click();
-    await page.locator("#account:not(.signed-in)").waitFor({ timeout: 10000 });
-    await cdp.send("WebAuthn.clearCredentials", { authenticatorId: authenticator });
-    await page.locator("#account").click();
-    await ceremony().locator("#go-label", { hasText: "Continue with Windows Hello" }).waitFor({ timeout: 10000 });
-    await ceremony().locator("#go:enabled").click();
-    // The remembered passkey did not answer: forget it and keep Continue,
-    // which next looks for any passkey. Only that failing says this device has none.
-    await ceremony().locator("#card:not(.busy)").waitFor({ timeout: 10000 });
-    assert.equal(await ceremony().locator("#go-label").textContent(), "Continue with Windows Hello");
-    await ceremony().locator("#go:enabled").click();
-    await ceremony().locator("#go-label", { hasText: "Create account" }).waitFor({ timeout: 10000 });
+  test("another app joins the same id: a link, then the six-digit code", async () => {
+    await second.locator("#account").click();
+    await second.locator("#account-join").click();
+    // On the first app: a link offer.
+    await first.locator("#account").click();
+    await first.locator("#account-link").click();
+    await first.locator("#account-offer").waitFor({ timeout: 10000 });
+    const uri = await first.locator("#account-offer").textContent();
+    assert.match(uri, /^prism-link:/);
+    await second.locator("#account-uri").fill(uri);
+    await second.locator("#account-join-go").click();
+    await second.locator("#account-join-code").waitFor({ timeout: 10000 });
+    const code = /(\d{6})/.exec(await second.locator("#account-join-code").textContent())[1];
+    await first.locator("#account-code").waitFor({ timeout: 10000 });
+    // A wrong code is refused, and the right one still works.
+    await first.locator("#account-code").fill(code === "000000" ? "111111" : "000000");
+    await first.locator("#account-accept").click();
+    await first.locator("#account-error", { hasText: "refused" }).waitFor({ timeout: 10000 });
+    await first.locator("#account-code").fill(code);
+    await first.locator("#account-accept").click();
+    await second.locator("#account.signed-in").waitFor({ timeout: 15000 });
+    assert.equal((await account(second)).id, firstId);
+    assert.notEqual((await account(second)).key, (await account(first)).key);
+  });
+
+  test("a removed app hears it on its next sign-in and signs nothing more", async () => {
+    await first.locator("#account").click();
+    await first.locator("#account-devices").click();
+    const rows = first.locator("#account-device-list li");
+    await rows.first().waitFor({ timeout: 10000 });
+    assert.equal(await rows.count(), 3);
+    assert.equal(await first.locator("#account-device-list li", { hasText: "(this one)" }).count(), 1);
+    assert.equal(await first.locator("#account-device-list li", { hasText: "Recovery kit" }).getByRole("button").count(), 0);
+    await first.locator("#account-device-list li", { hasText: "Browser" }).filter({ hasNotText: "(this one)" }).getByRole("button", { name: "Remove" }).click();
+    await first.locator("#account-device-list li").nth(2).waitFor({ state: "detached", timeout: 10000 });
+    await first.keyboard.press("Escape");
+
+    await signOut(second);
+    await second.locator("#account").click();
+    await second.locator("#account-continue").click();
+    await second.locator("#account-title", { hasText: "This device was removed" }).waitFor({ timeout: 10000 });
+    assert.equal(await account(second), null);
+  });
+
+  test("every device lost: the recovery kit brings the id back, and the kit is replaced", async () => {
+    const elsewhere = await newContext();
+    const fresh = await elsewhere.newPage();
+    await fresh.goto(running.apps[1]);
+    await fresh.locator("#account").click();
+    await fresh.locator("#account-recover").click();
+    await fresh.locator("#account-kit-file").setInputFiles(kitPath);
+    await fresh.locator("#account-kit-save").waitFor({ timeout: 15000 });
+    const [download] = await Promise.all([fresh.waitForEvent("download"), fresh.locator("#account-kit-save").click()]);
+    const newKit = JSON.parse(await readFile(await download.path(), "utf8"));
+    assert.equal(newKit.prism, firstId);
+    assert.notEqual(newKit.share.recovery, JSON.parse(await readFile(kitPath, "utf8")).share.recovery);
+    await fresh.locator("#account-kit-done").click();
+    await fresh.locator("#account.signed-in").waitFor({ timeout: 10000 });
+    assert.equal((await account(fresh)).id, firstId);
+
+    // Recovery removed every other device: the first app stops at its next sign-in.
+    await signOut(first);
+    await first.locator("#account").click();
+    await first.locator("#account-continue").click();
+    await first.locator("#account-title", { hasText: "This device was removed" }).waitFor({ timeout: 10000 });
+
+    // The old kit brings nothing back.
+    const third = await (await newContext()).newPage();
+    await third.goto(running.apps[0]);
+    await third.locator("#account").click();
+    await third.locator("#account-recover").click();
+    await third.locator("#account-kit-file").setInputFiles(kitPath);
+    await third.locator("#account-error", { hasText: "already used" }).waitFor({ timeout: 15000 });
+    assert.equal(await account(third), null);
+    await third.context().close();
+    await elsewhere.close();
   });
 });

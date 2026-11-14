@@ -1,64 +1,88 @@
-# Prism accounts
+# Prism ids
 
-The person icon at the right end of every Prism app's bar. One click opens the
-account panel; one more, and Face ID, Touch ID, Windows Hello or a phone signs
-the visitor in. No password exists anywhere. [PROTOCOL.md](PROTOCOL.md) is the
-contract; this file says why it is built this way and how to run it.
+The person icon at the right end of every Prism app's bar. One click and
+**Create a Prism id**, and the visitor is signed in. There is no password, no
+passkey prompt and no account server: the browser makes its own key, which
+never leaves it. One Prism id signs in to every Prism app, Foundry included.
+[PROTOCOL.md](PROTOCOL.md) is the contract. The id itself is stitch's Prism
+id, pinned in [stitch.lock](stitch.lock), and nothing here is deployed beyond
+the frame.
 
-## Why a passkey, and why this domain
+## One id, every app and device
 
-A passkey is the only credential a web page can reach that lives in the
-device's secure hardware: the Secure Enclave on Apple devices, the TPM under
-Windows Hello, the TEE or StrongBox on Android. The private key never leaves
-it, and the fingerprint or face never leaves the device at all.
+Each app keeps its own device of the id, in its own origin's storage. To use
+the same id in another app, or on a phone:
 
-A passkey belongs to one domain, its rpId, and every page on that domain can
-ask it to sign. So the rpId is `id.uor.foundation`, which serves this one
-page and nothing else. It is not `registry.uor.foundation`, which serves
-content others push, and not `uor.foundation`, which would let every
-subdomain ask. **The rpId is permanent**: changing it orphans every passkey.
+1. In an app already signed in, choose **Add a device or app** and copy the link.
+2. In the new app, choose **Use my Prism id from another device or app** and paste it.
+3. The new app shows six digits. Type them into the first app.
+
+This is stitch's link offer. The link holds a one-time secret, good for five
+minutes. The six digits bind that secret to the device that answered, so
+someone who copied the link first gets different digits. The two devices meet
+on stitch's relay, under a name derived from that secret.
+
+## Losing every device never loses the id
+
+A new id's first step is its **recovery kit**: a file holding the paper share
+of the id's recovery device (stitch's threshold recovery, one share of one)
+and the id's log. On any browser, **Use a recovery kit** brings the id back.
+That browser becomes the id's device, every other device is removed, and a
+new kit replaces the old one.
+
+Recovery restores the id: signing in, as the same id, everywhere. It does not
+restore what an app kept only in a lost browser (its local projects, chats or
+databases). That lives with the app, not the id.
+
+Stitch lets only the recovery device replace itself, so a member cannot make
+a new kit. A kit is made when the id is created and again on each recovery.
+
+## Devices
+
+**Devices** lists the id's devices. **Remove** is stitch's `revokeDevice`,
+which rotates the id's private key; the id itself never changes. A removed
+device stops signing the next time it syncs. The recovery device has no
+Remove, because stitch lets no member revoke it.
 
 ## Who is trusted with what
 
 | Part | If it were hostile, it could | It could not |
 | --- | --- | --- |
-| Registry | Withhold a record, so a sign-in fails | Forge or swap a key: a record's name is its key's hash, and every binding is a passkey signature the frame checks |
-| Sign-in page | Refuse to help | Sign anything without the visitor's own biometric prompt, which names `id.uor.foundation` |
-| Another app | Ask the visitor to sign in to *it* | Use that session elsewhere: a session names the app origin it was signed for |
-| Script on the app's own page | Use the session while the page is open | Copy the session key out: it is a non-extractable WebCrypto key |
+| stitch's relay (ntfy) | Withhold or delay a sync message or a link answer, so a removal or a link does not arrive | Read a sync message (sealed in the id's private boundary) or forge any record (each is signed and checked by the reader). It sees hashed topic names, timing, padded sizes, and in a link answer the id's log (public keys and signatures) |
+| The app's page (its script) | Everything this origin's device can do: sign for this app, link or remove devices, read a recovery kit as it is made | Copy the device keys out: they are non-extractable WebCrypto keys |
+| Another app | Ask the visitor to sign in to *it* | Use this app's device or session: storage is per origin, and a session names the app origin it was signed for |
+| Anyone holding a recovery kit | Take the id over, from any browser | Use it once a newer kit replaced it, if they hear what the id's devices shared (see below) |
 
-Revocation is the registry withholding a record, so it takes effect at the
-next sign-in, not inside a session already signed (7 days at most).
+There is no biometric or OS prompt: a device's keys sign whenever its page
+asks, and the visitor's click is the only consent.
 
-## Adding a device
+A session lasts at most 8 days (the frame asks for 7). A removed device stops
+signing new sessions once it syncs, but a session it signed earlier stays
+valid until it expires. An app hears of a removal only from the log the
+signing device presents, so a stolen browser that never syncs can keep
+signing until stitch defines how hosts hear revocations.
 
-Synced passkeys (iCloud Keychain, Google Password Manager) already follow the
-visitor to their other devices. For any other device: open the panel, choose
-**Add another device**, make the passkey on the new device (a phone scans the
-code the browser shows), then confirm on this one. The registry stores the new
-key with that confirmation, and every app accepts either key for the account.
+The relay keeps a message for stitch's warm lifetime (30 minutes). A device
+away longer catches up from the next message another device shares. A used
+kit replayed against its own old log is refused here once the newer recovery
+shows up in what the devices shared; stitch is to make every device refuse it.
 
 ## Run it
 
 ```sh
 npm ci && npx playwright install chromium
-npm run test:identity        # every refused check, then the whole flow in Chromium
-node identity/dev.mjs        # the sign-in page on localhost:8790, a demo app on 127.0.0.1:8791
+npm run test:identity        # the stitch copy matches its lock, every refused check, then the flow in Chromium
+node identity/dev.mjs        # two demo apps, on 127.0.0.1:8791 and :8792
 ```
 
-`dev.mjs` stands in for the registry with an in-memory store that does not
-verify registrations; the frame's checks are the real ones.
+`test.mjs` puts an in-memory relay in place of the real one in the browser.
+`dev.mjs` run by hand uses the real relay.
 
-## Deploy
+## Follow stitch
 
-1. `node identity/publish.mjs out` writes the page with every file it loads
-   pinned by hash, and `current.json` naming the page by its SHA-256.
-2. Serve `out/` as static files at `https://id.uor.foundation`, HTTPS only,
-   with HSTS. Do not set `Cross-Origin-Opener-Policy: same-origin`: the
-   popup fallback needs `window.opener`.
-3. Deploy the registry's `/passkey/` routes (UOR-Foundation/kappa-registry)
-   with `https://id.uor.foundation` as the allowed identity origin.
+```sh
+node identity/stitch-sync.mjs <stitch commit>    # fetches that commit; add a local checkout path to read it instead
+```
 
-Ship the frame change only after steps 2 and 3 are live: every Prism app
-loads the frame from main on its next visit. Before then the panel says
-Prism accounts are not reachable, and never shows a broken page.
+This rewrites `prism-id.mjs` and `stitch.lock`. Copy `frame/` and `identity/`
+to Foundry and prism-devrel byte for byte, as with any frame change.
