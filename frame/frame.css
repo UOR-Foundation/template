@@ -252,8 +252,8 @@ svg.gh, svg.fill { fill: currentColor; stroke: none; }
 #github[hidden] + .sep { display: none; }
 /* Full screen: the corners point out to enter, in to leave. */
 :host([fullscreen]) #fullscreen .expand, :host(:not([fullscreen])) #fullscreen .shrink { display: none; }
-/* The account: a line drawing signed out; while the device is asked for its
- * passkey it breathes; signed in, the same figure filled, in the full text
+/* The account: a line drawing signed out; while the Prism id window is open
+ * it breathes; signed in, the same figure filled, in the full text
  * colour, so who is signed in reads at a glance and nothing else changes. */
 #account.signed-in { color: var(--foreground); }
 #account.signed-in svg.person { fill: currentColor; }

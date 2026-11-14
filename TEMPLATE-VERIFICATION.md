@@ -664,3 +664,25 @@ Measured on `humuhumu33/prism-must-i-file`, the first app built this way:
 Only identical inputs hit: a changed model is a full build, and a new app's
 first build always misses. Every build stores its result, so each distinct
 input set is built once across the owner's apps.
+
+## SDK scratch on the runner's disk
+
+afflom/prism-devrel bootstrap run `43442908204` failed on both runner
+architectures inside `prismpm verify`, after the Lean kernel, with `No space
+left on device` while the browser adapter's wasm build wrote its archives:
+the SDK's `/tmp` was a 2 GiB tmpfs, and a 3184-record model's build peaked at
+2.1 GiB in it, while the runner's root disk still had 69 GiB free (diagnostic
+run `43448566459`). The same verify, with `/tmp` bound to a directory on disk,
+passed in the locked SDK with a measured peak of 1.8 GiB after the model was
+reduced; the cap, not the disk, was the limit.
+
+`bootstrap.yml`, `build.yml` and `pages.yml` now give the SDK a fresh
+`mktemp -d` directory on the runner's disk as `/tmp` (mode 0700, owned by the
+runner user the container runs as), removed by the same `trap` as the
+credentials. The guard requires that directory, its removal, and exactly one
+`/tmp` mount, the scratch volume. Planted defects, each rejected by
+`missing_or_credential_nested_buildx_state_is_rejected`: the scratch volume
+removed; the old `--tmpfs /tmp:rw,exec,nosuid,size=2g` restored in its place;
+the tmpfs added beside it; a shared fixed path in place of `mktemp -d`; and a
+`trap` that no longer removes the scratch directory. The 22-test xtask suite,
+formatting and Clippy pass.
