@@ -42,12 +42,10 @@ jobs:
           "$RUNNER_TEMP/frame-draw/bin/python" -I bootstrap/og.py
       - name: The frame verifies in a real module worker, refuses bad archives and works offline
         run: node --test site/worker-browser.test.mjs
-      - name: Prism accounts - every signature check refuses, and the passkey flow signs in
+      - name: Prism ids - the pinned stitch copy matches its lock, every session check refuses, and two apps share one id
         run: npm run test:identity
       - name: Build the canonical frame every Prism app loads
         run: node frame/publish.mjs "$RUNNER_TEMP/frame" "$GITHUB_SHA"
-      - name: Build the sign-in page for id.uor.foundation, pinned by hash
-        run: node identity/publish.mjs "$RUNNER_TEMP/identity" "$GITHUB_SHA"
 
   deploy:
     name: publish the try page and the canonical frame

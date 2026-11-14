@@ -104,10 +104,6 @@ const prismRegistry = new URL(`https://${DEFAULT_REGISTRY}/`);
 // a frame change reaches this app without rebuilding it. app.json may name
 // another frame host, for a test or a mirror.
 const frameHost = new URL(meta.frame ?? "https://uor-foundation.github.io/template/frame/");
-// Prism accounts: the sign-in page the frame's account panel shows. The
-// page's policy frames that one origin and no other. app.json may name
-// another, for a test.
-const accounts = new URL(meta.accounts ?? "https://id.uor.foundation/");
 const shareUrl = live.href;
 
 // The one speculation rule: the frame marks the pages a visitor is about to
@@ -121,23 +117,26 @@ const speculationRules = JSON.stringify({
 // with the page's, so the frame does not wait for a TLS handshake.
 const frameConnect = frameHost.origin !== live.origin ? `<link rel="preconnect" href="${escape(frameHost.origin)}" crossorigin />` : "";
 
-// The frame's Unsplash worker, which this page's connect-src must name for
-// the theme panel's search: read from the live frame at build, after its
-// SHA-256 is checked as the browser checks it. The frame itself is not
-// written into the page: the page's own stand-in (prism-page.css) shows,
-// drawn as the bar, until the module arrives, which keeps the first load
-// inside the Lighthouse budget.
-async function frameUnsplash() {
+// The origins this page's connect-src must name for the frame: its Unsplash
+// worker, for the theme panel's search, and stitch's relay (with its
+// WebSocket origin), where a visitor's Prism id devices meet. Both are read
+// from the live frame at build, after its SHA-256 is checked as the browser
+// checks it. The frame itself is not written into the page: the page's own
+// stand-in (prism-page.css) shows, drawn as the bar, until the module
+// arrives, which keeps the first load inside the Lighthouse budget.
+async function frameAllowed() {
   try {
     const pointer = await (await fetch(new URL("current.json", frameHost), { cache: "no-store" })).json();
     if (!/^[0-9a-f]{64}$/.test(pointer.sha256 ?? "")) throw new Error("the frame pointer names no sha256");
     const bytes = Buffer.from(await (await fetch(new URL(pointer.module, frameHost))).arrayBuffer());
     if (hex(bytes) !== pointer.sha256) throw new Error(`the frame is ${hex(bytes)}, its pointer says ${pointer.sha256}`);
     const frame = await import(`data:text/javascript;base64,${bytes.toString("base64")}`);
-    return /^https:\/\/[a-z0-9.-]+$/.test(frame.UNSPLASH_ORIGIN ?? "") ? frame.UNSPLASH_ORIGIN : "";
+    const origin = (value) => (/^https:\/\/[a-z0-9.-]+$/.test(value ?? "") ? value : "");
+    const relay = origin(/^https:\/\/[a-z0-9.-]+/.exec(frame.PRISM_RELAY ?? "")?.[0]);
+    return { unsplash: origin(frame.UNSPLASH_ORIGIN), relay: relay ? `${relay} ${relay.replace(/^https:/, "wss:")}` : "" };
   } catch (error) {
-    console.warn(`page: the frame could not be read at build (${error.message}); no Unsplash origin in connect-src`);
-    return "";
+    console.warn(`page: the frame could not be read at build (${error.message}); no Unsplash or relay origin in connect-src`);
+    return { unsplash: "", relay: "" };
   }
 }
 // The repository's GitHub stars at build, so the bar shows them from its
@@ -166,7 +165,7 @@ async function githubStars() {
   }
 }
 const stars = await githubStars();
-const unsplashOrigin = await frameUnsplash();
+const frameOrigins = await frameAllowed();
 
 // ---------------------------------------------------------------------------
 // The workspace and the spec, rendered here so the page says everything
@@ -432,9 +431,8 @@ const fill = {
   HOLO_SEARCH_ORIGIN: holoSearch.origin,
   REGISTRY_ORIGIN: prismRegistry.origin,
   FRAME_ORIGIN: frameHost.origin,
-  ACCOUNTS: escape(accounts.href),
-  ACCOUNTS_ORIGIN: accounts.origin,
-  UNSPLASH_ORIGIN: unsplashOrigin,
+  UNSPLASH_ORIGIN: frameOrigins.unsplash,
+  PRISM_RELAY_ORIGINS: frameOrigins.relay,
   OG_IMAGE: escape(new URL("og.png", live).href),
   OG_ALT: escape(`${meta.name}: ${meta.purpose}`),
   NAME: escape(meta.name),
