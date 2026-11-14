@@ -212,4 +212,11 @@ pub struct AuthorityRow {
     /// The conformance IDs that are evidence this library realizes it.
     #[serde(default)]
     pub realized_by: Vec<String>,
+    /// Cargo dependencies whose version this authority fixes: an upstream's
+    /// release line locks them, and this repository must decide exactly as the
+    /// upstream does, so they never move on their own. `.github/dependabot.yml`
+    /// ignores exactly the union of every row's `pins` in its Cargo block, and
+    /// nothing else (`cargo xtask audit-dependency-updates`).
+    #[serde(default)]
+    pub pins: Vec<String>,
 }

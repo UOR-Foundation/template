@@ -694,3 +694,21 @@ removed; the old `--tmpfs /tmp:rw,exec,nosuid,size=2g` restored in its place;
 the tmpfs added beside it; a shared fixed path in place of `mktemp -d`; and a
 `trap` that no longer removes the scratch directory. The 22-test xtask suite,
 formatting and Clippy pass.
+
+## A dependency an upstream pins is ignored, and only that (#22)
+
+`audit-dependency-updates` required `.github/dependabot.yml` to equal one fixed
+document, so an instance could not stop Dependabot from moving a dependency
+whose exact version an upstream's release line locks (lexlean-mcp's
+`unicode-normalization`, which must decide NFC exactly as LexLean does). An
+authority row now names such dependencies in `pins`. The Cargo block must ignore
+exactly the union of every row's `pins`, sorted, and nothing else; with no pins
+it is the fixed document as before. `upstream_pins` refuses an empty name, a
+pattern such as `*`, and a dependency pinned twice.
+
+Fixtures (`upstream_pinned_dependency_is_ignored_and_nothing_else`,
+`authority_pins_name_each_dependency_once`): a declared and ignored pin is
+accepted; an ignore with no pinning row, a pin with no ignore, an undeclared
+ignore beside a declared one, a changed schedule with a pin declared, a
+duplicate, a wildcard and an empty name are each refused. The existing
+fixed-policy plants still fail with no pins declared.
