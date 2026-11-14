@@ -523,7 +523,27 @@ fn workflow_files(root: &Path) -> Result<Vec<PathBuf>, Fail> {
     Ok(paths)
 }
 
-fn dependency_updates_are_confined(source: &str) -> bool {
+/// The Cargo dependencies the model's authorities pin (`AuthorityRow::pins`),
+/// sorted; `None` when a name is empty, a pattern, or pinned twice.
+fn upstream_pins(authorities: &repo_model::Authorities) -> Option<Vec<String>> {
+    let mut pins: Vec<String> = authorities
+        .authority
+        .iter()
+        .flat_map(|row| row.pins.iter().cloned())
+        .collect();
+    let count = pins.len();
+    pins.sort();
+    pins.dedup();
+    let named = pins.iter().all(|name| {
+        !name.is_empty()
+            && name
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
+    });
+    (pins.len() == count && named).then_some(pins)
+}
+
+fn dependency_updates_are_confined(source: &str, pins: &[String]) -> bool {
     let Ok(config) = serde_json::from_str::<serde_json::Value>(source) else {
         return false;
     };
@@ -534,6 +554,21 @@ fn dependency_updates_are_confined(source: &str) -> bool {
     };
     if format!("{encoded}\n") != source {
         return false;
+    }
+    let mut cargo = serde_json::json!({
+        "package-ecosystem": "cargo",
+        "directory": "/",
+        "schedule": {"interval": "weekly"},
+        "groups": {"build-policy": {"patterns": ["*"]}},
+        "commit-message": {"prefix": "chore(deps)"}
+    });
+    // A dependency an upstream's release line locks is ignored, and only that:
+    // each one is named by an authority row's `pins` (#22).
+    if !pins.is_empty() {
+        cargo["ignore"] = pins
+            .iter()
+            .map(|name| serde_json::json!({"dependency-name": name}))
+            .collect();
     }
     config
         == serde_json::json!({
@@ -548,21 +583,19 @@ fn dependency_updates_are_confined(source: &str) -> bool {
                     "ignore": [{"dependency-name": "UOR-Foundation/PrismPM/action"}],
                     "exclude-paths": [".github/workflows/bootstrap.yml"]
                 },
-                {
-                    "package-ecosystem": "cargo",
-                    "directory": "/",
-                    "schedule": {"interval": "weekly"},
-                    "groups": {"build-policy": {"patterns": ["*"]}},
-                    "commit-message": {"prefix": "chore(deps)"}
-                }
+                cargo
             ]
         })
 }
 
 /// Keep SDK/template updates owned by their release flow, without disabling dependency maintenance.
 pub fn audit_dependency_updates(root: &Path) -> Result<(), Fail> {
-    if !dependency_updates_are_confined(&read(root, ".github/dependabot.yml")?) {
-        return Err("Dependabot policy must use canonical JSON-form YAML, exclude only the locked bootstrap and SDK action, and retain weekly Actions/Cargo maintenance".into());
+    let model = repo_model::Model::load(&root.join("model"))?;
+    let Some(pins) = upstream_pins(&model.authorities) else {
+        return Err("an authority's pins must name each Cargo dependency once, exactly".into());
+    };
+    if !dependency_updates_are_confined(&read(root, ".github/dependabot.yml")?, &pins) {
+        return Err("Dependabot policy must use canonical JSON-form YAML, exclude only the locked bootstrap and SDK action, ignore exactly the Cargo dependencies an authority pins, and retain weekly Actions/Cargo maintenance".into());
     }
     println!("audit-dependency-updates: SDK ownership and ordinary maintenance are preserved");
     Ok(())
@@ -758,7 +791,7 @@ mod tests {
         action_reference_is_pinned, content_matches, dependency_updates_are_confined,
         docker_credentials_are_confined, immutable_image, native_coverage_is_complete,
         pipeline_lifecycle_is_complete, policy_boundary_is_canonical, proof_reuse_is_confined,
-        sha256, update_preserves_project_content, workflow_history_is_complete,
+        sha256, update_preserves_project_content, upstream_pins, workflow_history_is_complete,
         PROJECT_CONTENT_PATHS, PROOF_KEY, UNIVERSAL_POLICY_PATHS,
     };
 
@@ -987,7 +1020,7 @@ mod tests {
     #[test]
     fn dependency_updates_preserve_sdk_ownership_and_ordinary_maintenance() {
         let source = include_str!("../../.github/dependabot.yml");
-        assert!(dependency_updates_are_confined(source));
+        assert!(dependency_updates_are_confined(source, &[]));
         let original: serde_json::Value = serde_json::from_str(source).unwrap();
         let encode = |value: &serde_json::Value| {
             format!("{}\n", serde_json::to_string_pretty(value).unwrap())
@@ -1047,7 +1080,7 @@ mod tests {
             let mut changed = original.clone();
             *changed.pointer_mut(pointer).unwrap() = value;
             assert!(
-                !dependency_updates_are_confined(&encode(&changed)),
+                !dependency_updates_are_confined(&encode(&changed), &[]),
                 "{pointer}"
             );
         }
@@ -1060,7 +1093,7 @@ mod tests {
                 let mut changed = original.clone();
                 changed["updates"][index][key] = value.clone();
                 assert!(
-                    !dependency_updates_are_confined(&encode(&changed)),
+                    !dependency_updates_are_confined(&encode(&changed), &[]),
                     "{index}/{key}"
                 );
             }
@@ -1068,11 +1101,11 @@ mod tests {
         for field in ["ignore", "exclude-paths"] {
             let mut changed = original.clone();
             changed["updates"][0].as_object_mut().unwrap().remove(field);
-            assert!(!dependency_updates_are_confined(&encode(&changed)));
+            assert!(!dependency_updates_are_confined(&encode(&changed), &[]));
         }
         let mut changed = original.clone();
         changed["updates"].as_array_mut().unwrap().pop();
-        assert!(!dependency_updates_are_confined(&encode(&changed)));
+        assert!(!dependency_updates_are_confined(&encode(&changed), &[]));
         for malformed in [
             source.replacen("\"version\": 2", "\"version\": 2, \"version\": 2", 1),
             source.replace(
@@ -1082,8 +1115,83 @@ mod tests {
             "{}\n".to_string(),
             "version: 2\n".to_string(),
         ] {
-            assert!(!dependency_updates_are_confined(&malformed));
+            assert!(!dependency_updates_are_confined(&malformed, &[]));
         }
+    }
+
+    /// #22: an instance ignores a Cargo dependency that an authority pins, and
+    /// nothing else.
+    #[test]
+    fn upstream_pinned_dependency_is_ignored_and_nothing_else() {
+        let source = include_str!("../../.github/dependabot.yml");
+        let original: serde_json::Value = serde_json::from_str(source).unwrap();
+        let encode = |value: &serde_json::Value| {
+            format!("{}\n", serde_json::to_string_pretty(value).unwrap())
+        };
+        let with_ignore = |names: &[&str]| {
+            let mut changed = original.clone();
+            changed["updates"][1]["ignore"] = names
+                .iter()
+                .map(|name| serde_json::json!({"dependency-name": name}))
+                .collect();
+            encode(&changed)
+        };
+        let pins = vec!["unicode-normalization".to_string()];
+        // Declared and ignored: accepted.
+        assert!(dependency_updates_are_confined(
+            &with_ignore(&["unicode-normalization"]),
+            &pins
+        ));
+        // Ignored with no authority pinning it: refused.
+        assert!(!dependency_updates_are_confined(
+            &with_ignore(&["unicode-normalization"]),
+            &[]
+        ));
+        // Pinned but not ignored: refused, the pin would drift.
+        assert!(!dependency_updates_are_confined(source, &pins));
+        // A second, undeclared ignore beside the declared one: refused.
+        assert!(!dependency_updates_are_confined(
+            &with_ignore(&["serde", "unicode-normalization"]),
+            &pins
+        ));
+        // Every other deviation still fails with a pin declared.
+        let mut changed: serde_json::Value =
+            serde_json::from_str(&with_ignore(&["unicode-normalization"])).unwrap();
+        changed["updates"][1]["schedule"]["interval"] = serde_json::json!("never");
+        assert!(!dependency_updates_are_confined(&encode(&changed), &pins));
+    }
+
+    #[test]
+    fn authority_pins_name_each_dependency_once() {
+        let authorities = |pins: &[&[&str]]| repo_model::Authorities {
+            spec: "template/1".into(),
+            authority: pins
+                .iter()
+                .enumerate()
+                .map(|(index, names)| repo_model::AuthorityRow {
+                    id: format!("A-{index}"),
+                    name: "n".into(),
+                    citation: "c".into(),
+                    checksum: "none".into(),
+                    checksum_reason: "r".into(),
+                    artifact: None,
+                    statement: "s".into(),
+                    realized_by: vec![],
+                    pins: names.iter().map(|name| (*name).to_string()).collect(),
+                })
+                .collect(),
+        };
+        assert_eq!(upstream_pins(&authorities(&[])), Some(vec![]));
+        assert_eq!(
+            upstream_pins(&authorities(&[&["unicode-normalization"], &["blake3"]])),
+            Some(vec!["blake3".into(), "unicode-normalization".into()])
+        );
+        assert_eq!(
+            upstream_pins(&authorities(&[&["blake3"], &["blake3"]])),
+            None
+        );
+        assert_eq!(upstream_pins(&authorities(&[&["*"]])), None);
+        assert_eq!(upstream_pins(&authorities(&[&[""]])), None);
     }
 
     #[test]
