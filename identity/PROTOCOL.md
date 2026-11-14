@@ -34,7 +34,10 @@ linking and sync do not.
 
 There is no sign-in. On the visitor's first touch of the page (or reach for
 the icon), the frame makes this origin's device and a new id if it has none,
-then this app's session if it has none or it expired:
+then this app's session if it has none or it expired. A new id has no other
+device and nothing about it is on the relay, so making it sends and asks the
+relay nothing (steps 1 and 3 skip the relay); it first goes to the relay when
+it links, removes a device or is recovered.
 
 1. The frame takes in the sync messages the relay holds for every boundary
    key it has, and the id's public log, so a device removed elsewhere stops

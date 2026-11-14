@@ -400,7 +400,7 @@ export const prismId = () =>
 // window in which it must be checked after signing (Prism id's actionFresh);
 // anyone checking a kept session later checks it as of its own signing
 // (fresh: 0), and its expiry bounds it.
-export async function verifySession(session, { now = Date.now(), fresh = 60000 } = {}) {
+export async function verifySession(session, { now = Date.now(), fresh = 60000, hear = true } = {}) {
   const Prism = await prismId();
   const { app, envelope, records } = session ?? {};
   const body = envelope?.body;
@@ -420,8 +420,10 @@ export async function verifySession(session, { now = Date.now(), fresh = 60000 }
   const at = fresh ? now : body.at;
   let verdict;
   try {
-    // With the relay known, also hear removals the signing device did not present (the id's public log).
-    verdict = await Prism.verifyAction(body.prism, log, envelope, { audience: app, now: at, window: fresh || 1, ...(relay ? { bus: bus(Prism) } : {}) });
+    // With the relay known, also hear removals the signing device did not
+    // present (the id's public log). `hear: false` is for the device that
+    // just made the id: nothing about it can be on the relay yet.
+    verdict = await Prism.verifyAction(body.prism, log, envelope, { audience: app, now: at, window: fresh || 1, ...(relay && hear ? { bus: bus(Prism) } : {}) });
   } catch (error) {
     if (error instanceof Prism.PrismIdError) deny("log", `The log does not resolve: ${error.message}`);
     throw error;
@@ -634,10 +636,12 @@ export function accounts(frame, core) {
   // This app's session, made without asking: take in what the other
   // devices shared first, so a device removed elsewhere stops here (it then
   // forgets the device and makes a new id), then sign this app's session.
-  const session = async (Prism) => {
-    held = await pull(Prism, held);
+  // An id made this moment has no other device and nothing to hear, so it
+  // asks the relay nothing.
+  const session = async (Prism, { fresh = false } = {}) => {
+    if (!fresh) held = await pull(Prism, held);
     await saveDevice(held);
-    if (!(await Prism.canSign(held.prism, await heard(Prism, held), held.device.id))) {
+    if (!fresh && !(await Prism.canSign(held.prism, await heard(Prism, held), held.device.id))) {
       await forgetDevice();
       await forgetKit();
       held = null;
@@ -649,7 +653,7 @@ export function accounts(frame, core) {
     const expires = Date.now() + SESSION_DAYS * 864e5;
     const envelope = await Prism.signAction(held, SESSION_ACTION, { sessionKey, expires }, { now: Date.now(), audience: location.origin });
     const delegation = { app: location.origin, envelope, records: [...held.log.values()] };
-    const who = await verifySession(delegation);
+    const who = await verifySession(delegation, { hear: !fresh });
     const saved = { ...who, delegation, privateKey: keys.privateKey };
     await store("readwrite", (s) => s.put(saved, "current"));
     accountChannel.session = saved;
@@ -669,14 +673,19 @@ export function accounts(frame, core) {
   async function ensure(Prism) {
     held ??= await loadDevice();
     kit ??= await loadKit();
+    // A new id stays on this device until it links or is recovered: there
+    // is no other device to share with, so nothing goes to the relay.
+    let fresh = false;
     if (!held) {
       const made = await Prism.createRecovery(await Prism.createPrism({ deviceClass: "browser", protection: "software" }), ONE_PAPER_SHARE);
-      await keep(Prism, made.session);
+      held = made.session;
+      await saveDevice(held);
       await holdKit(made.shares[0]);
+      fresh = true;
     }
     await loadSession();
     if (accountChannel.session) await stillHeld(Prism);
-    if (!accountChannel.session) await session(Prism);
+    if (!accountChannel.session) await session(Prism, { fresh });
     paint();
   }
   // Once per page: a device removed elsewhere drops its session here.

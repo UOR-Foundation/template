@@ -104,10 +104,12 @@ function relayStandIn(origin) {
   const topics = new Map();
   const sockets = new Set();
   const nameOf = (url) => new URL(url).pathname.split("/")[1];
-  return {
+  const relay = {
     topics,
+    requests: 0,
     async attach(context) {
       await context.route(`${origin}/**`, async (route) => {
+        relay.requests += 1;
         const request = route.request();
         const name = nameOf(request.url());
         const headers = { "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "GET, POST" };
@@ -128,6 +130,7 @@ function relayStandIn(origin) {
       });
     },
   };
+  return relay;
 }
 
 describe("the flow in Chromium", () => {
@@ -174,8 +177,11 @@ describe("the flow in Chromium", () => {
   });
 
   test("first use makes the Prism id, with nothing to click; the kit waits in the panel", async () => {
+    const asked = relay.requests;
     await first.mouse.click(5, 200);
     await ready(first);
+    // A new id has no other device: nothing goes to the relay, nothing is asked of it.
+    assert.equal(relay.requests, asked);
     assert.equal(await first.locator("#account-panel").evaluate((panel) => panel.matches(":popover-open")), false);
     firstId = (await account(first)).id;
     await first.locator("#account").click();
