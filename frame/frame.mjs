@@ -25,10 +25,11 @@
 // proof-url optional: the proof's attestation
 // examples  optional: "passed/total" once the page has replayed the holo's
 //           examples, "running" while it does, "error" when it could not
-// The element's account is the visitor's Prism id (null when signed out);
-// sign(bytes) signs with this browser's session key and returns the
-// signature with the id's delegation; "accountchange" fires on sign-in and
-// sign-out. identity/PROTOCOL.md is the account contract.
+// The element's account is the visitor's Prism id, made without asking on
+// their first touch of the page (null until then); sign(bytes) signs with
+// this browser's session key and returns the signature with the id's
+// delegation; "accountchange" fires when the id is ready or changes. There is
+// no sign-in. identity/PROTOCOL.md is the account contract.
 // The shield sums the three: green only when the bytes are authentic and
 // every example gives its proved answer; its panel shows each check, as a
 // browser shows a page's security.
@@ -186,7 +187,7 @@ const markup = (e) => `
     <span id="bar-status" class="sr" aria-live="polite"></span>
     <button id="theme" class="ghost icon" type="button" popovertarget="theme-panel" aria-label="Theme" title="Theme"><svg class="moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" /></svg><svg class="sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg><svg class="photo" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><rect x="3" y="4.5" width="18" height="15" rx="2.5" /><circle cx="9" cy="10" r="1.75" /><path d="m3.5 17 5-4.5 3.5 3 3-2.5 5.5 4.5" /></svg></button>
     <button id="fullscreen" class="ghost icon" type="button" aria-label="Enter full screen" title="Full screen"><svg class="expand" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15" /></svg><svg class="shrink" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 4v3.5A1.5 1.5 0 0 1 7.5 9H4M20 9h-3.5A1.5 1.5 0 0 1 15 7.5V4M15 20v-3.5a1.5 1.5 0 0 1 1.5-1.5H20M4 15h3.5A1.5 1.5 0 0 1 9 16.5V20" /></svg></button>
-    <button id="account" class="ghost icon" type="button" popovertarget="account-panel" aria-label="Sign in" title="Sign in"><svg class="person" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="3.5" /><path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6" /></svg></button>
+    <button id="account" class="ghost icon" type="button" popovertarget="account-panel" aria-label="Prism id" title="Prism id"><svg class="person" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="3.5" /><path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6" /></svg></button>
     </div>
   </div></div>
   <div id="trust-panel" class="trust-panel" popover aria-labelledby="trust-title">
@@ -349,7 +350,7 @@ const starMark = '<svg class="star" viewBox="0 0 16 16" width="12" height="12" a
 // named by the κ of its genesis and held by devices whose keys never leave
 // them, with a recovery kit its owner keeps, so losing a device never loses
 // the id. The frame keeps this app's session and signs with it; the panels
-// module holds this origin's device and runs the sign-in, in the visitor's
+// module holds this origin's device and makes the id and its session, in the visitor's
 // browser. Devices of one id meet on stitch's relay, which the page build
 // reads from here into the page's connect-src (with its WebSocket origin).
 export const PRISM_RELAY = "https://ntfy.sh";
@@ -830,7 +831,7 @@ class PrismFrame extends Element {
     paint();
   }
 
-  // The visitor's Prism account, for the app: null when signed out.
+  // The visitor's Prism id, for the app: null until it is made.
   get account() {
     const saved = accountChannel.session;
     return saved ? { id: saved.account, key: saved.key, expires: saved.expires } : null;
@@ -840,16 +841,16 @@ class PrismFrame extends Element {
   // Prism id let that key act for it here; verifySession checks it.
   async sign(data) {
     const saved = accountChannel.session;
-    if (!saved || saved.expires <= Date.now()) throw Object.assign(new Error("No one is signed in"), { name: "IdentityError", code: "signed-out" });
+    if (!saved || saved.expires <= Date.now()) throw Object.assign(new Error("The Prism id is not ready yet"), { name: "IdentityError", code: "signed-out" });
     const signature = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, saved.privateKey, data);
     return { signature: b64u(signature), delegation: saved.delegation };
   }
 
-  // The account icon, after full screen: a line drawing signed out, filled
-  // once signed in. Its panel and the
-  // sign-in itself come with the panels module (accounts() there), fetched
-  // when the visitor reaches for the icon, so an app's first load carries
-  // none of it. Where a Prism id cannot work (no secure context, no
+  // The Prism id icon, after full screen: a line drawing until the id is
+  // ready, filled once it is. The id is made, and this app's session signed,
+  // with nothing to click and nothing in the way, by the panels module
+  // (accounts() there), fetched on the visitor's first touch of the page or
+  // reach for the icon, so an app's first load carries none of it. Where a Prism id cannot work (no secure context, no
   // WebCrypto, no IndexedDB, no popover) the icon is not shown, so it never
   // offers what would fail.
   accountPanel() {
@@ -864,7 +865,7 @@ class PrismFrame extends Element {
     }
     const paint = () => {
       const saved = accountChannel.session;
-      const label = saved ? "Prism account" : "Sign in";
+      const label = "Prism id";
       button.classList.toggle("signed-in", Boolean(saved));
       button.setAttribute("aria-label", label);
       button.title = label;
@@ -892,6 +893,9 @@ class PrismFrame extends Element {
     };
     const reach = () => ready().then((accounts) => accounts.reach(), () => {});
     for (const type of ["pointerenter", "focus", "touchstart"]) button.addEventListener(type, reach, { passive: true });
+    // First use: the visitor's first touch, click or key anywhere makes the id.
+    this.accountWatch = new AbortController();
+    for (const type of ["pointerdown", "keydown"]) document.addEventListener(type, reach, { passive: true, once: true, signal: this.accountWatch.signal });
     // A panel opened before its part of the panels module came waits for it,
     // then opens: this one, or the one drawn since, so no click is lost.
     panel.addEventListener("beforetoggle", (event) => {

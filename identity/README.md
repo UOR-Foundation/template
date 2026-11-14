@@ -1,9 +1,10 @@
 # Prism ids
 
-The person icon at the right end of every Prism app's bar. One click and
-**Create a Prism id**, and the visitor is signed in. There is no password, no
-passkey prompt and no account server: the browser makes its own key, which
-never leaves it. One Prism id signs in to every Prism app, Foundry included.
+There is no sign-in. The first time a visitor touches a Prism app, the frame
+makes them a Prism id in the background: no screen, no prompt, no password,
+no passkey and no account server. The browser makes its own key, which never
+leaves it. The person icon at the right end of the bar shows the id and its
+quiet options; one Prism id serves every Prism app, Foundry included.
 [PROTOCOL.md](PROTOCOL.md) is the contract. The id itself is stitch's Prism
 id, pinned in [stitch.lock](stitch.lock), and nothing here is deployed beyond
 the frame.
@@ -13,7 +14,7 @@ the frame.
 Each app keeps its own device of the id, in its own origin's storage. To use
 the same id in another app, or on a phone:
 
-1. In an app already signed in, choose **Add a device or app**. Scan the QR code with a phone, or copy the link.
+1. In an app that has your id, open the person icon and choose **Add a device or app**. Scan the QR code with a phone, or copy the link.
 2. In the new app, choose **Use my Prism id from another device or app** and paste it.
 3. The new app shows six digits. Type them into the first app.
 
@@ -24,13 +25,14 @@ on stitch's relay, under a name derived from that secret.
 
 ## Losing every device never loses the id
 
-A new id's first step is its **recovery kit**: a file holding the paper share
-of the id's recovery device (stitch's threshold recovery, one share of one)
-and the id's log. On any browser, **Use a recovery kit** brings the id back.
+A new id comes with a **recovery kit**: a file holding the paper share of the
+id's recovery device (stitch's threshold recovery, one share of one) and the
+id's log. It waits in the person icon's panel (**Save recovery kit**) until it
+is saved; nothing asks for it. On any browser, **Use a recovery kit** brings the id back.
 That browser becomes the id's device, every other device is removed, and a
 new kit replaces the old one.
 
-Recovery restores the id: signing in, as the same id, everywhere. It does not
+Recovery restores the id: the same id, everywhere. It does not
 restore what an app kept only in a lost browser (its local projects, chats or
 databases). That lives with the app, not the id.
 
@@ -50,7 +52,7 @@ Remove, because stitch lets no member revoke it.
 | --- | --- | --- |
 | stitch's relay (ntfy) | Withhold or delay a sync message or a link answer, so a removal or a link does not arrive | Read a sync message (sealed in the id's private boundary) or forge any record (each is signed and checked by the reader). It sees hashed topic names, timing, padded sizes, and in a link answer the id's log (public keys and signatures) |
 | The app's page (its script) | Everything this origin's device can do: sign for this app, link or remove devices, read a recovery kit as it is made | Copy the device keys out: they are non-extractable WebCrypto keys |
-| Another app | Ask the visitor to sign in to *it* | Use this app's device or session: storage is per origin, and a session names the app origin it was signed for |
+| Another app | Make its own device of the visitor's id | Use this app's device or session: storage is per origin, and a session names the app origin it was signed for |
 | Anyone holding a recovery kit | Take the id over, from any browser | Use it once a newer kit replaced it, if they hear what the id's devices shared (see below) |
 
 There is no biometric or OS prompt: a device's keys sign whenever its page
