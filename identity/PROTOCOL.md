@@ -1,124 +1,98 @@
-# prism/identity/1
+# prism/identity/4
 
-A Prism account is a passkey. Its private key never leaves the device's secure
-hardware (Secure Enclave, TPM, Android TEE or StrongBox). Everything else is
-public, content addressed and checkable by anyone, so no server is trusted to
-say who a user is.
+A Prism id is stitch's Prism id ([afflom/stitch](https://github.com/afflom/stitch),
+`src/prism-id.js` and `docs/prism-id.md`). It is pinned by commit in
+[stitch.lock](stitch.lock) and copied, with the stitch modules it imports and
+the model decisions they call, into [prism-id.mjs](prism-id.mjs) by
+[stitch-sync.mjs](stitch-sync.mjs). This file says how the frame uses it.
+Stitch's documents are the contract for the id itself, and every
+authorization decision is taken by its `Stitch.PrismId` model. When stitch's
+Prism model is refined, re-pin:
+
+```sh
+node identity/stitch-sync.mjs <stitch commit>   # writes prism-id.mjs and stitch.lock
+npm run test:identity                           # the lock matches, every check refuses, the flow signs in
+```
+
+prism/identity/4 replaces identity/3 (a Prism id page at id.uor.foundation
+and a registry mailbox) and identity/1 and /2 (passkeys). Nothing here runs
+on a server of Prism's own. A session has the same shape as in identity/3.
 
 ## Parties
 
 | Party | Where | Holds |
 | --- | --- | --- |
-| Identity page | `https://id.uor.foundation` (rpId `id.uor.foundation`) | Nothing. It runs the WebAuthn ceremony and hands the result to the app. It serves no other content, because every page on the rpId's origin can ask a passkey to sign. |
-| Registry | `https://registry.uor.foundation`, routes under `/passkey/` | Public key records, indexed by credential. It verifies before it stores, and cannot forge: every record is checked again by whoever reads it. |
-| Frame | `<prism-frame>` in every Prism app | Checks every signature in the browser and keeps the session. |
+| Frame | `<prism-frame>` in every Prism app | This origin's device of the id (keys, keyring and log, in IndexedDB `prism-id`), and this app's session key with the id's signed session (IndexedDB `prism-identity`). It checks every signature itself. |
+| stitch's relay | The frame's `PRISM_RELAY` (`https://ntfy.sh`), with stitch's relay framing, through Prism id's `createRelayBus` | Messages under names hashed from secrets only holders know: sealed sync messages (`prism-sync:` topics) and link requests and answers (`prism-rendezvous:` topics). It holds them for the warm lifetime (30 minutes). |
 
-For development the identity page runs on `http://localhost:<port>` with rpId
-`localhost`, which WebAuthn treats as a secure context.
+A page's `connect-src` must name the relay and its `wss:` origin. The page
+build reads `PRISM_RELAY` from the live frame. A page that does not admit the
+relay keeps the id on its device: creating, signing in and recovery work, but
+linking and sync do not.
 
-## Encodings
+## Sign-in
 
-`b64u` is base64url without padding. `H(x)` is SHA-256. Strings are UTF-8.
+1. The frame takes in the sync messages the relay holds for every boundary
+   key it has, so a device removed elsewhere stops here
+   (`canSign` is false: the panel says "This device was removed" and forgets
+   the device).
+2. It makes a non-extractable P-256 session key and signs
+   `signAction(device, "prism/session/1", {sessionKey, expires}, {audience: location.origin})`.
+   `expires` is 7 days away; the most allowed is 8.
+3. It checks the result with `verifySession`, as anyone the app shows a
+   signature to does: the log resolves for the envelope's prism id, the
+   signer is an active device, the audience is this origin, the action is
+   fresh (`Stitch.PrismId.actionFresh`, `actionAllowed`). Only then does it
+   keep the session.
 
-- **Key ID**: `b64u(H(spki))`, where `spki` is the credential public key as
-  DER SubjectPublicKeyInfo (`AuthenticatorAttestationResponse.getPublicKey()`).
-- **Account ID**: the key ID of the account's first passkey. It never changes.
-- **Algorithms**: ES256 (`-7`, P-256) and RS256 (`-257`, for older Windows Hello).
+A kept session is `{app, envelope, records}`. `frame.sign(bytes)` signs with
+the session key and returns the signature with it. Anyone can check it later
+with `verifySession(session, {fresh: 0})`, as of its signing and bounded by
+its expiry.
 
-## Signed messages
+## A new id
 
-Every signature is a WebAuthn assertion: the authenticator signs
-`authenticatorData || H(clientDataJSON)`. The challenge inside `clientDataJSON`
-is the hash of the message below, so the signature covers the message. A
-verifier rebuilds the message, then checks, in order and failing closed:
+`createPrism`, then `createRecovery(session, {threshold: 1, guardians: [{paper: true}]})`.
+The recovery kit is `{kind: "prism/recovery-kit/1", prism, share, records}`,
+with the paper share and the log, downloaded as JSON.
 
-1. `clientData.type` is `webauthn.get`.
-2. `clientData.challenge` equals `b64u(H(message))`.
-3. `clientData.origin` is an identity origin the verifier accepts.
-4. `authenticatorData[0..32]` equals `H(rpId)` for that origin.
-5. Flags have user presence (`0x01`) and user verification (`0x04`).
-6. The signature verifies under the key's `spki` (ECDSA signatures are DER).
+## Linking
 
-| Purpose | Message |
-| --- | --- |
-| Session | `prism/identity/session/1\n<app origin>\n<nonce>\n<session key>\n<expires>` |
-| Bind a device | `prism/identity/bind/1\n<account>\n<new key ID>` |
-| Revoke a device | `prism/identity/revoke/1\n<account>\n<key ID>` |
+Stitch's out-of-band link, over the relay:
 
-`<nonce>` is 32 random bytes in b64u, made by the app and used once.
-`<session key>` is the app's session public key, raw P-256 point in b64u.
-`<expires>` is a Unix time in milliseconds. A bind or revoke message names
-exactly one change, so replaying it repeats that change and nothing else.
+1. Signed-in device: `createLinkOffer`. The panel shows the `prism-link:`
+   URI and subscribes to `rendezvousTopic(secret)`.
+2. New device: `parseLinkUri`, a new device, then `requestLink`, published on
+   the rendezvous topic. It shows `linkCode(secret, device)`.
+3. The person types those six digits into the first device, which calls
+   `acceptLinkRequest` with them as `confirmCode` and publishes the answer.
+   A wrong code is refused and the offer stays usable until it expires.
+4. New device: `completeLink`, then sign-in.
 
-## Key record
+## Recovery
 
-```json
-{
-  "spec": "prism/identity/key/1",
-  "key": "<key ID>",
-  "account": "<account ID>",
-  "credential": "<b64u credential ID>",
-  "alg": -7,
-  "spki": "<b64u DER>",
-  "origin": "https://id.uor.foundation",
-  "created": 1762516800000,
-  "binding": null
-}
-```
+From a kit: `recoverPrism({prism, records, shares: [share], device, rotateRecovery: {threshold: 1, guardians: [{paper: true}]}})`
+binds this browser's new device and revokes every other device. It replaces
+the recovery device, so the new kit retires the old one. The frame then takes
+in what the relay holds. If that shows another active recovery device, the
+kit was already used and is refused.
 
-`binding` is null for an account's first key (then `key == account`).
-Otherwise it is the bind assertion made by a key already in the account:
+## Devices
 
-```json
-{ "credential": "<b64u>", "clientDataJSON": "<b64u>", "authenticatorData": "<b64u>", "signature": "<b64u>" }
-```
+The panel lists the id's active devices from its log and removes one with
+`revokeDevice`, which rotates the private boundary key. It then shares the
+log under every key it holds, so devices that have not taken up the rotation
+still hear it.
 
-A reader accepts a record only when `key == b64u(H(spki))` and either
-`key == account`, or the binding verifies as a bind message under a record that
-the reader has itself accepted for the same account. A chain longer than five
-bindings is refused.
+## Not yet (stitch's to define)
 
-## Registry routes
-
-All bodies are JSON. Errors are `{"error": "<code>", "message": "<one sentence>"}`.
-
-| Route | Does |
-| --- | --- |
-| `POST /passkey/challenge` | `{"challenge": "<b64u 32 bytes>", "expires": <ms>}`. Single use, 120 s. |
-| `POST /passkey/register` | Registers a new passkey. Body: `spki`, `alg`, `credential`, `clientDataJSON`, `authenticatorData`, `attestationObject`, `transports`, and `binding` (null, or a bind assertion plus `account`). |
-| `GET /passkey/credential/{credential}` | The key record. `404` unknown, `410` revoked. |
-| `GET /passkey/account/{account}` | `{"account", "keys": [records], "revoked": [key IDs]}`. |
-| `POST /passkey/revoke` | Body: `account`, `key`, and a revoke assertion by a live key of the account. |
-
-`register` checks: `clientData.type` is `webauthn.create`; its challenge is one
-the registry issued and has not used (consumed on first use, pass or fail);
-origin is allowed; `rpIdHash`, UP, UV and AT flags; the attested credential ID
-equals `credential`; the attested COSE key is the same public key as `spki`;
-the credential is not already registered (first write wins); and the binding,
-when present, verifies under a live key of `account`. Error codes:
-`challenge`, `origin`, `rp`, `flags`, `credential`, `key`, `exists`,
-`binding`, `signature`, `revoked`, `rate`.
-
-Further codes: `request` (400, a malformed body), `account` (404, an unknown
-account), `store` (500, details only in the registry's log). An unknown
-credential is `credential` with 404. A bind or revoke assertion with the wrong
-type or challenge is `signature`.
-
-`revoke` takes `{account, key, assertion: {credential, clientDataJSON,
-authenticatorData, signature}}` and answers `{account, key, revoked: true,
-newly}`. A key bound before its binder was revoked stays valid, so
-`/passkey/account/` keeps revoked records in `keys` and names them in
-`revoked`; a reader builds a binding chain from that list. The key that signs
-a session must itself be live (`/passkey/credential/` answers 410).
-
-Writes are rate limited per client address. Reads are public with CORS `*`;
-writes allow only the identity origins.
-
-## Session
-
-On sign-in the frame makes a non-extractable P-256 key with WebCrypto, stored
-in the app origin's IndexedDB, and asks the passkey to sign a session message
-naming it. The signed session is the delegation: anyone can check that the
-account's passkey let this browser key act for it, on this app's origin, until
-`expires`. The private session key cannot be read out by script. No token is
-ever kept in `localStorage`. A session lasts 7 days; sign-out deletes it.
+- A used kit replayed against its own old log: the device it makes is
+  refused by the frame that finds the newer recovery, but a device holding
+  only the old log accepts it. Stitch's recovery would need to make a
+  replaced recovery device's binds void everywhere.
+- A host learns of a removal only from the log the signing device presents.
+  A stolen device that never syncs can keep signing, and a session signed
+  before a removal lasts until it expires (at most 8 days).
+- The relay holds messages for 30 minutes. A device away longer catches up
+  from the next message another device shares.
+- A QR code for the link offer. Today the URI is copied and pasted.

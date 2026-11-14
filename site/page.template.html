@@ -7,7 +7,7 @@
     <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f3f3ee" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#151312" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob: {{CSP_SCRIPT_HASHES}}; style-src {{CSP_STYLE_HASHES}}; font-src 'self'; img-src 'self' data:; connect-src 'self' {{HOLO_SEARCH_ORIGIN}} {{REGISTRY_ORIGIN}} {{FRAME_ORIGIN}} {{UNSPLASH_ORIGIN}}; frame-src {{ACCOUNTS_ORIGIN}}; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'self' {{HOLO_SEARCH_ORIGIN}}; object-src 'none'" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob: {{CSP_SCRIPT_HASHES}}; style-src {{CSP_STYLE_HASHES}}; font-src 'self'; img-src 'self' data:; connect-src 'self' {{HOLO_SEARCH_ORIGIN}} {{REGISTRY_ORIGIN}} {{FRAME_ORIGIN}} {{UNSPLASH_ORIGIN}} {{PRISM_RELAY_ORIGINS}}; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'self' {{HOLO_SEARCH_ORIGIN}}; object-src 'none'" />
     <title>{{TITLE}}</title>
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Prism" />
@@ -35,7 +35,7 @@
     <script>{{INLINE_THEME}}</script>
   </head>
   <body>
-    <prism-frame id="frame" name="{{NAME}}" address="{{HOLO_NAME}}" live="{{LIVE}}" repo="{{REPO}}" home="{{HOLO_SEARCH}}" purpose="{{PURPOSE}}" card="{{OG_IMAGE}}" identity="#spec" accounts="{{ACCOUNTS}}" proof="{{PROMISE_HEADLINE}}" proof-url="{{ATT_PROOF_URL}}">
+    <prism-frame id="frame" name="{{NAME}}" address="{{HOLO_NAME}}" live="{{LIVE}}" repo="{{REPO}}" home="{{HOLO_SEARCH}}" purpose="{{PURPOSE}}" card="{{OG_IMAGE}}" identity="#spec" proof="{{PROMISE_HEADLINE}}" proof-url="{{ATT_PROOF_URL}}">
       <a class="frame-fallback" href="{{HOLO_SEARCH}}" aria-label="Hologram: home"><span class="mark" aria-hidden="true"></span><span class="field"><span class="scheme">holo://</span>{{HOLO_NAME}}</span></a>
       <span slot="status" id="update" class="chip chip-warn" hidden><button id="reload" class="bare" type="button">Update available. Reload</button></span>
     </prism-frame>

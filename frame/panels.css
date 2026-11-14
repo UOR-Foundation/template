@@ -466,17 +466,21 @@
 .account-panel .row { justify-content: flex-start; width: 100%; min-height: 2.618rem; padding: 0 1rem; border: 0; border-radius: var(--radius-control); background: none; color: var(--foreground); font-size: 1rem; text-align: start; cursor: pointer; }
 .account-panel .row:hover { background: var(--accent); }
 .account-panel .row:focus-visible, .account-panel .text:focus-visible, .account-close:focus-visible { outline: var(--ring-width) solid var(--ring); outline-offset: var(--ring-offset); }
-.account-ceremony:empty { display: none; }
-/* The iframe's colour scheme matches the page inside it; a mismatch would
- * make the browser paint it an opaque ground over the dialog. */
-.account-ceremony iframe { display: block; width: 100%; height: 2.618rem; border: 0; color-scheme: light; }
-:host([dark]) .account-ceremony iframe { color-scheme: dark; }
-/* Shown only once the sign-in page has answered, so a page that fails to
- * load never shows the browser's error page in the dialog. */
-.account-ceremony iframe:not(.ready) { visibility: hidden; height: 0 !important; }
-#account-window { width: 100%; min-height: 2.618rem; font-size: 1rem; }
+.account-panel .primary { width: 100%; min-height: 2.618rem; font-size: 1rem; }
+.account-panel .account-in > p { margin-bottom: 0.618rem; color: var(--muted-foreground); }
+.account-panel .account-in > p b { color: var(--foreground); font-weight: 600; }
+.account-panel input:not([type="file"]) { width: 100%; min-height: 2.618rem; padding: 0 1rem; border: var(--border-width) solid var(--border); border-radius: var(--radius-control); background: var(--background); color: var(--foreground); font: inherit; font-size: 1rem; }
+.account-panel #account-code { margin-top: 0.382rem; font-family: var(--font-mono); letter-spacing: 0.2em; }
+.account-panel label { display: grid; color: var(--muted-foreground); }
+.account-panel input:focus-visible { outline: var(--ring-width) solid var(--ring); outline-offset: var(--ring-offset); }
+.account-code { margin-top: 0.618rem !important; color: var(--foreground); font-size: 1rem; }
+.account-devices { display: grid; gap: 0.382rem; margin: 0; padding: 0; list-style: none; }
+.account-devices li { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); min-height: 2.618rem; padding: 0 1rem; border: var(--border-width) solid var(--border); border-radius: var(--radius-control); }
+.account-devices code { font-family: var(--font-mono); color: var(--muted-foreground); }
+.account-error { margin-top: 1rem !important; color: var(--destructive, #c2410c); }
+.account-panel.busy > :not(.account-close) { opacity: 0.618; pointer-events: none; }
 @media (pointer: coarse) {
-  .account-panel .row, #account-window { min-height: var(--touch); }
+  .account-panel .row, .account-panel .primary, .account-panel input:not([type="file"]) { min-height: var(--touch); }
   .account-close { top: 0.618rem; right: 0.618rem; width: var(--touch); height: var(--touch); min-height: var(--touch); }
 }
 @media (prefers-reduced-transparency: reduce) { .account-panel::backdrop { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgb(0 0 0 / 0.618); } }
