@@ -6,7 +6,9 @@
 // stands in for here, answering the browser as the relay does.
 //   node --test identity/test.mjs
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { after, before, describe, test } from "node:test";
 import { IdentityError, verifySession } from "../frame/panels.mjs";
 import * as Prism from "./prism-id.mjs";
@@ -304,5 +306,79 @@ describe("the flow in Chromium", () => {
     assert.notEqual((await account(third))?.id, firstId);
     await third.context().close();
     await elsewhere.close();
+  });
+
+  test("a guardian: the new kit needs them, they release their share once, and a copied kit gets nothing", async () => {
+    const holder = await (await newContext()).newPage();
+    const guardian = await (await newContext()).newPage();
+    await holder.goto(running.apps[0]);
+    await guardian.goto(running.apps[1]);
+    await holder.mouse.click(5, 200);
+    await guardian.mouse.click(5, 200);
+    await ready(holder);
+    await ready(guardian);
+    const holderId = (await account(holder)).id;
+
+    // The guardian offers a link; the holder pastes it, from the kit still waiting in the panel.
+    await guardian.locator("#account").click();
+    await guardian.locator("#account-guardian").click();
+    await guardian.locator("#account-guardian-link", { hasText: "prism-guardian:" }).waitFor({ timeout: 10000 });
+    const offer = await guardian.locator("#account-guardian-link").textContent();
+    await holder.locator("#account").click();
+    await holder.locator("#account-guard").click();
+    assert.equal(await holder.locator("#account-guard-kit-label").isHidden(), true, "the unsaved kit is used, nothing to choose");
+    await holder.locator("#account-guard-uri").fill(offer);
+    await holder.locator("#account-guard-go").click();
+    await guardian.locator("#account-help").waitFor({ timeout: 15000 });
+    await holder.locator("#account-kit-save").waitFor({ timeout: 15000 });
+    assert.equal(await holder.locator("#account-guard").isHidden(), true);
+    const [download] = await Promise.all([holder.waitForEvent("download"), holder.locator("#account-kit-save").click()]);
+    const guardedKit = join(await mkdtemp(join(tmpdir(), "prism-kit-")), "kit.json");
+    await download.saveAs(guardedKit);
+    const saved = JSON.parse(await readFile(guardedKit, "utf8"));
+    assert.equal(saved.share.guardian, "paper");
+    assert.equal(saved.share.threshold, 2);
+    await holder.context().close();
+
+    // Every device lost: the kit asks for the guardian, who checks the code and releases.
+    const helped = async () => {
+      const page = await (await newContext()).newPage();
+      await page.goto(running.apps[0]);
+      await page.locator("#account").click();
+      await page.locator("#account-recover").click();
+      await page.locator("#account-kit-file").setInputFiles(guardedKit);
+      await page.locator("#account-ask-link", { hasText: "prism-help:" }).waitFor({ timeout: 15000 });
+      return { page, link: await page.locator("#account-ask-link").textContent(), code: await page.locator("#account-ask-code").textContent() };
+    };
+    const lost = await helped();
+    if (!(await guardian.locator("#account-help").isVisible())) await guardian.locator("#account").click();
+    await guardian.locator("#account-help").click();
+    await guardian.locator("#account-help-uri").fill(lost.link);
+    await guardian.locator("#account-help-go").click();
+    await guardian.locator("#account-help-code").waitFor({ timeout: 15000 });
+    assert.equal(await guardian.locator("#account-help-code").textContent(), lost.code);
+    await guardian.locator("#account-help-release").click();
+    await lost.page.waitForFunction((id) => document.querySelector("prism-frame").account?.id === id, holderId, { timeout: 15000 });
+    await lost.page.locator("#account-kit-save").waitFor({ timeout: 15000 });
+    await guardian.locator("#account-help").waitFor({ state: "hidden", timeout: 10000 });
+
+    // A copy of the same kit: the guardian has nothing left to release.
+    const copied = await helped();
+    assert.equal(await guardian.locator("#account-help").isHidden(), true);
+    const store = await guardian.evaluate(
+      () =>
+        new Promise((done) => {
+          const open = indexedDB.open("prism-id");
+          open.onsuccess = () => {
+            const get = open.result.transaction("prism").objectStore("prism").get("guarding");
+            get.onsuccess = () => done(get.result);
+          };
+        }),
+    );
+    assert.deepEqual(store, []);
+    assert.notEqual((await account(copied.page))?.id, holderId);
+    await copied.page.context().close();
+    await lost.page.context().close();
+    await guardian.context().close();
   });
 });
