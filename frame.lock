@@ -111,11 +111,11 @@
     },
     {
       "path": "frame/frame.css",
-      "sha256": "a49a84614bdb4598c615ceb1e1ed117e552cf2e2c9930c7b81e238a95dd8377a"
+      "sha256": "ac8c9cfe2f1e7fe0c7c3725c840e0296fae76314521860d7840ce66876f65869"
     },
     {
       "path": "frame/frame.mjs",
-      "sha256": "a2b42b973ee27e62f26b64a48dbe5bf50dbf0a34f0c8b7e3a219dac3f47094b5"
+      "sha256": "fc786b3570f53faa8c3f51c3b7be52773f1c14725e4d0f32d2d3db54519bb6f9"
     },
     {
       "path": "frame/panels.css",

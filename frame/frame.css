@@ -230,8 +230,7 @@ svg.gh, svg.fill { fill: currentColor; stroke: none; }
  * full text colour: white on the dark chrome, near-black on the light, as
  * Hologram OS draws it. A touch larger than the line icons, so its dots
  * stay distinct. */
-#home { color: var(--foreground); }
-#home:focus-visible { outline: var(--ring-width) solid var(--ring); outline-offset: var(--ring-offset); border-radius: var(--radius-control); }
+#home { color: var(--foreground); } #home:focus-visible { outline: var(--ring-width) solid var(--ring); outline-offset: var(--ring-offset); border-radius: var(--radius-control); }
 #home svg.mark { width: 1.25rem; height: 1.25rem; shape-rendering: geometricPrecision; }
 .ghost.icon:hover { color: var(--foreground); }
 .ghost.icon:hover::before { background: color-mix(in oklab, var(--chrome), var(--foreground) 7%); }
