@@ -1357,6 +1357,9 @@ class PrismFrame extends Element {
         event.preventDefault();
         if (list.hidden) render();
         select(active + (event.key === "ArrowDown" ? 1 : -1));
+      } else if (event.key === "Tab" && !event.shiftKey) {
+        // Leaving forward, the address's own controls come back before focus moves on (WCAG 2.1.1).
+        close();
       } else if (event.key === "Escape") {
         event.preventDefault();
         if (input.value !== shown) {

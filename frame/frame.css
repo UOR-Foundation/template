@@ -47,9 +47,9 @@
    * edge is the bar's bottom edge. */
   --chrome: var(--sidebar, var(--muted));
   /* The address: on the light chrome a white field, on the dark one barely
-   * off the chrome, its hairline drawing it. */
+   * off the chrome, its hairline drawing it at 3:1 or more (WCAG 1.4.11). */
   --field: light-dark(var(--card), color-mix(in oklab, var(--chrome), var(--foreground) 3%));
-  --field-border: var(--border);
+  --field-border: var(--muted-foreground);
   --gutter: 0.5rem;
   --window-radius: 0.75rem;
   --frame-height: calc(var(--safe-top) + var(--bar-control) + 0.875rem);
@@ -231,6 +231,7 @@ svg.gh, svg.fill { fill: currentColor; stroke: none; }
  * Hologram OS draws it. A touch larger than the line icons, so its dots
  * stay distinct. */
 #home { color: var(--foreground); }
+#home:focus-visible { outline: var(--ring-width) solid var(--ring); outline-offset: var(--ring-offset); border-radius: var(--radius-control); }
 #home svg.mark { width: 1.25rem; height: 1.25rem; shape-rendering: geometricPrecision; }
 .ghost.icon:hover { color: var(--foreground); }
 .ghost.icon:hover::before { background: color-mix(in oklab, var(--chrome), var(--foreground) 7%); }
