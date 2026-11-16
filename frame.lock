@@ -115,15 +115,15 @@
     },
     {
       "path": "frame/frame.mjs",
-      "sha256": "1d6c3c87cb7e9a1949973c1323d937528d3919d8484e4613766b93f5782cd881"
+      "sha256": "e9c02c8355cf3fb6dea3801e7ea5fa84adab0a117198ed39418ce3ea83930156"
     },
     {
       "path": "frame/panels.css",
-      "sha256": "81fbc8fb7b2b010dc55b6d4f8101f7e64fa095edb071b5bb0c699d02a3b26faf"
+      "sha256": "c6faa6a4ddf50444ca887a60e18530390ed52adf38a9d69fb257d3ed7254eb7d"
     },
     {
       "path": "frame/panels.mjs",
-      "sha256": "ea95d0d07417a475023f550f0b74efa3d652c922f0baec6263f1320c3a8b97ab"
+      "sha256": "4eb0dea50cd91a1dce08a459b80b96a5c34d89eec85fedfdf168c5644f7b92a9"
     },
     {
       "path": "frame/publish.mjs",
@@ -147,11 +147,11 @@
     },
     {
       "path": "identity/PROTOCOL.md",
-      "sha256": "1e3a042a4a100683e0df5bc8210c367785e844feb63cd561d591979733e7ff82"
+      "sha256": "a66215423f8bf70ffbb52e2d9a96f04cb8baa922d2c5adf999be14a491dc382b"
     },
     {
       "path": "identity/README.md",
-      "sha256": "351d9387fbc8fac0123f13a2e03e03aba8a4c0aed8e38f6040973bec4246fef1"
+      "sha256": "8a22ec0478abadd3e3522a288c80da1dabea462b8485c6169941ebc3003c2a28"
     },
     {
       "path": "identity/dev.mjs",
@@ -171,7 +171,7 @@
     },
     {
       "path": "identity/test.mjs",
-      "sha256": "250d5f329fb73cc756f3fc16f7adf7951199dbd0d3737b1629d53e82c2111d40"
+      "sha256": "fd771e403d0391846fe8e666c2026d01026d47c78de709ac21171b82737f1cf1"
     },
     {
       "path": "lighthouserc.json",
