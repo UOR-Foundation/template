@@ -258,14 +258,10 @@ function workspace(runner) {
     if (!text || text === last) return;
     last = text;
     const row = document.createElement("li");
-    const again = document.createElement("button");
-    again.type = "button";
-    again.className = "again";
+    const again = Object.assign(document.createElement("button"), { type: "button", className: "again" });
     const req = document.createElement("span");
     req.textContent = text.length > 22 ? `${text.slice(0, 20)}…` : text;
-    const tag = document.createElement("span");
-    tag.className = `tag ${answerState(response)}`;
-    tag.textContent = response.length > 18 ? `${response.length} bytes` : response;
+    const tag = Object.assign(document.createElement("span"), { className: `tag ${answerState(response)}`, textContent: response.length > 18 ? `${response.length} bytes` : response });
     again.append(req, tag);
     again.addEventListener("click", () => { input.value = text; answer(true); input.focus(); });
     row.append(again);

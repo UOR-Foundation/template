@@ -148,6 +148,14 @@ same write that keeps the device. A key kept by another id is refused as
 `removed`: this device was removed and made a new id. `{replace: true}` makes a
 new key, for an app that starts again.
 
+## An app on every device of the id
+
+`frame.appChannel(listen)` resolves to `{send, stop}`. The topic is
+`prism-app:` and the HMAC, under the current boundary key's topic key, of
+`prism/app-channel/1 <origin>` (`appTopic`): only the id's devices derive it,
+one per app, and a rotation moves it. `send` seals with `sealPrivate`;
+`listen` gets only what `openPrivate` opens.
+
 ## Not yet (stitch's to define, its docs/prism-id.md "Open")
 
 - Whoever holds a used paper kit (no guardian) can still sign a second

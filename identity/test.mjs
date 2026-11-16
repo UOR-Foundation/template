@@ -225,6 +225,15 @@ describe("the flow in Chromium", () => {
     assert.equal((await verifySession(checked.delegation, { fresh: 0 })).account, checked.id);
   });
 
+  test("an app's pages hear each other on the id's channel, sealed (FR-05)", async () => {
+    const other = await context.newPage();
+    await other.goto(running.apps[0]);
+    await first.evaluate(() => document.querySelector("prism-frame").appChannel((value) => (window.heard = value)));
+    await other.evaluate(async () => (await document.querySelector("prism-frame").appChannel(() => {})).send({ hello: "from the other page" }));
+    await first.waitForFunction(() => window.heard?.hello === "from the other page", null, { timeout: 10000 });
+    await other.close();
+  });
+
   test("the session key and the device keys cannot be read out by script", async () => {
     const keys = await first.evaluate(async () => {
       const read = (name, store, id) =>

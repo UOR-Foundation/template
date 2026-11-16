@@ -445,6 +445,28 @@ The template's ratchet held: the three popovers in `frame/panels.css` now share
 one surface and title rule, and the panel's relay messages parse in one place,
 so this change shrinks the counted lines.
 
+## An app on every device of the ID (FR-05)
+
+An app's pages on the visitor's devices find each other with
+`frame.appChannel(listen)`: `send(value)` reaches them and `listen(value)`
+hears them. They meet on a relay topic, `prism-app:` and an HMAC under the
+ID's current private boundary key of the app's origin (`appTopic`), so only
+devices of the ID derive it, and each app has its own. Every message is
+sealed with `sealPrivate`; one that does not open is dropped. A removal
+rotates the key, so the remaining devices move to a topic the removed device
+cannot derive. Foundry uses it to bring two devices' sealed work together.
+
+`frame_fr_05` runs `appTopic` and the sealing in Node with FR-04's linked
+devices; `npm run test:identity` has two pages of one app hear each other.
+
+| Gate | Planted defect | Result |
+| --- | --- | --- |
+| `npm run test:identity`, "an app's pages hear each other on the id's channel, sealed (FR-05)" | `send` publishes the value unsealed (`json(value)`) | rejected: `not ok 4`, `page.waitForFunction: Timeout 10000ms exceeded`; restored, 17 of 17 pass |
+
+The ratchet: the bar's three panels share one placement (`placeUnder`), and
+elements made with several properties are made with `Object.assign`, so the
+counted lines shrink.
+
 ## The workspace page
 
 The standard page became the workspace: a header row, the app's surface

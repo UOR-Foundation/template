@@ -284,9 +284,7 @@ function speculate(href) {
       speculation.box.prepend(held);
       return;
     }
-    const link = document.createElement("a");
-    link.href = url.href;
-    link.tabIndex = -1;
+    const link = Object.assign(document.createElement("a"), { href: url.href, tabIndex: -1 });
     link.dataset.prismAhead = "";
     speculation.box.prepend(link);
     while (speculation.box.children.length > 3) speculation.box.lastElementChild.remove();
@@ -294,9 +292,7 @@ function speculate(href) {
   }
   if (url.origin !== location.origin || speculation.prefetched.has(url.href)) return;
   speculation.prefetched.add(url.href);
-  const link = document.createElement("link");
-  link.rel = "prefetch";
-  link.href = url.href;
+  const link = Object.assign(document.createElement("link"), { rel: "prefetch", href: url.href });
   document.head.append(link);
 }
 
@@ -449,6 +445,19 @@ export function shell(attributes, base) {
 
 // The element runs in a browser; the module also loads at build time, where
 // there is none, to write the shell.
+// A bar panel opens under its button, `rem` wide at most, `gap` below the bar,
+// and never closer than 16 px to either side of the window: on the left, a
+// little before the button's centre; on the right, edge to edge with it.
+function placeUnder(frame, button, panel, name, rem, gap, side) {
+  const bar = frame.shadowRoot.querySelector(".bar").getBoundingClientRect();
+  const edge = button.getBoundingClientRect();
+  const view = document.documentElement.clientWidth;
+  const width = Math.min(rem * parseFloat(getComputedStyle(document.documentElement).fontSize), view - 32);
+  const at = side === "left" ? edge.left + edge.width / 2 - 24 : view - edge.right;
+  panel.style.setProperty(`--${name}-top`, `${Math.round(bar.bottom + gap)}px`);
+  panel.style.setProperty(`--${name}-${side}`, `${Math.round(Math.max(16, Math.min(at, view - width - 16)))}px`);
+}
+
 const Element = globalThis.HTMLElement ?? class {};
 class PrismFrame extends Element {
   static observedAttributes = ["name", "address", "live", "repo", "home", "purpose", "card", "identity", "verdict", "verdict-label", "fingerprint", "proof", "proof-url", "examples", "stars"];
@@ -610,13 +619,7 @@ class PrismFrame extends Element {
     }
     panel.addEventListener("beforetoggle", (event) => {
       if (event.newState !== "open") return;
-      const bar = frame.shadowRoot.querySelector(".bar").getBoundingClientRect();
-      const edge = button.getBoundingClientRect();
-      const view = document.documentElement.clientWidth;
-      const width = Math.min(22 * parseFloat(getComputedStyle(document.documentElement).fontSize), view - 32);
-      const left = Math.max(16, Math.min(edge.left + edge.width / 2 - 24, view - width - 16));
-      panel.style.setProperty("--trust-top", `${Math.round(bar.bottom + 6)}px`);
-      panel.style.setProperty("--trust-left", `${Math.round(left)}px`);
+      placeUnder(frame, button, panel, "trust", 22, 6, "left");
     });
     frame.$("trust-copy").addEventListener("click", async () => {
       const copy = frame.$("trust-copy");
@@ -791,13 +794,7 @@ class PrismFrame extends Element {
         }, () => {});
         return;
       }
-      const bar = frame.shadowRoot.querySelector(".bar").getBoundingClientRect();
-      const edge = button.getBoundingClientRect();
-      const view = document.documentElement.clientWidth;
-      const width = Math.min(20 * parseFloat(getComputedStyle(document.documentElement).fontSize), view - 32);
-      const right = Math.max(16, Math.min(view - edge.right, view - width - 16));
-      panel.style.setProperty("--theme-top", `${Math.round(bar.bottom + 6)}px`);
-      panel.style.setProperty("--theme-right", `${Math.round(right)}px`);
+      placeUnder(frame, button, panel, "theme", 20, 6, "right");
       ui.open();
     });
   }
@@ -848,11 +845,20 @@ class PrismFrame extends Element {
     return { signature: b64u(signature), delegation: saved.delegation };
   }
 
-  // This app's workspace key: 32 bytes only a device of the visitor's Prism
-  // id opens (panels.mjs, openWorkspace). { replace: true } starts a new one.
-  workspaceKey(options) {
+  // What the account in the panels module (panels.mjs) gives this app: its
+  // workspace key, 32 bytes only a device of the visitor's Prism ID opens
+  // (openWorkspace; { replace: true } starts a new one), and this app on the
+  // visitor's other devices, where send(value) reaches them and listen(value)
+  // hears them, sealed to the Prism ID (appTopic).
+  viaAccount(work) {
     if (!this.accountsReady) return Promise.reject(Object.assign(new Error("A Prism ID cannot work here"), { name: "IdentityError", code: "unsupported" }));
-    return this.accountsReady().then((accounts) => accounts.workspace(options));
+    return this.accountsReady().then(work);
+  }
+  workspaceKey(options) {
+    return this.viaAccount((accounts) => accounts.workspace(options));
+  }
+  appChannel(listen) {
+    return this.viaAccount((accounts) => accounts.channel(listen));
   }
 
   // The Prism id icon, after full screen: a line drawing until the id is
@@ -1013,19 +1019,10 @@ class PrismFrame extends Element {
     // and never closer than 16 px to either side of the window.
     panel.addEventListener("beforetoggle", (event) => {
       if (event.newState !== "open") return;
-      const bar = frame.shadowRoot.querySelector(".bar").getBoundingClientRect();
-      const edge = button.getBoundingClientRect();
-      const view = document.documentElement.clientWidth;
-      const width = Math.min(23 * parseFloat(getComputedStyle(document.documentElement).fontSize), view - 32);
-      const right = Math.max(16, Math.min(view - edge.right, view - width - 16));
-      panel.style.setProperty("--share-top", `${Math.round(bar.bottom + 8)}px`);
-      panel.style.setProperty("--share-right", `${Math.round(right)}px`);
+      placeUnder(frame, button, panel, "share", 23, 8, "right");
       // The card is fetched the first time the panel opens, never with the page.
       if (!frame.$("share-image").firstChild) {
-        const image = new Image(1200, 630);
-        image.src = card;
-        image.alt = "";
-        image.decoding = "async";
+        const image = Object.assign(new Image(1200, 630), { src: card, alt: "", decoding: "async" });
         frame.$("share-image").append(image);
       }
     });
@@ -1211,9 +1208,7 @@ class PrismFrame extends Element {
     // A tile: the name's first letter on a hue taken from the fingerprint, so
     // an app keeps its colour wherever it is listed.
     const tile = (row) => {
-      const span = document.createElement("span");
-      span.className = "opt-tile";
-      span.textContent = (row.title.match(/[\p{L}\p{N}]/u)?.[0] ?? "?").toUpperCase();
+      const span = Object.assign(document.createElement("span"), { className: "opt-tile", textContent: (row.title.match(/[\p{L}\p{N}]/u)?.[0] ?? "?").toUpperCase() });
       const seed = /^[0-9a-f]{4}/i.test(row.print) ? parseInt(row.print.slice(0, 4), 16) : [...row.title].reduce((sum, c) => sum * 31 + c.codePointAt(0), 7);
       span.style.setProperty("--tile-hue", String(Math.abs(seed) % 360));
       return span;
@@ -1229,9 +1224,7 @@ class PrismFrame extends Element {
         box.append(tile(row));
         return box;
       }
-      const image = new Image(24, 24);
-      image.alt = "";
-      image.decoding = "async";
+      const image = Object.assign(new Image(24, 24), { alt: "", decoding: "async" });
       image.addEventListener("error", () => image.replaceWith(tile(row)), { once: true });
       image.src = row.icon;
       box.append(image);
@@ -1258,24 +1251,17 @@ class PrismFrame extends Element {
       rows = suggest(input.value);
       active = Math.min(active, Math.max(rows.length - 1, 0));
       const items = rows.map((row, i) => {
-        const li = document.createElement("li");
-        li.id = `omnibox-${i}`;
-        li.className = `opt opt-${row.kind}`;
+        const li = Object.assign(document.createElement("li"), { id: `omnibox-${i}`, className: `opt opt-${row.kind}` });
         li.setAttribute("role", "option");
         li.setAttribute("aria-selected", String(i === active));
-        const sub = document.createElement("span");
-        sub.className = "opt-sub";
-        sub.textContent = row.sub;
+        const sub = Object.assign(document.createElement("span"), { className: "opt-sub", textContent: row.sub });
         const fill = document.createElement("span");
         fill.className = "opt-fill";
         li.append(iconFor(row), title(row.title, row.match), sub, fill);
         // Who keeps it on GitHub, and its stars, 0 included, so the column lines up.
         const owner = row.repo ? row.repo.split("/")[0] : "";
         if (owner) {
-          const by = document.createElement("span");
-          by.className = "opt-owner";
-          by.textContent = owner;
-          by.title = `github.com/${row.repo}`;
+          const by = Object.assign(document.createElement("span"), { className: "opt-owner", textContent: owner, title: `github.com/${row.repo}` });
           li.append(by);
           const stars = document.createElement("span");
           stars.className = "opt-stars";

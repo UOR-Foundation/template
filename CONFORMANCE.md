@@ -32,6 +32,7 @@ model does not sanction.
 | `FR-02` | `build` | A returning browser whose worker kept an earlier deploy serves this deploy from the navigation that brings its page |
 | `FR-03` | `build` | A first visit's bytes are counted once the page has started, the frame's and the app's each within its own budget |
 | `FR-04` | `build` | An app's workspace key opens only on a device of the Prism ID that made it, follows the ID when it joins or is recovered, and stays locked on a removed device |
+| `FR-05` | `build` | An app's pages on every device of one Prism ID meet on a relay topic only those devices derive, per app, with every message sealed to the ID, and a removed device is left behind |
 
 ## Cited authorities
 
