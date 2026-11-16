@@ -146,6 +146,9 @@ describe("the flow in Chromium", () => {
   let kitPath = null;
 
   const account = (p) => p.locator("prism-frame").evaluate((frame) => frame.account);
+  // The app's workspace key as bytes, or the refusal's code (FR-04).
+  const workspaceKey = (p, options) => p.locator("prism-frame").evaluate((frame, o) => frame.workspaceKey(o).then((key) => [...key], (error) => error.code), options);
+  let secondKey = null;
   const ready = (p) => p.locator("#account.signed-in").waitFor({ timeout: 15000 });
   const newContext = async () => {
     const made = await browser.newContext({ acceptDownloads: true });
@@ -186,7 +189,11 @@ describe("the flow in Chromium", () => {
     assert.equal(relay.requests, asked);
     assert.equal(await first.locator("#account-panel").evaluate((panel) => panel.matches(":popover-open")), false);
     firstId = (await account(first)).id;
+    const key = await workspaceKey(first);
+    assert.equal(key.length, 32);
+    assert.deepEqual(await workspaceKey(first), key);
     await first.locator("#account").click();
+    assert.equal(await first.locator("#account-held").textContent(), "Your ID and your work, sealed on your devices");
     assert.equal(await first.locator("#account-title").textContent(), "Prism ID");
     assert.equal(await first.getByText(/sign in/i).count(), 0);
     assert.equal(relay.requests, asked);
@@ -236,6 +243,7 @@ describe("the flow in Chromium", () => {
   });
 
   test("another app joins the same id: a link, then the six-digit code", async () => {
+    secondKey = await workspaceKey(second);
     await second.locator("#account").click();
     await second.locator("#account-join").click();
     // On the first app: a link offer.
@@ -258,6 +266,8 @@ describe("the flow in Chromium", () => {
     await first.locator("#account-accept").click();
     await second.waitForFunction((id) => document.querySelector("prism-frame").account?.id === id, firstId, { timeout: 15000 });
     assert.notEqual((await account(second)).key, (await account(first)).key);
+    // The work the second app kept under the id it had now opens under the joined id.
+    assert.deepEqual(await workspaceKey(second), secondKey);
   });
 
   test("a removed app hears it on its next load and stops signing for the id", async () => {
@@ -275,6 +285,9 @@ describe("the flow in Chromium", () => {
     await second.reload();
     await second.mouse.click(5, 200);
     await second.waitForFunction((id) => { const a = document.querySelector("prism-frame").account; return a && a.id !== id; }, firstId, { timeout: 15000 });
+    // A removed device keeps its work locked, and may start again with a new key.
+    assert.equal(await workspaceKey(second), "removed");
+    assert.notDeepEqual(await workspaceKey(second, { replace: true }), secondKey);
   });
 
   test("every device lost: the recovery kit brings the id back, and the kit is replaced", async () => {

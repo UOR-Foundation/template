@@ -131,12 +131,14 @@ const firstMove = () =>
 // which publish.mjs writes here.
 // It is fetched after the first move, checked against that hash as the page
 // checks the frame, and imported; a failure is tried again the next time.
+// Unpublished (a checkout, or an app that bundles its locked copy of the
+// frame), it is imported from beside this file, as panels.mjs imports Prism id.
 const PANELS = "/*PANELS*/";
 let panelsModule = null;
 let panelsSheet = null;
 const loadPanels = () =>
   (panelsModule ??= (async () => {
-    if (!/^[0-9a-f]{64}$/.test(PANELS)) throw new Error("this frame was published without its panels");
+    if (!/^[0-9a-f]{64}$/.test(PANELS)) return import("./panels.mjs");
     const bytes = await (await fetch(new URL(`${PANELS}/prism-panels.mjs`, FRAME_HOST))).arrayBuffer();
     const hex = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), (b) => b.toString(16).padStart(2, "0")).join("");
     if (hex !== PANELS) throw new Error("the panels module is not the one this frame names");
@@ -846,6 +848,13 @@ class PrismFrame extends Element {
     return { signature: b64u(signature), delegation: saved.delegation };
   }
 
+  // This app's workspace key: 32 bytes only a device of the visitor's Prism
+  // id opens (panels.mjs, openWorkspace). { replace: true } starts a new one.
+  workspaceKey(options) {
+    if (!this.accountsReady) return Promise.reject(Object.assign(new Error("A Prism ID cannot work here"), { name: "IdentityError", code: "unsupported" }));
+    return this.accountsReady().then((accounts) => accounts.workspace(options));
+  }
+
   // The Prism id icon, after full screen: a line drawing until the id is
   // ready, filled once it is. The id is made, and this app's session signed,
   // with nothing to click and nothing in the way, by the panels module
@@ -857,7 +866,7 @@ class PrismFrame extends Element {
     const button = this.$("account");
     const panel = this.$("account-panel");
     this.accountWatch?.abort();
-    this.accountReady = null;
+    this.accountReady = this.accountsReady = null;
     let wired = false;
     if (typeof panel.showPopover !== "function" || !window.isSecureContext || !globalThis.crypto?.subtle || !globalThis.indexedDB) {
       button.hidden = true;
@@ -891,6 +900,7 @@ class PrismFrame extends Element {
       }
       return this.accountReady;
     };
+    this.accountsReady = ready;
     const reach = () => ready().then((accounts) => accounts.reach(), () => {});
     for (const type of ["pointerenter", "focus", "touchstart"]) button.addEventListener(type, reach, { passive: true });
     // First use: the visitor's first touch, click or key anywhere makes the id.
