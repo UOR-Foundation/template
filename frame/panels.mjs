@@ -571,44 +571,53 @@ const short = (id) => `${id.slice(0, 15)}…${id.slice(-4)}`;
 const sentence = (text) => (text ? text[0].toUpperCase() + text.slice(1) + (/[.!?]$/.test(text) ? "" : ".") : text);
 const KIND_LABEL = { browser: "Browser", native: "App", mobile: "Phone", embedded: "Device", recovery: "Recovery kit" };
 
+// Lucide's outline icons, drawn at the text colour, so the panel reads as the kit does everywhere else.
+const glyph = (d, cls = "") => `<svg class="glyph ${cls}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${d}</svg>`;
+const [USER, LOCK, COPY, SHIELD, CHEVRON, CHECK, BACK] = ['<circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="4"/><path d="M18 20a6 6 0 0 0-12 0"/>', '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>', '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>', '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>', '<path d="m9 18 6-6-6-6"/>', '<path d="M20 6 9 17l-5-5"/>', '<path d="m15 18-6-6 6-6"/>'];
+const [LAPTOP, PLUS, LOGIN, USERS, BUOY, HEART, KEY] = ['<path d="M20 16V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9m16 0H4m16 0 1.28 2.55a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45L4 16"/>', '<path d="M5 12h14M12 5v14"/>', '<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/>', '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>', '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><path d="m4.93 4.93 4.24 4.24m5.66 0 4.24-4.24m-4.24 9.9 4.24 4.24m-9.9-4.24-4.24 4.24"/>', '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>', '<path d="M2.59 17.41A2 2 0 0 0 2 18.83V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.17a2 2 0 0 0 1.41-.59l.82-.81a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5"/>'];
+// One choice: what it does, and in a line, why you would want it.
+const row = (id, icon, what, why, hidden = false) => `<button id="account-${id}" class="row" type="button"${hidden ? " hidden" : ""}>${glyph(icon)}<span><b>${what}</b><small>${why}</small></span>${glyph(CHEVRON, "chevron")}</button>`;
+
 const ACCOUNT_PANEL = `
 <button class="account-close" type="button" popovertarget="account-panel" popovertargetaction="hide" aria-label="Close"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18" /></svg></button>
-<h2 id="account-title" class="account-title">Prism id</h2>
+<h2 id="account-title" class="account-title">Prism ID</h2>
 <p id="account-sub" class="account-sub"></p>
 <div id="account-view-held" class="account-in" hidden>
-  <p class="account-id"><code id="account-id"></code><button id="account-copy" class="text" type="button">Copy</button></p>
-  <button id="account-kit-save" class="primary" type="button" hidden>Save recovery kit</button>
-  <button id="account-link" class="row" type="button">Add a device or app</button>
-  <button id="account-devices" class="row" type="button">Devices</button>
-  <button id="account-join" class="row" type="button">Use my Prism id from another device or app</button>
-  <button id="account-recover" class="row" type="button">Use a recovery kit</button>
-  <button id="account-guard" class="row" type="button" hidden>Add a guardian</button>
-  <button id="account-guardian" class="row" type="button">Be someone's guardian</button>
-  <button id="account-help" class="row" type="button" hidden>Help someone recover</button>
+  <div class="account-card">${glyph(USER, "account-avatar")}<span class="account-who"><code id="account-id"></code><small>${glyph(LOCK)}Held only on your devices</small></span><button id="account-copy" class="account-icon" type="button" aria-label="Copy your Prism ID" title="Copy">${glyph(COPY)}</button></div>
+  <div id="account-kit" class="account-kit" hidden>${glyph(SHIELD)}<span><b>Save your recovery kit</b><small>If you lose every device, it brings your ID back. Whoever holds it can take your ID, so keep it offline.</small><button id="account-kit-save" class="primary" type="button">Save recovery kit</button></span></div>
+  <p class="account-group">Devices</p>
+  ${row("devices", LAPTOP, "Your devices", "See where your ID is, or remove a device")}
+  ${row("link", PLUS, "Add a device", "A phone, a computer or another Prism app")}
+  ${row("join", LOGIN, "Use an ID you already have", "Bring your Prism ID here from another device")}
+  <p class="account-group">Recovery</p>
+  ${row("guard", USERS, "Add a guardian", "Someone you trust, who helps you recover", true)}
+  ${row("recover", BUOY, "Recover with a kit", "Lost your devices? Start here")}
+  ${row("guardian", HEART, "Be someone's guardian", "Keep a share of a friend's recovery")}
+  ${row("help", KEY, "Help someone recover", "Release your share to a person you know", true)}
 </div>
 <div id="account-view-offer" class="account-in" hidden>
-  <p>On a phone, scan this code. On another app or computer, open the person icon, choose <b>Use my Prism id from another device or app</b>, and paste the link. It works once, for five minutes.</p>
+  <p>On a phone, scan this code. On a computer or in another Prism app, open Prism ID, choose <b>Use an ID you already have</b> and paste the link. It works once, for five minutes.</p>
   <svg id="account-qr" class="account-qr" role="img" aria-label="QR code of the link"></svg>
   <p class="account-id"><code id="account-offer"></code><button id="account-offer-copy" class="text" type="button">Copy</button></p>
   <label id="account-confirm" hidden>Type the code the new device shows <input id="account-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" /></label>
   <button id="account-accept" class="primary" type="button" hidden>Add it</button>
 </div>
 <div id="account-view-join" class="account-in" hidden>
-  <p>On a device or app that has your Prism id, open the person icon, choose <b>Add a device or app</b>, and paste its link here.</p>
+  <p>On a device that has your Prism ID, open Prism ID, choose <b>Add a device</b> and paste its link here.</p>
   <input id="account-uri" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" aria-label="Link from your other device" />
-  <button id="account-join-go" class="primary" type="button">Join</button>
+  <button id="account-join-go" class="primary" type="button">Use this ID</button>
   <p id="account-join-code" class="account-code" hidden></p>
 </div>
 <div id="account-view-recover" class="account-in" hidden>
-  <p>Choose the recovery kit you saved. This browser becomes your Prism id's device, every other device is removed, and you get a new kit to save.</p>
+  <p>Choose the recovery kit you saved. This browser becomes your Prism ID's device, every other device is removed, and you get a new kit to save.</p>
   <input id="account-kit-file" type="file" accept=".json,application/json" aria-label="Recovery kit" />
   <div id="account-ask" hidden>
-    <p>This kit also needs your guardian. Send them this link; they open the person icon in a Prism app, choose <b>Help someone recover</b> and paste it. Then read them this code: <b id="account-ask-code"></b></p>
+    <p>This kit also needs your guardian. Send them this link; they open Prism ID in any Prism app, choose <b>Help someone recover</b> and paste it. Then read them this code: <b id="account-ask-code"></b></p>
     <p class="account-id"><code id="account-ask-link"></code><button id="account-ask-copy" class="text" type="button">Copy</button></p>
   </div>
 </div>
 <div id="account-view-guard" class="account-in" hidden>
-  <p>Ask someone you trust to open the person icon in any Prism app, choose <b>Be someone's guardian</b>, and send you the link it shows. Paste it here.</p>
+  <p>Ask someone you trust to open Prism ID in any Prism app, choose <b>Be someone's guardian</b>, and send you the link it shows. Paste it here.</p>
   <input id="account-guard-uri" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" aria-label="Link from your guardian" />
   <label id="account-guard-kit-label" hidden>Your recovery kit <input id="account-guard-kit" type="file" accept=".json,application/json" /></label>
   <button id="account-guard-go" class="primary" type="button">Add guardian</button>
@@ -630,17 +639,17 @@ const ACCOUNT_PANEL = `
   <ul id="account-device-list" class="account-devices"></ul>
 </div>
 <p id="account-error" class="account-error" role="alert" hidden></p>
-<button id="account-back" class="row" type="button" hidden>Back</button>
+<button id="account-back" class="row" type="button" hidden>${glyph(BACK)}<span>Back</span></button>
 `;
 
 const TITLES = {
-  held: ["Prism id", "Every Prism app knows you by it. There is nothing to sign in to."],
-  kit: ["Prism id", "Save your recovery kit: if you lose every device, it brings your id back. Anyone holding it can take your id, so keep it offline."],
-  offer: ["Add a device or app", ""],
-  join: ["Use your Prism id here", ""],
-  recover: ["Use a recovery kit", ""],
-  devices: ["Devices", "Removing one stops it signing the next time it syncs."],
-  guard: ["Add a guardian", "Your new kit then needs them too: a lost or copied kit alone cannot bring your id back."],
+  held: ["Prism ID", "Every Prism app knows you by this ID. There is no password to remember and no account to make."],
+  kit: ["Prism ID", "Every Prism app knows you by this ID. There is no password to remember and no account to make."],
+  offer: ["Add a device", ""],
+  join: ["Use an ID you already have", ""],
+  recover: ["Recover with a kit", ""],
+  devices: ["Your devices", "A device you remove can no longer act as you once it syncs."],
+  guard: ["Add a guardian", "Your new kit then needs them too, so a lost or copied kit alone cannot bring your ID back."],
   guardian: ["Be someone's guardian", ""],
   help: ["Help someone recover", ""],
 };
@@ -675,13 +684,13 @@ export function accounts(frame, core) {
     $("title").textContent = title;
     $("sub").textContent = sub;
     $("sub").hidden = !sub;
-    $("kit-save").hidden = !kit;
+    $("kit").hidden = !kit;
     for (const name of ["link", "devices", "guardian"]) $(name).hidden = !held;
     // A kit of one paper share can gain a guardian; one that has one cannot change it without them.
     $("guard").hidden = !held || guarded;
     $("help").hidden = !held || !guarding.length;
     $("back").hidden = view === "held";
-    $("id").textContent = held ? short(held.prism) : "Making your Prism id";
+    $("id").textContent = held ? short(held.prism) : "Making your Prism ID";
     $("id").title = held?.prism ?? "";
   }
   const show = (next) => {
@@ -889,7 +898,7 @@ export function accounts(frame, core) {
       await forgetKit();
       await session(Prism);
       show("held");
-      say("This app uses your Prism id");
+      say("This app uses your Prism ID");
     }),
   );
 
@@ -941,7 +950,7 @@ export function accounts(frame, core) {
       accountChannel.session = null;
       await session(Prism);
       show("held");
-      say("Prism id recovered");
+      say("Prism ID recovered");
     }),
   );
 
@@ -1100,14 +1109,13 @@ export function accounts(frame, core) {
     endLink();
     show("held");
   });
+  // An icon button confirms with a check and says so; a word button says it in place.
   const copy = async (button, text) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      button.textContent = "Copied";
-    } catch {
-      button.textContent = "Select it";
-    }
-    setTimeout(() => (button.textContent = "Copy"), 1600);
+    const was = button.innerHTML;
+    const done = await navigator.clipboard.writeText(text).then(() => "Copied", () => "Select it");
+    if (button.classList.contains("account-icon")) (button.innerHTML = glyph(CHECK)), say(done);
+    else button.textContent = done;
+    setTimeout(() => (button.innerHTML = was), 1600);
   };
   $("copy").addEventListener("click", () => copy($("copy"), held?.prism ?? ""));
 

@@ -115,15 +115,15 @@
     },
     {
       "path": "frame/frame.mjs",
-      "sha256": "fc786b3570f53faa8c3f51c3b7be52773f1c14725e4d0f32d2d3db54519bb6f9"
+      "sha256": "1d6c3c87cb7e9a1949973c1323d937528d3919d8484e4613766b93f5782cd881"
     },
     {
       "path": "frame/panels.css",
-      "sha256": "9b6bcd85303139ddaac9b2cbde7b7d3ef61d34da336874774073124b2560d8ce"
+      "sha256": "81fbc8fb7b2b010dc55b6d4f8101f7e64fa095edb071b5bb0c699d02a3b26faf"
     },
     {
       "path": "frame/panels.mjs",
-      "sha256": "f2db1617f0a6d14e4447c54bafc7aeb45c7cb152b0f5a0b27b5615f8ce8d7b92"
+      "sha256": "ea95d0d07417a475023f550f0b74efa3d652c922f0baec6263f1320c3a8b97ab"
     },
     {
       "path": "frame/publish.mjs",
@@ -171,7 +171,7 @@
     },
     {
       "path": "identity/test.mjs",
-      "sha256": "21cb6924014c80f378abf5d07720a203c7e62aa99ffd38e05f6d8376153317f9"
+      "sha256": "250d5f329fb73cc756f3fc16f7adf7951199dbd0d3737b1629d53e82c2111d40"
     },
     {
       "path": "lighthouserc.json",
