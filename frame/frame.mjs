@@ -1357,7 +1357,7 @@ class PrismFrame extends Element {
         event.preventDefault();
         if (list.hidden) render();
         select(active + (event.key === "ArrowDown" ? 1 : -1));
-      } else if (event.key === "Escape") {
+      } else if (event.key === "Tab" && !event.shiftKey) { close(); } else if (event.key === "Escape") {
         event.preventDefault();
         if (input.value !== shown) {
           input.value = shown;

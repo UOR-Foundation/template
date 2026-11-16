@@ -236,8 +236,6 @@ function spec() {
   addEventListener("hashchange", () => set(location.hash === "#spec"));
   addEventListener("keydown", (event) => {
     if (event.key === "Escape" && root.classList.contains("spec-open")) set(false);
-    const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName ?? "");
-    if (event.key === "." && !typing && !event.metaKey && !event.ctrlKey && !event.altKey) set(!root.classList.contains("spec-open"));
   });
   if (location.hash === "#spec") set(true, false);
 }

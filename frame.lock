@@ -111,11 +111,11 @@
     },
     {
       "path": "frame/frame.css",
-      "sha256": "c7470fdcbdb0ca9c6e2a634b6ec4ba9f1ed87c39b737f91e082b8c6466ab91f4"
+      "sha256": "ac8c9cfe2f1e7fe0c7c3725c840e0296fae76314521860d7840ce66876f65869"
     },
     {
       "path": "frame/frame.mjs",
-      "sha256": "6f01e54838e3593be14ad473467424faf83dfc4c543ea0f9d86655c549cc1b0b"
+      "sha256": "1d6c3c87cb7e9a1949973c1323d937528d3919d8484e4613766b93f5782cd881"
     },
     {
       "path": "frame/panels.css",
@@ -179,7 +179,7 @@
     },
     {
       "path": "site/app.mjs",
-      "sha256": "b5b30e78ab9b693fd6d29b89b9d2b74542340542864e99e4533a9ced2d987ee0"
+      "sha256": "65a3d1e3fcc6ed9ddfcbf85477c99a41a94a98502e62de90e7dcce3f860b0ace"
     },
     {
       "path": "site/guest-worker.mjs",
