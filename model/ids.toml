@@ -54,3 +54,9 @@ id = "FR-03"
 level = "build"
 suite = "frame"
 statement = "A first visit's bytes are counted once the page has started, the frame's and the app's each within its own budget"
+
+[[id]]
+id = "FR-04"
+level = "build"
+suite = "frame"
+statement = "An app's workspace key opens only on a device of the Prism ID that made it, follows the ID when it joins or is recovered, and stays locked on a removed device"

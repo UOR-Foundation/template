@@ -136,6 +136,18 @@ topic derived from the prism id alone. `verifySession` passes the relay to
 a session from a device removed elsewhere is refused even when that device
 never synced. Making the session and recovery check the same merged log.
 
+## An app's workspace key
+
+`frame.workspaceKey()` answers 32 bytes an app seals its own records with. The
+frame makes them at random on first use, seals them with `sealPrivate` and
+keeps `{prism, sealed}` in this origin's `prism-id` store under `workspace`;
+the app never stores the key. A later call opens it with `openPrivate`, and
+reseals it when the id's boundary key has rotated. Joining an id or recovering
+one carries the key from the id this browser had (`carryWorkspace`), in the
+same write that keeps the device. A key kept by another id is refused as
+`removed`: this device was removed and made a new id. `{replace: true}` makes a
+new key, for an app that starts again.
+
 ## Not yet (stitch's to define, its docs/prism-id.md "Open")
 
 - Whoever holds a used paper kit (no guardian) can still sign a second

@@ -417,6 +417,34 @@ and end up with a second account.
 | `npm run test:identity`, "a click the bar is redrawn under still opens the panel" | the frame before this fix, which opened the panel it was clicked on even after the bar was redrawn (found on holo-search: a first click right after load did nothing) | rejected: `not ok 2`, waiting for `#account-panel:popover-open`; fixed, 21 of 21 pass |
 | same test, after the account panel became a centred dialog and the button reads "Continue with Windows Hello" | the same branch removed again | rejected: the button read `Create account` where `Continue with Windows Hello` was required; restored, 21 of 21 pass |
 
+## An app's workspace key (FR-04)
+
+An app that keeps a visitor's work in the browser asks the frame for a
+workspace key, `frame.workspaceKey()`: 32 random bytes the frame seals under
+the Prism ID's private boundary key (Prism ID's `sealPrivate`) and keeps in
+this origin's `prism-id` store, under `workspace`. Only a device of the ID that
+made it opens it. Joining an ID from another device, or recovering one from a
+kit, reseals it for that ID in the same IndexedDB write that keeps the device
+(`carryWorkspace`), so work made before the join is not lost. A removed device
+makes a new ID and carries nothing, so the work it kept stays locked: the key
+answers `removed`, and `{ replace: true }` starts a new one. After a removal
+rotates the boundary key, a member device reseals the key under the new key,
+which the removed device does not hold. While an app holds its key, the ID card
+reads "Your ID and your work, sealed on your devices".
+
+`frame_fr_04` (`crates/conformance/tests/frame.rs`) runs `openWorkspace` and
+`carryWorkspace` in Node; `npm run test:identity` carries them across two apps
+in Chromium (try-page.yml).
+
+| Gate | Planted defect | Result |
+| --- | --- | --- |
+| `frame_fr_04` | `openWorkspace` no longer refuses a key kept by another ID (`if (false && kept.prism !== held.prism)`) | rejected: `AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal`, the other ID was answered `stale-key` where `removed` was required; restored, passes |
+| `npm run test:identity`, "another app joins the same id" | joining keeps the device without carrying the workspace key (`await keep(Prism, next)`) | rejected: `not ok 5`, the joined app's key answered `removed`; restored, 16 of 16 pass |
+
+The template's ratchet held: the three popovers in `frame/panels.css` now share
+one surface and title rule, and the panel's relay messages parse in one place,
+so this change shrinks the counted lines.
+
 ## The workspace page
 
 The standard page became the workspace: a header row, the app's surface

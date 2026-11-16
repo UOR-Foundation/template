@@ -846,6 +846,13 @@ class PrismFrame extends Element {
     return { signature: b64u(signature), delegation: saved.delegation };
   }
 
+  // This app's workspace key: 32 bytes only a device of the visitor's Prism
+  // id opens (panels.mjs, openWorkspace). { replace: true } starts a new one.
+  workspaceKey(options) {
+    if (!this.accountsReady) return Promise.reject(Object.assign(new Error("A Prism ID cannot work here"), { name: "IdentityError", code: "unsupported" }));
+    return this.accountsReady().then((accounts) => accounts.workspace(options));
+  }
+
   // The Prism id icon, after full screen: a line drawing until the id is
   // ready, filled once it is. The id is made, and this app's session signed,
   // with nothing to click and nothing in the way, by the panels module
@@ -857,7 +864,7 @@ class PrismFrame extends Element {
     const button = this.$("account");
     const panel = this.$("account-panel");
     this.accountWatch?.abort();
-    this.accountReady = null;
+    this.accountReady = this.accountsReady = null;
     let wired = false;
     if (typeof panel.showPopover !== "function" || !window.isSecureContext || !globalThis.crypto?.subtle || !globalThis.indexedDB) {
       button.hidden = true;
@@ -891,6 +898,7 @@ class PrismFrame extends Element {
       }
       return this.accountReady;
     };
+    this.accountsReady = ready;
     const reach = () => ready().then((accounts) => accounts.reach(), () => {});
     for (const type of ["pointerenter", "focus", "touchstart"]) button.addEventListener(type, reach, { passive: true });
     // First use: the visitor's first touch, click or key anywhere makes the id.

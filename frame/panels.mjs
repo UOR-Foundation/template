@@ -450,7 +450,7 @@ function deviceStore(mode, work) {
   });
 }
 export const loadDevice = () => deviceStore("readonly", (s) => s.get("self")).catch(() => null);
-const saveDevice = (held) => deviceStore("readwrite", (s) => s.put(held, "self"));
+const saveDevice = (held, workspace) => deviceStore("readwrite", (s) => (workspace && s.put(workspace, "workspace"), s.put(held, "self")));
 const forgetDevice = () => deviceStore("readwrite", (s) => s.delete("self"));
 const loadKit = () => deviceStore("readonly", (s) => s.get("kit")).catch(() => null);
 const saveKit = (kit) => deviceStore("readwrite", (s) => s.put(kit, "kit"));
@@ -461,6 +461,21 @@ const saveGuarding = (list) => deviceStore("readwrite", (s) => s.put(list, "guar
 // The recovery device this device gave a guardian, so the panel stops offering one.
 const loadGuarded = () => deviceStore("readonly", (s) => s.get("guarded")).catch(() => null);
 const saveGuarded = (recovery) => deviceStore("readwrite", (s) => s.put(recovery, "guarded"));
+// An app's workspace key: 32 random bytes sealed under the id's private
+// boundary key, so only a device of the id that made it opens it. The app
+// seals its own records with the key; the frame keeps only the sealed key.
+const loadWorkspace = () => deviceStore("readonly", (s) => s.get("workspace")).catch(() => null);
+export async function openWorkspace(Prism, held, kept) {
+  if (kept && kept.prism !== held.prism) deny("removed", "This device was removed from the Prism ID that keeps this work");
+  const value = kept ? await Prism.openPrivate(held, kept.sealed) : { key: Prism.toBase64Url(crypto.getRandomValues(new Uint8Array(32))) };
+  const boundary = await Prism.currentBoundary(held).catch(() => (kept ? null : deny("stale-key", "This device is waiting for your Prism ID's newest key")));
+  const record = boundary && kept?.sealed.key !== boundary.keyId ? { prism: held.prism, sealed: (await Prism.sealPrivate(held, value)).sealed } : null;
+  return { key: Prism.fromBase64Url(value.key), record };
+}
+// Joining or recovering an id carries what the id this browser had kept; a
+// removed device makes a new id and carries nothing, so its work stays locked.
+export const carryWorkspace = async (Prism, kept, from, to) =>
+  kept && from && kept.prism === from.prism ? { prism: to.prism, sealed: (await Prism.sealPrivate(to, await Prism.openPrivate(from, kept.sealed))).sealed } : null;
 
 // The bus to the id's other devices: stitch's relay (the frame's
 // PRISM_RELAY), which the page's connect-src must name; the page build reads
@@ -542,12 +557,7 @@ function awaitOn(Prism, topic, kind, accept = () => true, ms = WAIT_MS) {
   const stop = () => (clearTimeout(timer), unsubscribe());
   const found = new Promise((done, failed) => {
     unsubscribe = bus(Prism).subscribe(topic, (bytes) => {
-      let message;
-      try {
-        message = parse(bytes);
-      } catch {
-        return;
-      }
+      const message = parse(bytes);
       if (message?.kind === kind && accept(message)) done(message);
     });
     timer = setTimeout(() => failed(new IdentityError("wait", "The other device did not answer in time. Try again")), ms);
@@ -566,7 +576,14 @@ function drawQr(svg, { size, modules }) {
 }
 
 const json = (value) => new TextEncoder().encode(JSON.stringify(value));
-const parse = (bytes) => JSON.parse(new TextDecoder().decode(bytes));
+// A relay message as JSON, or null when it is not.
+const parse = (bytes) => {
+  try {
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch {
+    return null;
+  }
+};
 const short = (id) => `${id.slice(0, 15)}…${id.slice(-4)}`;
 const sentence = (text) => (text ? text[0].toUpperCase() + text.slice(1) + (/[.!?]$/.test(text) ? "" : ".") : text);
 const KIND_LABEL = { browser: "Browser", native: "App", mobile: "Phone", embedded: "Device", recovery: "Recovery kit" };
@@ -583,7 +600,7 @@ const ACCOUNT_PANEL = `
 <h2 id="account-title" class="account-title">Prism ID</h2>
 <p id="account-sub" class="account-sub"></p>
 <div id="account-view-held" class="account-in" hidden>
-  <div class="account-card">${glyph(USER, "account-avatar")}<span class="account-who"><code id="account-id"></code><small>${glyph(LOCK)}Held only on your devices</small></span><button id="account-copy" class="account-icon" type="button" aria-label="Copy your Prism ID" title="Copy">${glyph(COPY)}</button></div>
+  <div class="account-card">${glyph(USER, "account-avatar")}<span class="account-who"><code id="account-id"></code><small>${glyph(LOCK)}<span id="account-held"></span></small></span><button id="account-copy" class="account-icon" type="button" aria-label="Copy your Prism ID" title="Copy">${glyph(COPY)}</button></div>
   <div id="account-kit" class="account-kit" hidden>${glyph(SHIELD)}<span><b>Save your recovery kit</b><small>If you lose every device, it brings your ID back. Whoever holds it can take your ID, so keep it offline.</small><button id="account-kit-save" class="primary" type="button">Save recovery kit</button></span></div>
   <p class="account-group">Devices</p>
   ${row("devices", LAPTOP, "Your devices", "See where your ID is, or remove a device")}
@@ -644,7 +661,6 @@ const ACCOUNT_PANEL = `
 
 const TITLES = {
   held: ["Prism ID", "Every Prism app knows you by this ID. There is no password to remember and no account to make."],
-  kit: ["Prism ID", "Every Prism app knows you by this ID. There is no password to remember and no account to make."],
   offer: ["Add a device", ""],
   join: ["Use an ID you already have", ""],
   recover: ["Recover with a kit", ""],
@@ -668,6 +684,7 @@ export function accounts(frame, core) {
   let link = null;
   let guarding = [];
   let guarded = false;
+  let working = false;
 
   const say = (words) => {
     frame.$("bar-status").textContent = words;
@@ -680,7 +697,7 @@ export function accounts(frame, core) {
   function paint() {
     core.paint();
     for (const name of ["held", "offer", "join", "recover", "devices", "guard", "guardian", "help"]) $(`view-${name}`).hidden = name !== view;
-    const [title, sub] = TITLES[view === "held" && kit ? "kit" : view];
+    const [title, sub] = TITLES[view];
     $("title").textContent = title;
     $("sub").textContent = sub;
     $("sub").hidden = !sub;
@@ -692,6 +709,7 @@ export function accounts(frame, core) {
     $("back").hidden = view === "held";
     $("id").textContent = held ? short(held.prism) : "Making your Prism ID";
     $("id").title = held?.prism ?? "";
+    $("held").textContent = working ? "Your ID and your work, sealed on your devices" : "Held only on your devices";
   }
   const show = (next) => {
     view = next;
@@ -721,9 +739,9 @@ export function accounts(frame, core) {
       frame.$("account").classList.remove("busy");
     }
   };
-  const keep = async (Prism, next) => {
+  const keep = async (Prism, next, workspace) => {
     held = next;
-    await saveDevice(held);
+    await saveDevice(held, workspace);
     await share(Prism, held);
   };
 
@@ -816,12 +834,8 @@ export function accounts(frame, core) {
   const endLink = () => {
     link?.stop?.();
     link = null;
-    $("ask").hidden = true;
-    $("help-check").hidden = true;
+    for (const id of ["ask", "help-check", "confirm", "accept", "join-code"]) $(id).hidden = true;
     $("code").value = "";
-    $("confirm").hidden = true;
-    $("accept").hidden = true;
-    $("join-code").hidden = true;
   };
   $("link").addEventListener("click", () =>
     run(async (Prism) => {
@@ -831,16 +845,10 @@ export function accounts(frame, core) {
       const topic = await Prism.rendezvousTopic(pending.offer.secret);
       link = { pending, topic, request: null };
       link.stop = bus(Prism).subscribe(topic, (bytes) => {
-        let request;
-        try {
-          request = parse(bytes);
-        } catch {
-          return;
-        }
+        const request = parse(bytes);
         if (request?.kind !== Prism.KIND.request || !link || link.request) return;
         link.request = request;
-        $("confirm").hidden = false;
-        $("accept").hidden = false;
+        $("confirm").hidden = $("accept").hidden = false;
         $("code").focus();
       });
       $("offer").textContent = uri;
@@ -873,12 +881,7 @@ export function accounts(frame, core) {
       const joined = new Promise((done, failed) => {
         link = { topic };
         link.stop = bus(Prism).subscribe(topic, (bytes) => {
-          let response;
-          try {
-            response = parse(bytes);
-          } catch {
-            return;
-          }
+          const response = parse(bytes);
           if (response?.kind !== Prism.KIND.response) return;
           Prism.completeLink(device, offer, response).then(done, failed);
         });
@@ -889,7 +892,8 @@ export function accounts(frame, core) {
       $("join-code").hidden = false;
       panel.classList.remove("busy");
       try {
-        await keep(Prism, await joined);
+        const next = await joined;
+        await keep(Prism, next, await carryWorkspace(Prism, await loadWorkspace(), held, next));
       } finally {
         endLink();
       }
@@ -944,7 +948,7 @@ export function accounts(frame, core) {
       const state = await Prism.resolvePrism(synced.prism, log).catch((error) => (error?.code === "fork" ? used() : Promise.reject(error)));
       const newer = state.active.filter((id) => state.roles[id] === "recovery" && id !== recovered.shares[0].recovery);
       if (newer.length || !(await Prism.canSign(synced.prism, log, synced.device.id))) used();
-      await keep(Prism, synced);
+      await keep(Prism, synced, await carryWorkspace(Prism, await loadWorkspace(), held, synced));
       await holdKit(recovered.shares[0]);
       await store("readwrite", (s) => s.delete("current")).catch(() => {});
       accountChannel.session = null;
@@ -1131,8 +1135,19 @@ export function accounts(frame, core) {
     }
   });
 
+  // { replace: true } starts a new key, for an app whose device was removed.
+  const workspace = async ({ replace = false } = {}) => {
+    const Prism = await prismId();
+    await quietly();
+    if (!held) deny("unsupported", "There is no Prism ID here yet");
+    const { key, record } = await openWorkspace(Prism, held, replace ? null : await loadWorkspace());
+    if (record) await saveDevice(held, record);
+    working = true;
+    paint();
+    return key;
+  };
   reach();
-  return { reach };
+  return { reach, workspace };
 }
 
 // The theme panel's contents, which the frame puts in its empty panel.

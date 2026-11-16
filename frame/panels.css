@@ -2,37 +2,37 @@
  * suggestions and the theme (its modes, the Unsplash search and the photos).
  * Loaded with frame/panels.mjs after the visitor's first move, never with the
  * page; a panel opened before then waits for them. */
-/* The theme panel: three modes side by side, then three photos to set
- * behind the page, then the photographer's credit. It opens under the theme
- * button (the script sets --theme-top and --theme-right) as share does. */
-.theme-panel {
+/* The popovers' common surface and titles. */
+.theme-panel, .trust-panel, .share-panel {
   position: fixed;
-  inset: var(--theme-top, 3rem) var(--theme-right, 1rem) auto auto;
-  width: min(20rem, 100vw - 2rem);
-  max-height: calc(100vh - var(--theme-top, 3rem) - 1rem);
   margin: 0;
-  padding: var(--space-3);
   overflow: auto;
   border: var(--border-width) solid var(--border);
   border-radius: var(--radius);
   background: var(--popover);
   color: var(--popover-foreground);
   box-shadow: var(--shadow-overlay);
+  transition: opacity var(--duration) var(--ease), transform var(--duration) var(--ease), overlay var(--duration) allow-discrete, display var(--duration) allow-discrete;
+}
+.theme-panel:not(:popover-open), .trust-panel:not(:popover-open), .share-panel:not(:popover-open) { opacity: 0; transform: translateY(-0.25rem) scale(0.98); }
+:host([dark]) :is(.theme-panel, .trust-panel, .share-panel, .account-panel) { box-shadow: none; border-color: var(--border-strong); }
+/* The theme panel: three modes side by side, then three photos to set
+ * behind the page, then the photographer's credit. It opens under the theme
+ * button (the script sets --theme-top and --theme-right) as share does. */
+.theme-panel {
+  inset: var(--theme-top, 3rem) var(--theme-right, 1rem) auto auto;
+  width: min(20rem, 100vw - 2rem);
+  max-height: calc(100vh - var(--theme-top, 3rem) - 1rem);
+  padding: var(--space-3);
   font-size: var(--text-14);
   scrollbar-width: thin;
   scrollbar-color: var(--border-strong) transparent;
   transform-origin: top right;
-  transition: opacity var(--duration) var(--ease), transform var(--duration) var(--ease), overlay var(--duration) allow-discrete, display var(--duration) allow-discrete;
 }
-.theme-panel:not(:popover-open) { opacity: 0; transform: translateY(-0.25rem) scale(0.98); }
-:host([dark]) .theme-panel { box-shadow: none; border-color: var(--border-strong); }
+.theme-title, .share-title, .trust-title { font-family: var(--font-display); font-weight: 600; font-size: var(--text-16); letter-spacing: var(--tracking-display); }
 .theme-title {
   margin: 0 0 var(--space-3);
   padding: 0 var(--space-1);
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: var(--text-16);
-  letter-spacing: var(--tracking-display);
 }
 /* The modes: one slim segmented switch, as a system setting draws it. The
  * mode in use is a raised chip inside a sunken track; small, fine icons. */
@@ -243,25 +243,14 @@
  * opens under the shield (the script sets --trust-top and --trust-left),
  * lifts in over one beat and closes on Escape or a click outside. */
 .trust-panel {
-  position: fixed;
   inset: var(--trust-top, 3rem) auto auto var(--trust-left, 1rem);
   width: min(22rem, 100vw - 2rem);
   max-height: calc(100vh - var(--trust-top, 3rem) - 1rem);
-  margin: 0;
   padding: var(--space-2);
-  overflow: auto;
-  border: var(--border-width) solid var(--border);
-  border-radius: var(--radius);
-  background: var(--popover);
-  color: var(--popover-foreground);
-  box-shadow: var(--shadow-overlay);
   font-size: var(--text-14);
   line-height: 1.45;
   transform-origin: top left;
-  transition: opacity var(--duration) var(--ease), transform var(--duration) var(--ease), overlay var(--duration) allow-discrete, display var(--duration) allow-discrete;
 }
-.trust-panel:not(:popover-open) { opacity: 0; transform: translateY(-0.25rem) scale(0.98); }
-:host([dark]) .trust-panel { box-shadow: none; border-color: var(--border-strong); }
 .trust-panel p { margin: 0; }
 
 .trust-head {
@@ -272,7 +261,6 @@
   border-bottom: var(--border-width) solid var(--border);
 }
 .trust-words { min-width: 0; }
-.trust-title { font-family: var(--font-display); font-size: var(--text-16); font-weight: 600; letter-spacing: var(--tracking-display); }
 .check { display: flex; gap: var(--space-3); padding: var(--space-2); }
 .check .mark { flex: none; display: grid; place-items: center; width: 1.25rem; height: 1.3125rem; }
 .check .mark svg { width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 1.75; }
@@ -327,29 +315,14 @@
  * a click outside, and gives focus back to the button. Light ground: the
  * overlay shadow; dark ground: no shadow, a stronger hairline. */
 .share-panel {
-  position: fixed;
   inset: var(--share-top, 4rem) var(--share-right, 1rem) auto auto;
   width: min(23rem, 100vw - 2rem);
   max-height: calc(100vh - var(--share-top, 4rem) - 1rem);
-  margin: 0;
   padding: var(--space-4);
-  overflow: auto;
-  border: var(--border-width) solid var(--border);
-  border-radius: var(--radius);
-  background: var(--popover);
-  color: var(--popover-foreground);
-  box-shadow: var(--shadow-overlay);
   transform-origin: top right;
-  transition: opacity var(--duration) var(--ease), transform var(--duration) var(--ease), overlay var(--duration) allow-discrete, display var(--duration) allow-discrete;
 }
-.share-panel:not(:popover-open) { opacity: 0; transform: translateY(-0.25rem) scale(0.98); }
-:host([dark]) .share-panel { box-shadow: none; border-color: var(--border-strong); }
 .share-title {
   margin: 0 0 var(--space-3);
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: var(--text-16);
-  letter-spacing: var(--tracking-display);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -420,7 +393,6 @@
   -webkit-backdrop-filter: blur(1rem);
   backdrop-filter: blur(1rem);
 }
-:host([dark]) .account-panel { box-shadow: none; border-color: var(--border-strong); }
 .account-panel p, .account-panel h2 { margin: 0; }
 .account-close { position: absolute; top: 1rem; right: 1rem; display: grid; place-items: center; width: 2rem; height: 2rem; min-height: 0; padding: 0; border: 0; border-radius: var(--radius-control); background: none; color: var(--muted-foreground); cursor: pointer; }
 .account-close:hover { background: var(--accent); color: var(--foreground); }

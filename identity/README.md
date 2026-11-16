@@ -48,6 +48,13 @@ share once. A lost or copied kit alone then brings nothing back. Add the
 guardian before saving the first kit, and no kit that works alone ever
 leaves the browser.
 
+## Your work, sealed to your id
+
+An app can keep a visitor's work sealed to their id: the frame hands it a
+key that only the id's devices open, and carries it when this app joins the
+id from another device or recovers it. A device removed from the id cannot
+open the work it kept. See PROTOCOL.md, "An app's workspace key".
+
 ## Devices
 
 **Devices** lists the id's devices. **Remove** is stitch's `revokeDevice`,

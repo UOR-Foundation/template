@@ -49,3 +49,12 @@ Feature: frame
     And everything else counts as the app's
     And the frame's bytes, the app's bytes and the requests are each held to their own budget
     And a blob or data URL is not counted again
+
+  @FR-04 @build
+  Scenario: An app's workspace key opens only on a device of the Prism ID that made it, follows the ID when it joins or is recovered, and stays locked on a removed device
+    Given a Prism ID made on this device and the frame's openWorkspace and carryWorkspace
+    When an app asks for its workspace key, again, from another ID, after joining another ID, and after a removal rotated the ID's key
+    Then the first request makes 32 random bytes sealed under the ID's private boundary key, and the next opens the same bytes without sealing again
+    And another ID is refused as removed, and asking for a new key replaces the one it cannot open
+    And joining or recovering an ID reseals the key for that ID in the same write that keeps the device
+    And after a rotation a member device reseals the key under the new boundary key, which the removed device cannot open
