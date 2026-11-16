@@ -58,3 +58,13 @@ Feature: frame
     And another ID is refused as removed, and asking for a new key replaces the one it cannot open
     And joining or recovering an ID reseals the key for that ID in the same write that keeps the device
     And after a rotation a member device reseals the key under the new boundary key, which the removed device cannot open
+
+  @FR-05 @build
+  Scenario: An app's pages on every device of one Prism ID meet on a relay topic only those devices derive, per app, with every message sealed to the ID, and a removed device is left behind
+    Given a Prism ID with two linked devices, another ID, and the frame's appTopic and appChannel
+    When each derives the topic for an app, for another app, and after one device was removed
+    Then the ID's two devices derive one topic for the app, another app and another ID derive others
+    And a message one device seals under the ID's private boundary key opens on the other
+    And once a removal rotates the key, the remaining device moves to a topic the removed one cannot derive
+    And an app's two pages hear each other through appChannel, and a message that is not sealed is never heard
+

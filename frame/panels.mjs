@@ -230,18 +230,14 @@ export function panel(frame, core) {
 
   // A photo's tile: its colour at once, the photo fading in over it.
   const tile = (photo) => {
-    const pick = document.createElement("button");
-    pick.type = "button";
-    pick.className = "photo-pick";
+    const pick = Object.assign(document.createElement("button"), { type: "button", className: "photo-pick" });
     pick.dataset.photo = photo.id;
     const words = `${photo.alt || "Photo"}, by ${photo.name}`;
     pick.setAttribute("aria-label", words);
     pick.title = words;
     pick.setAttribute("aria-pressed", String(photo.id === current(frame, core).id));
     pick.style.backgroundColor = photo.color;
-    const img = new Image(240, 150);
-    img.alt = "";
-    img.decoding = "async";
+    const img = Object.assign(new Image(240, 150), { alt: "", decoding: "async" });
     img.addEventListener("load", () => pick.classList.add("ready"), { once: true });
     pictureOf(photo, true).then((url) => (img.src = url)).catch(() => {});
     pick.append(img);
@@ -471,6 +467,14 @@ export async function openWorkspace(Prism, held, kept) {
   const boundary = await Prism.currentBoundary(held).catch(() => (kept ? null : deny("stale-key", "This device is waiting for your Prism ID's newest key")));
   const record = boundary && kept?.sealed.key !== boundary.keyId ? { prism: held.prism, sealed: (await Prism.sealPrivate(held, value)).sealed } : null;
   return { key: Prism.fromBase64Url(value.key), record };
+}
+// An app's pages on every device of one id meet on a relay topic only those
+// devices derive, from the id's private boundary key and the app's origin; a
+// removed device holds no current key, so it is not among them (FR-05).
+export async function appTopic(Prism, held, origin) {
+  const { keyId } = await Prism.currentBoundary(held);
+  const mac = await crypto.subtle.sign("HMAC", held.keyring.get(keyId).topic, new TextEncoder().encode(`prism/app-channel/1 ${origin}`));
+  return "prism-app:" + Array.from(new Uint8Array(mac), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 // Joining or recovering an id carries what the id this browser had kept; a
 // removed device makes a new id and carries nothing, so its work stays locked.
@@ -819,9 +823,7 @@ export function accounts(frame, core) {
 
   $("kit-save").addEventListener("click", async () => {
     if (!kit) return;
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([JSON.stringify(kit, null, 1)], { type: "application/json" }));
-    a.download = "prism-id-recovery-kit.json";
+    const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(new Blob([JSON.stringify(kit, null, 1)], { type: "application/json" })), download: "prism-id-recovery-kit.json" });
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     kit = null;
@@ -967,16 +969,11 @@ export function accounts(frame, core) {
         const item = document.createElement("li");
         const record = state.devices[id];
         const label = document.createElement("span");
-        const code = document.createElement("code");
-        code.textContent = id.slice(7, 15);
-        code.title = id;
+        const code = Object.assign(document.createElement("code"), { textContent: id.slice(7, 15), title: id });
         label.append(`${KIND_LABEL[record.class] ?? "Device"} `, code, id === held.device.id ? " (this one)" : "");
         item.append(label);
         if (id !== held.device.id && state.roles[id] !== "recovery") {
-          const remove = document.createElement("button");
-          remove.type = "button";
-          remove.className = "text";
-          remove.textContent = "Remove";
+          const remove = Object.assign(document.createElement("button"), { type: "button", className: "text", textContent: "Remove" });
           remove.addEventListener("click", () =>
             run(async (P) => {
               await keep(P, await P.revokeDevice(await pull(P, held), id));
@@ -1146,8 +1143,17 @@ export function accounts(frame, core) {
     paint();
     return key;
   };
+  // Each message is sealed under the id's private boundary key; one that does not open is dropped.
+  const channel = async (listen) => {
+    const Prism = await prismId();
+    await quietly();
+    if (!held) deny("unsupported", "There is no Prism ID here yet");
+    const topic = await appTopic(Prism, held, location.origin);
+    const stop = bus(Prism).subscribe(topic, (bytes) => Prism.openPrivate(held, parse(bytes)).then(listen, () => {}));
+    return { send: async (value) => bus(Prism).publish(topic, json((await Prism.sealPrivate(held, value)).sealed)), stop };
+  };
   reach();
-  return { reach, workspace };
+  return { reach, workspace, channel };
 }
 
 // The theme panel's contents, which the frame puts in its empty panel.

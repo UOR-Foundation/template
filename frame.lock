@@ -115,7 +115,7 @@
     },
     {
       "path": "frame/frame.mjs",
-      "sha256": "e9c02c8355cf3fb6dea3801e7ea5fa84adab0a117198ed39418ce3ea83930156"
+      "sha256": "742ac476182099bcc4d93b142fdbd89ba2ce28085a24ab199d23a8f9698b2018"
     },
     {
       "path": "frame/panels.css",
@@ -123,7 +123,7 @@
     },
     {
       "path": "frame/panels.mjs",
-      "sha256": "4eb0dea50cd91a1dce08a459b80b96a5c34d89eec85fedfdf168c5644f7b92a9"
+      "sha256": "d818b1d511508ff46ad57224779aae00323309dc6aba766a61ecbfbe8f6dfdef"
     },
     {
       "path": "frame/publish.mjs",
@@ -147,7 +147,7 @@
     },
     {
       "path": "identity/PROTOCOL.md",
-      "sha256": "a66215423f8bf70ffbb52e2d9a96f04cb8baa922d2c5adf999be14a491dc382b"
+      "sha256": "b3a7e40635ea891aca2c3f228e01dfc816acc2531c0c1db7e4fdc445e942c9bd"
     },
     {
       "path": "identity/README.md",
@@ -171,7 +171,7 @@
     },
     {
       "path": "identity/test.mjs",
-      "sha256": "fd771e403d0391846fe8e666c2026d01026d47c78de709ac21171b82737f1cf1"
+      "sha256": "025f65e9749339cf8c9eb0d137dcf8014b0ba246e2c23eeb8b49b83b186c37b9"
     },
     {
       "path": "lighthouserc.json",
@@ -179,7 +179,7 @@
     },
     {
       "path": "site/app.mjs",
-      "sha256": "65a3d1e3fcc6ed9ddfcbf85477c99a41a94a98502e62de90e7dcce3f860b0ace"
+      "sha256": "f3ede2982b85be162918bd4e40c67af9bd0a3fa9c4bfc8b50df3b8008d114765"
     },
     {
       "path": "site/guest-worker.mjs",

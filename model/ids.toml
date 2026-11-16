@@ -60,3 +60,9 @@ id = "FR-04"
 level = "build"
 suite = "frame"
 statement = "An app's workspace key opens only on a device of the Prism ID that made it, follows the ID when it joins or is recovered, and stays locked on a removed device"
+
+[[id]]
+id = "FR-05"
+level = "build"
+suite = "frame"
+statement = "An app's pages on every device of one Prism ID meet on a relay topic only those devices derive, per app, with every message sealed to the ID, and a removed device is left behind"

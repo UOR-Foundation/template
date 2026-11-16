@@ -49,10 +49,19 @@ fn frame_fr_04() {
     node("FR-04", &["--input-type=module", "-e", WORKSPACE]);
 }
 
+/// `FR-05`: An app's pages on every device of one Prism ID meet on a relay topic only those devices derive, per app, with every message sealed to the ID, and a removed device is left behind
+///
+/// The same Node run as FR-04, whose linked devices it uses; two pages of one app in Chromium in
+/// `identity/test.mjs`.
+#[test]
+fn frame_fr_05() {
+    node("FR-05", &["--input-type=module", "-e", WORKSPACE]);
+}
+
 const WORKSPACE: &str = r#"
 import assert from "node:assert/strict";
 import * as Prism from "./identity/prism-id.mjs";
-import { carryWorkspace, openWorkspace } from "./frame/panels.mjs";
+import { appTopic, carryWorkspace, openWorkspace } from "./frame/panels.mjs";
 const id = await Prism.createPrism();
 const made = await openWorkspace(Prism, id, null);
 assert.equal(made.key.length, 32);
@@ -69,7 +78,15 @@ const offer = Prism.parseLinkUri(uri);
 const device = await Prism.createDevice();
 const accepted = await Prism.acceptLinkRequest(id, pending, await Prism.requestLink(device, offer), { now: Date.now(), confirmCode: await Prism.linkCode(offer.secret, device.record) });
 const second = await Prism.completeLink(device, offer, accepted.response);
-const rotated = await openWorkspace(Prism, await Prism.revokeDevice(accepted.session, second.device.id), made.record);
+const app = "https://app.example", topic = await appTopic(Prism, accepted.session, app);
+assert.match(topic, /^prism-app:[0-9a-f]{64}$/);
+assert.equal(await appTopic(Prism, second, app), topic, "FR-05: the id's two devices meet");
+assert.notEqual(await appTopic(Prism, accepted.session, "https://other.example"), topic, "FR-05: one topic per app");
+assert.notEqual(await appTopic(Prism, other, app), topic, "FR-05: another id meets elsewhere");
+assert.deepEqual(await Prism.openPrivate(second, (await Prism.sealPrivate(accepted.session, { offer: 1 })).sealed), { offer: 1 });
+const kept = await Prism.revokeDevice(accepted.session, second.device.id);
+assert.notEqual(await appTopic(Prism, kept, app), await appTopic(Prism, second, app), "FR-05: a removed device is left behind");
+const rotated = await openWorkspace(Prism, kept, made.record);
 assert.deepEqual(rotated.key, made.key);
 await assert.rejects(openWorkspace(Prism, second, rotated.record));
 "#;
