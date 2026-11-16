@@ -158,14 +158,16 @@ first. Every instance gets the same page; an app edits one file.
   a test or a mirror. The frame draws in its own shadow root and brings the
   brand's tokens to a page that has none, so any host can mount it.
 - **The page around it, locked.** Everything else on the page (the cards,
-  renderer, loader, service worker and the page gates) is pinned by
+  renderer, loader, service worker, the page gates, the frame's panels in
+  `frame/` and the Prism id in `identity/`) is pinned by
   `frame.lock`, as `brand.lock` pins the brand: reviewed bytes that change
   only when an app chooses to. `node bootstrap/frame-sync.mjs --check` runs
   in `pages.yml` before the build, and an app takes a newer page with
   `--pin <template commit>`, which reads the template's `frame.lock` at that
   commit, fetches every file, refuses any whose bytes differ and records the
   pin. Which files a frame has is the target's to say: its `frame-sync.mjs`,
-  matched to its lock, names them (inside `bootstrap/` and `site/` only), so
+  matched to its lock, names them (inside `bootstrap/`, `site/`, `frame/` and
+  `identity/` only), so
   a newer frame can add a file; one the target dropped is left in place and
   reported. A `frame-sync.mjs` older than this rule refuses a lock with files
   it does not know; fetch the target's script once, then pin:

@@ -30,6 +30,7 @@ or test is added without the other two.
 
 | `audit-limits` | a shipped crate returns `Result<_, E>` for an `E` no register row declares; a declared `E` whose negative test does not exist; one whose negative test is not a registered ID | all rejected |
 | `audit-deferral` | a deferral marker in a crate and in the gate's own source | both rejected |
+| `audit-prism` | a new `site/planted.mjs`; one line added to `frame/panels.mjs`, which the template's own `frame.lock` (no source) does not exempt | both rejected: `1 new non-Prism file(s): site/planted.mjs`; `non-Prism implementation grew by 1 lines (13441 to 13442); grown: frame/panels.mjs +1` |
 | honesty meta-gate | an ID with no test | rejected |
 | `contract_tc_01` | `Conformant` drops the `bootstrap` conjunct, or `dispatch` answers on `true` instead of `conformant` | both rejected |
 | `prismpm verify` | an acceptance vector set without the exact guest-allocation boundary | rejected (PP2009) |
@@ -447,6 +448,32 @@ shrank once the script set its width (CLS 0.009 on Luhn check, fixed by
 setting the first width in the hashed stylesheet), and `app.mjs` crossed the
 unminified-JavaScript allowance (2,458 bytes against 2,048, fixed by moving
 the spec into `site/spec.mjs`, loaded on first open, and shortening comments).
+
+## Only Prism is implemented
+
+Rule: a product is a Prism model, so behavior is written in LexLean and built
+by PrismPM; every other language that executes may only shrink. `audit-prism`
+(`xtask/src/audit.rs`, part of `xtask validate`) counts tracked `.rs`, `.ts`,
+`.tsx`, `.mts`, `.cts`, `.js`, `.mjs`, `.cjs`, `.jsx`, `.css`, `.scss`, `.c`,
+`.h`, `.cpp`, `.html`, `.py`, `.sh`, `.bash`, `.awk` and host `.lean` lines that
+are neither blank nor comments, and refuses a non-Prism file the commit's first
+parent lacks and any net growth over the parent. The ceiling is measured, not
+recorded: a pull request's merge commit has the base branch as first parent,
+main has the previous main, so each removal lowers it as it merges. A shallow
+clone fails. It is the shrink-only ratchet of `afflom/rule30` and
+`afflom/verdant-resonance`, first landed in `UOR-Foundation/foundry#214`.
+
+Output a Prism lock binds to an upstream is Prism's and is not counted while
+its bytes match: an app's `frame.lock`, which names the template commit, and
+`identity/stitch.lock`, which names the stitch commit whose model generates the
+Prism id. The template's own `frame.lock` names no source, so here the frame is
+counted like any other implementation. The ratchet starts at the commit that
+installs it: a parent whose `xtask/src/audit.rs` has no `pub mod prism` set no
+ceiling, so this change records 13,441 lines in 77 files.
+
+The frame's panels (`frame/`) and the Prism id (`identity/`) are now part of
+the frame list, so an app's `frame.lock` binds them and `--pin` delivers them.
+An app on an older `frame-sync.mjs` takes this one first (see the README).
 
 ## A newer frame may add a file
 

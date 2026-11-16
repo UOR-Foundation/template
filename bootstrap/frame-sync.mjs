@@ -33,7 +33,9 @@ const SPEC = "prism/frame-lock/1";
 const RAW = (process.env.PRISM_TEMPLATE_RAW ?? `https://raw.githubusercontent.com/${TEMPLATE}`).replace(/\/$/, "");
 
 // Every file of the frame. A lock must list exactly these, so dropping one
-// from the lock cannot take it out of the gate.
+// from the lock cannot take it out of the gate. The frame's panels (frame/)
+// and the Prism id it signs in with (identity/) are the frame too: an app
+// takes them from the template by the same pin and edits none of them.
 const FRAME = [
   "bootstrap/frame-sync.mjs",
   "bootstrap/icons.py",
@@ -44,6 +46,40 @@ const FRAME = [
   "bootstrap/screens.mjs",
   "bootstrap/weight.mjs",
   "bootstrap/worker-runtime.mjs",
+  "frame/backdrops/0wFwSZn6I-I-thumb.jpg",
+  "frame/backdrops/0wFwSZn6I-I.jpg",
+  "frame/backdrops/9wH624ALFQA-thumb.jpg",
+  "frame/backdrops/9wH624ALFQA.jpg",
+  "frame/backdrops/E0AHdsENmDg-thumb.jpg",
+  "frame/backdrops/E0AHdsENmDg.jpg",
+  "frame/backdrops/Q1p7bh3SHj8-thumb.jpg",
+  "frame/backdrops/Q1p7bh3SHj8.jpg",
+  "frame/backdrops/RF4p4rTM-2s-thumb.jpg",
+  "frame/backdrops/RF4p4rTM-2s.jpg",
+  "frame/backdrops/cZgVpseeazg-thumb.jpg",
+  "frame/backdrops/cZgVpseeazg.jpg",
+  "frame/backdrops/oMcTmNHclZI-thumb.jpg",
+  "frame/backdrops/oMcTmNHclZI.jpg",
+  "frame/backdrops/qtRF_RxCAo0-thumb.jpg",
+  "frame/backdrops/qtRF_RxCAo0.jpg",
+  "frame/backdrops/t7EL2iG3jMc-thumb.jpg",
+  "frame/backdrops/t7EL2iG3jMc.jpg",
+  "frame/frame.css",
+  "frame/frame.mjs",
+  "frame/panels.css",
+  "frame/panels.mjs",
+  "frame/publish.mjs",
+  "frame/unsplash/.gitignore",
+  "frame/unsplash/README.md",
+  "frame/unsplash/worker.mjs",
+  "frame/unsplash/wrangler.toml",
+  "identity/PROTOCOL.md",
+  "identity/README.md",
+  "identity/dev.mjs",
+  "identity/prism-id.mjs",
+  "identity/stitch-sync.mjs",
+  "identity/stitch.lock",
+  "identity/test.mjs",
   "lighthouserc.json",
   "site/app.mjs",
   "site/guest-worker.mjs",
@@ -108,9 +144,10 @@ function frameOf(source) {
   const list = source.match(/^const FRAME = \[([\s\S]*?)\];/m)?.[1];
   return list ? [...list.matchAll(/"([^"]+)"/g)].map((m) => m[1]) : null;
 }
-// A frame file is a page file or a page gate: under bootstrap/ or site/, or
-// lighthouserc.json, and never outside the repository.
-const framePath = (path) => /^(?:(?:bootstrap|site)\/[\w.-]+(?:\/[\w.-]+)*|lighthouserc\.json)$/.test(path) && !path.split("/").includes("..");
+// A frame file is a page file, a page gate, a frame panel or the Prism id:
+// under bootstrap/, site/, frame/ or identity/, or lighthouserc.json, and
+// never outside the repository.
+const framePath = (path) => /^(?:(?:bootstrap|site|frame|identity)\/[\w.-]+(?:\/[\w.-]+)*|lighthouserc\.json)$/.test(path) && !path.split("/").includes("..");
 
 // The target is judged by its own frame, not this one: a newer template may
 // add a frame file this script has never heard of. Its frame-sync.mjs must be

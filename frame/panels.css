@@ -410,24 +410,7 @@
  * the golden ratio (1.618): the width is 1.618 x 16rem, the padding 1.618rem,
  * the title 1.618 x the body text, the gaps 0.618, 1 and 1.618rem, and the
  * backdrop dims by 0.382. Outside, Escape or the close button dismisses it. */
-.account-panel {
-  position: fixed;
-  inset: 0;
-  width: min(25.888rem, 100vw - 2rem);
-  height: fit-content;
-  max-height: calc(100dvh - 2rem);
-  margin: auto;
-  padding: 1.618rem;
-  overflow: auto;
-  border: var(--border-width) solid var(--border);
-  border-radius: calc(var(--radius) * 1.618);
-  background: var(--popover);
-  color: var(--popover-foreground);
-  box-shadow: var(--shadow-overlay);
-  font-size: var(--text-14);
-  line-height: 1.5;
-  transition: opacity var(--duration) var(--ease), transform var(--duration) var(--ease), overlay var(--duration) allow-discrete, display var(--duration) allow-discrete;
-}
+.account-panel { position: fixed; inset: 0; width: min(25.888rem, 100vw - 2rem); height: fit-content; max-height: calc(100dvh - 2rem); margin: auto; padding: 1.618rem; overflow: auto; border: var(--border-width) solid var(--border); border-radius: calc(var(--radius) * 1.618); background: var(--popover); color: var(--popover-foreground); box-shadow: var(--shadow-overlay); font-size: var(--text-14); line-height: 1.5; transition: opacity var(--duration) var(--ease), transform var(--duration) var(--ease), overlay var(--duration) allow-discrete, display var(--duration) allow-discrete; }
 .account-panel:not(:popover-open) { opacity: 0; transform: scale(0.98); }
 @starting-style {
   .account-panel:popover-open { opacity: 0; transform: scale(0.98); }
@@ -439,35 +422,40 @@
 }
 :host([dark]) .account-panel { box-shadow: none; border-color: var(--border-strong); }
 .account-panel p, .account-panel h2 { margin: 0; }
-.account-close {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  display: grid;
-  place-items: center;
-  width: 2rem;
-  height: 2rem;
-  min-height: 0;
-  padding: 0;
-  border: var(--border-width) solid var(--border);
-  border-radius: var(--radius-control);
-  background: none;
-  color: var(--muted-foreground);
-  cursor: pointer;
-}
+.account-close { position: absolute; top: 1rem; right: 1rem; display: grid; place-items: center; width: 2rem; height: 2rem; min-height: 0; padding: 0; border: 0; border-radius: var(--radius-control); background: none; color: var(--muted-foreground); cursor: pointer; }
 .account-close:hover { background: var(--accent); color: var(--foreground); }
 .account-close svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
-.account-title { padding-right: 2.618rem; font-family: var(--font-display); font-weight: 600; font-size: 1.618rem; line-height: 1.236; letter-spacing: var(--tracking-display); }
-.account-sub { margin: 0.618rem 0 1.618rem !important; color: var(--muted-foreground); font-size: 1rem; }
+.account-title { padding-right: 2.618rem; font-family: var(--font-display); font-weight: 600; font-size: 1.382rem; line-height: 1.236; letter-spacing: var(--tracking-display); }
+.account-sub { margin: 0.382rem 0 1rem !important; color: var(--muted-foreground); font-size: var(--text-14); }
 .account-in { display: grid; gap: 0.382rem; }
 .account-id { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); margin-bottom: 0.618rem !important; padding: 0.618rem 1rem; border: var(--border-width) solid var(--border); border-radius: var(--radius-control); background: var(--background); }
 .account-id code { font-family: var(--font-mono); color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .account-qr { display: block; width: min(100%, 14rem); aspect-ratio: 1; margin: 0 auto 0.618rem; background: #fff; border-radius: var(--radius-control); }
 .account-qr path { fill: #000; }
 .account-panel .text { padding: 0; border: 0; background: none; color: var(--foreground); font-weight: 500; text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 0.2em; cursor: pointer; }
-.account-panel .row { justify-content: flex-start; width: 100%; min-height: 2.618rem; padding: 0 1rem; border: 0; border-radius: var(--radius-control); background: none; color: var(--foreground); font-size: 1rem; text-align: start; cursor: pointer; }
+/* The id itself, then the one thing worth doing now, then every choice grouped by why you would make it:
+ * each row says what it does, and in a muted line, why. Icons are outlines at the text colour. */
+.account-panel .glyph { flex: none; width: 1.125rem; height: 1.125rem; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.account-card { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; border: var(--border-width) solid var(--border); border-radius: calc(var(--radius) * 1.236); background: var(--background); }
+.account-panel .account-avatar { width: 2.5rem; height: 2.5rem; padding: 0.5rem; border-radius: 50%; background: var(--accent); stroke-width: 1.5; }
+.account-who { display: grid; flex: 1; min-width: 0; gap: 0.125rem; }
+.account-who code { font-family: var(--font-mono); font-size: var(--text-14); color: var(--foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-panel small { display: flex; align-items: center; gap: 0.25rem; color: var(--muted-foreground); font-size: 0.75rem; line-height: 1.4; }
+.account-who small .glyph { width: 0.75rem; height: 0.75rem; }
+.account-icon { display: grid; place-items: center; width: 2rem; height: 2rem; min-height: 0; padding: 0; border: 0; border-radius: var(--radius-control); background: none; color: var(--muted-foreground); cursor: pointer; }
+.account-icon:hover { background: var(--accent); color: var(--foreground); }
+.account-kit { display: flex; gap: 0.75rem; margin-top: 0.382rem; padding: 0.875rem; border: var(--border-width) solid var(--border-strong); border-radius: calc(var(--radius) * 1.236); }
+.account-kit > span { display: grid; gap: 0.25rem; flex: 1; }
+.account-kit small { display: block; margin-bottom: 0.5rem; }
+.account-kit .primary { min-height: 2.25rem; font-size: var(--text-14); }
+.account-group { margin: 1rem 0 0.125rem !important; padding: 0 0.625rem; color: var(--muted-foreground); font-size: 0.75rem; font-weight: 500; }
+.account-panel .row { display: flex; align-items: center; justify-content: flex-start; gap: 0.75rem; width: 100%; min-height: 2.618rem; padding: 0.5rem 0.625rem; border: 0; border-radius: var(--radius-control); background: none; color: var(--foreground); font: inherit; text-align: start; cursor: pointer; transition: background var(--duration) var(--ease); }
+.account-panel .row > span { display: grid; flex: 1; min-width: 0; }
+.account-panel .row b { font-weight: 500; }
+.account-panel .row > .glyph:first-child { color: var(--muted-foreground); }
+.account-panel .row .chevron { width: 1rem; height: 1rem; color: var(--muted-foreground); opacity: 0.618; }
 .account-panel .row:hover { background: var(--accent); }
-.account-panel .row:focus-visible, .account-panel .text:focus-visible, .account-close:focus-visible { outline: var(--ring-width) solid var(--ring); outline-offset: var(--ring-offset); }
+.account-panel .row:focus-visible, .account-panel .text:focus-visible, .account-close:focus-visible, .account-icon:focus-visible { outline: var(--ring-width) solid var(--ring); outline-offset: var(--ring-offset); }
 .account-panel .primary { width: 100%; min-height: 2.618rem; font-size: 1rem; }
 .account-panel .account-in > p { margin-bottom: 0.618rem; color: var(--muted-foreground); }
 .account-panel .account-in > p b { color: var(--foreground); font-weight: 600; }
