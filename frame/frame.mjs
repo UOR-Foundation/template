@@ -131,12 +131,14 @@ const firstMove = () =>
 // which publish.mjs writes here.
 // It is fetched after the first move, checked against that hash as the page
 // checks the frame, and imported; a failure is tried again the next time.
+// Unpublished (a checkout, or an app that bundles its locked copy of the
+// frame), it is imported from beside this file, as panels.mjs imports Prism id.
 const PANELS = "/*PANELS*/";
 let panelsModule = null;
 let panelsSheet = null;
 const loadPanels = () =>
   (panelsModule ??= (async () => {
-    if (!/^[0-9a-f]{64}$/.test(PANELS)) throw new Error("this frame was published without its panels");
+    if (!/^[0-9a-f]{64}$/.test(PANELS)) return import("./panels.mjs");
     const bytes = await (await fetch(new URL(`${PANELS}/prism-panels.mjs`, FRAME_HOST))).arrayBuffer();
     const hex = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), (b) => b.toString(16).padStart(2, "0")).join("");
     if (hex !== PANELS) throw new Error("the panels module is not the one this frame names");
