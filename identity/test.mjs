@@ -173,7 +173,7 @@ describe("the flow in Chromium", () => {
   test("the icon sits after full screen, and nothing asks to sign in", async () => {
     const order = await first.locator("prism-frame").evaluate((frame) => [...frame.shadowRoot.querySelector(".end").querySelectorAll("button")].map((b) => b.id));
     assert.deepEqual(order.slice(-2), ["fullscreen", "account"]);
-    assert.equal(await first.locator("#account").getAttribute("aria-label"), "Prism id");
+    assert.equal(await first.locator("#account").getAttribute("aria-label"), "Prism ID");
     assert.equal(await first.locator("#account-panel").evaluate((panel) => panel.matches(":popover-open")), false);
     assert.equal(await account(first), null);
   });
@@ -187,7 +187,7 @@ describe("the flow in Chromium", () => {
     assert.equal(await first.locator("#account-panel").evaluate((panel) => panel.matches(":popover-open")), false);
     firstId = (await account(first)).id;
     await first.locator("#account").click();
-    assert.equal(await first.locator("#account-title").textContent(), "Prism id");
+    assert.equal(await first.locator("#account-title").textContent(), "Prism ID");
     assert.equal(await first.getByText(/sign in/i).count(), 0);
     assert.equal(relay.requests, asked);
     const [download] = await Promise.all([first.waitForEvent("download"), first.locator("#account-kit-save").click()]);
