@@ -21,7 +21,7 @@ const EVIDENCE: [&str; 3] = [
     "application-acceptance.json",
 ];
 /// Every checked-in byte the proof reads, as bootstrap.yml's cache key names it.
-const INPUT_PATHS: [&str; 4] = ["app", "prismpm.lock", "Justfile", "rust-toolchain.toml"];
+const INPUT_PATHS: &str = "app :(exclude)app/specs prismpm.lock Justfile rust-toolchain.toml";
 
 /// A kept proof, as read back from `.prism-proof`.
 struct Kept {
@@ -240,14 +240,14 @@ fn inputs(root: &Path) -> Result<String, Fail> {
         std::env::consts::ARCH,
     );
     let mut args = vec!["ls-files", "-z", "--"];
-    args.extend(INPUT_PATHS);
+    args.extend(INPUT_PATHS.split(' '));
     let files = run(root, ".", "git", &args)?;
     for path in files.split('\0').filter(|path| !path.is_empty()) {
         let bytes = std::fs::read(root.join(path)).map_err(|error| format!("{path}: {error}"))?;
         out.push_str(&format!("{}  {path}\n", hex(&bytes)));
     }
     let mut args = vec!["status", "--porcelain=v1", "--untracked-files=all", "--"];
-    args.extend(INPUT_PATHS);
+    args.extend(INPUT_PATHS.split(' '));
     out.push_str(&run(root, ".", "git", &args)?);
     Ok(out)
 }
