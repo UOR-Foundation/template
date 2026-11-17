@@ -31,7 +31,12 @@ jobs:
         # architectures before anything is published.
         runner: ${{ fromJSON((github.event_name == 'pull_request' || github.event_name == 'merge_group') && '["ubuntu-24.04"]' || '["ubuntu-24.04", "ubuntu-24.04-arm"]') }}
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 45
+    # The gate is the whole product's tests, and an app's own suite grows with
+    # it: Hologram AI's GPU journeys run on a software adapter and alone took
+    # 13.5 to 29 minutes of a 30 to 45 minute gate, so a green run was cancelled
+    # at 45. The ceiling stops a hung run; it is not a budget a growing app
+    # should have to fit under by cutting tests.
+    timeout-minutes: 90
     steps:
       - name: Check out the exact event revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
