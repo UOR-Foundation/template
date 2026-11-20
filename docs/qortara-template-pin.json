@@ -1,0 +1,68 @@
+{
+  "schema": "uor.qortara-template-pin/v1",
+  "backendRevision": "135c33d0be2db58014301d29701db76e0159184e",
+  "engineVersion": "0.1.0.dev0",
+  "kit_schema": "qortara.logic.repository-init-kit/v1",
+  "profile": {
+    "contributions": "invited",
+    "maintainers": "team",
+    "visibility": "public"
+  },
+  "owner_answers_supplied": [],
+  "base_commit": "b64cc73c94773ed5bcc9d0549b1ae2c836fa1e0b",
+  "applied": {
+    "AGENTS.md": {
+      "operation": "appended",
+      "separator": "\n",
+      "original_sha256": "sha256:9a1fe3f73ab2963812c35976909c331292e1ca39ce47c0711ec1aafe8b869d87",
+      "result_sha256": "sha256:39b24a0ed899a11e710945987382e3cbc8448a0aae834efb0fc244895fdd253a"
+    }
+  },
+  "files": {
+    ".qortara/.gitignore": {
+      "sha256": "sha256:6791d1f98044ef0b1c1435085f63352ffc389113db44d9157450459a8fb74c39",
+      "bytes": 39
+    },
+    ".qortara/ledger.jsonl": {
+      "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    ".qortara/shadow.jsonl": {
+      "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "AGENTS.md": {
+      "sha256": "sha256:316d7ace5fa59b7af0b0999e778111a21e176f1f102dd8cd752c938118ed5546",
+      "bytes": 1871,
+      "managed_append_section_sha256": "sha256:0e0d754373d134f222a38ba500cd7bc948270430c9d750b14a9733cfdd80fc7c",
+      "managed_append_section_bytes": 1849
+    },
+    "ARCHITECTURE_INDEX.md": {
+      "sha256": "sha256:8fb3b3e18901e026b4f1cf2cae843fcbc902ad22576a6a76b0d3b6ae6d521e13",
+      "bytes": 331
+    },
+    "CLAUDE.md": {
+      "sha256": "sha256:3487eb35de10e58398082aeb3ce6d26e3140c328f0f64d967f41d4b7b9324043",
+      "bytes": 775,
+      "managed_append_section_sha256": "sha256:30120d02d79d4e238dd521070a7b1d0366a9a81f23ac8a6cffcb775ca7410b5d",
+      "managed_append_section_bytes": 747
+    },
+    "GOVERNANCE.md": {
+      "sha256": "sha256:4793912fd65c27d05434f320ec1fc947f70b483439d7b663082f1c2474ad7bf2",
+      "bytes": 293
+    },
+    "SECURITY.md": {
+      "sha256": "sha256:bd9bbd7c2c34aafd3e2afb64f5396e31d80ba6a1bfa6065ff33ce64acea7887d",
+      "bytes": 358
+    },
+    "docs/README.md": {
+      "sha256": "sha256:3c2d692a70b8f32eb2775d87f964fbd9f1be771c72ad860198812a1444352646",
+      "bytes": 328
+    }
+  },
+  "rules": [
+    "journals stay empty in the template",
+    "generated repositories must not re-append managed sections",
+    "owner answers are org-wide drafts; authentication NOT_ESTABLISHED"
+  ]
+}
