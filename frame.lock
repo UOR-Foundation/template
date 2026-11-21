@@ -3,15 +3,11 @@
   "files": [
     {
       "path": "bootstrap/frame-sync.mjs",
-      "sha256": "6e0ef54f1ae72320121542e790c3590990e33e478eebde795c8ce1af0ac14564"
+      "sha256": "b321f177db28da08326cd90cdc522f02bac960fffc5ca187bc3d81d6492881e5"
     },
     {
       "path": "bootstrap/icons.py",
       "sha256": "e3cff5530d752ee1563df8622e4b9ff3453f2d62c850d00fb5a5f1467e5e0b4b"
-    },
-    {
-      "path": "bootstrap/model.mjs",
-      "sha256": "e7e2e097b64899b87276ebb69000cb76fba04b5565981dcd181bc8c4bc1937d0"
     },
     {
       "path": "bootstrap/og.py",
@@ -19,11 +15,11 @@
     },
     {
       "path": "bootstrap/page.mjs",
-      "sha256": "f957b3dadd820ff0ef3d9be207faed6f94bda4931e42934a348800937aac33ca"
+      "sha256": "ccaddb9cde77a6e817217e176a35b68ed0f387c116ac216b0420539c9a4148d7"
     },
     {
       "path": "bootstrap/precache.mjs",
-      "sha256": "fb14903dc1a0ac05ef79ecb95863beafecb8f9206f9df54578a7bf1df4d63099"
+      "sha256": "13eda5092a7ff1a4d684b5b8d9c00284d5c9b55c2fd478cb2b1fe3662d657044"
     },
     {
       "path": "bootstrap/register.mjs",

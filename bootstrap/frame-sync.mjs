@@ -39,7 +39,6 @@ const RAW = (process.env.PRISM_TEMPLATE_RAW ?? `https://raw.githubusercontent.co
 const FRAME = [
   "bootstrap/frame-sync.mjs",
   "bootstrap/icons.py",
-  "bootstrap/model.mjs",
   "bootstrap/og.py",
   "bootstrap/page.mjs",
   "bootstrap/precache.mjs",

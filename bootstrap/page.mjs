@@ -196,24 +196,13 @@ try {
 }
 const model = holo?.model?.application ?? {};
 const prov = holo?.provenance?.model ?? {};
-// The model this holo was built from, published beside the page so anyone the
-// page reaches can open, check and prove it (bootstrap/model.mjs). Only when
-// the holo itself names the model it was built from, and the checkout holds
-// one: otherwise nothing is published and the frame shows no "Open in IDE".
-let published = null;
-if (holo && meta.model !== false) {
-  try {
-    const { publishModel } = await import("./model.mjs");
-    published = await publishModel({ site, app: join(repoRoot, "app"), holo: new Uint8Array(await readFile(join(site, "app.holo"))), semanticId: prov.semantic_id, name: meta.name });
-    console.log(`page: site/model/ holds the model, ${published.files} files; site/app.holo.json names holo ${published.holo.slice(0, 19)}… and model ${published.semanticId.slice(0, 12)}…`);
-  } catch (error) {
-    console.warn(`page: the model is not published (${error.message}); the frame shows no Open in IDE`);
-  }
-}
-// Prism IDE: one static page that is given an app by its address. app.json may
-// name another, for a test or a mirror.
-const ideHost = new URL(meta.ide ?? "https://uor-foundation.github.io/prismpm/audit/");
-const ideUrl = published ? `${ideHost.href}?app=${encodeURIComponent(live.href)}` : null;
+// Prism IDE, where this app's own model opens to be audited and edited: one
+// static page that is given an app by its address. The frame shows "Open in
+// IDE" only when the site carries the model, which the build writes with
+// `prism-code publish-model` before this runs (model/project.json, and
+// app.holo.json naming the holo and the model). app.json may name another
+// IDE host, for a test or a mirror.
+const ideUrl = await access(join(site, "model", "project.json")).then(() => `${new URL(meta.ide ?? "https://uor-foundation.github.io/prismpm/audit/").href}?app=${encodeURIComponent(live.href)}`, () => null);
 const evidence = holo?.evidence ?? {};
 const utf8 = new TextDecoder("utf-8", { fatal: true });
 // As app.mjs shows bytes: text when it is plain UTF-8, hex otherwise.
