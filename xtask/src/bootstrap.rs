@@ -142,7 +142,7 @@ fn policy_boundary_is_canonical(universal: &[&str], project: &[&str], required: 
 /// replace a run: GitHub keeps one pending run per concurrency group, so a
 /// shared main group would silently drop the verdict of a queued commit.
 fn native_coverage_is_complete(bootstrap: &str) -> bool {
-    const TRIGGERS: &str = "on:\n  push:\n    branches: [main]\n    tags: ['**']\n  pull_request:\n  merge_group:\n  workflow_dispatch:\n\n";
+    const TRIGGERS: &str = "on:\n  push:\n    branches: [main]\n    tags: ['**']\n  pull_request:\n    types: [opened, reopened, synchronize, ready_for_review, converted_to_draft, edited]\n  merge_group:\n  workflow_dispatch:\n\n";
     const BOTH: &str = "[ubuntu-24.04, ubuntu-24.04-arm]";
     const PULL_REQUEST_AMD64: &str = r#"${{ fromJSON((github.event_name == 'pull_request' || github.event_name == 'merge_group') && '["ubuntu-24.04"]' || '["ubuntu-24.04", "ubuntu-24.04-arm"]') }}"#;
     const GROUP: &str = "${{ github.event_name == 'pull_request' && format('bootstrap-pr-{0}', github.event.pull_request.number) || format('bootstrap-run-{0}', github.run_id) }}";
@@ -176,6 +176,21 @@ fn native_coverage_is_complete(bootstrap: &str) -> bool {
         && values("runs-on:") == ["${{ matrix.runner }}"]
         && ((groups.is_empty() && cancels.is_empty()) || (groups == [GROUP] && cancels == [CANCEL]))
         && !skips_runs
+}
+
+/// The named required acceptance job must refuse drafts *before* checkout,
+/// Docker, cache restore or the SDK. Exact step shape prevents bypassing a
+/// non-qualifying result through changed event fields or an omitted exit.
+fn draft_preflight_is_enforced(bootstrap: &str) -> bool {
+    const PREFLIGHT: &str = "      - name: Refuse draft PRs before costly SDK setup\n        shell: bash\n        env:\n          PR_DRAFT: ${{ github.event.pull_request.draft }}\n        run: |\n          set -euo pipefail\n          if [[ \"${GITHUB_EVENT_NAME}\" == pull_request ]]; then\n            case \"${PR_DRAFT}\" in\n              true)\n                printf '%s\\n' 'NOT MERGE QUALIFIED: draft PR requires ready_for_review and complete just vv.' >&2\n                exit 1\n                ;;\n              false) ;;\n              *)\n                printf '%s\\n' 'PR draft state missing or invalid; native acceptance refused.' >&2\n                exit 1\n                ;;\n            esac\n          fi\n";
+    let marker = "      - name: Refuse draft PRs before costly SDK setup\n";
+    let checkout = "      - name: Check out the exact event revision\n";
+    bootstrap.matches(marker).count() == 1
+        && bootstrap.matches(PREFLIGHT).count() == 1
+        && bootstrap
+            .find(PREFLIGHT)
+            .zip(bootstrap.find(checkout))
+            .is_some_and(|(early, checkout)| early < checkout)
 }
 
 /// The cache key: every proof input, the SDK image digest and the Lean
@@ -692,6 +707,9 @@ pub fn audit(root: &Path) -> Result<(), Fail> {
                 .into(),
         );
     }
+    if !draft_preflight_is_enforced(&bootstrap) {
+        return Err("bootstrap.yml must reject a draft PR before costly native acceptance and never produce a false-success status".into());
+    }
     if !native_coverage_is_complete(&bootstrap) {
         return Err(
             "bootstrap.yml must run the complete gate on both native architectures for every main push and tag, and never cancel or replace those runs"
@@ -789,11 +807,46 @@ pub fn audit(root: &Path) -> Result<(), Fail> {
 mod tests {
     use super::{
         action_reference_is_pinned, content_matches, dependency_updates_are_confined,
-        docker_credentials_are_confined, immutable_image, native_coverage_is_complete,
+        docker_credentials_are_confined, draft_preflight_is_enforced, immutable_image, native_coverage_is_complete,
         pipeline_lifecycle_is_complete, policy_boundary_is_canonical, proof_reuse_is_confined,
         sha256, update_preserves_project_content, upstream_pins, workflow_history_is_complete,
         PROJECT_CONTENT_PATHS, PROOF_KEY, UNIVERSAL_POLICY_PATHS,
     };
+
+    #[test]
+    fn draft_pr_preflight_is_fail_closed_before_sdk_work() {
+        let bootstrap = include_str!("../../.github/workflows/bootstrap.yml");
+        assert!(draft_preflight_is_enforced(bootstrap));
+        assert!(native_coverage_is_complete(bootstrap));
+        for (defect, changed) in [
+            ("skip the draft branch", bootstrap.replace("              true)\n", "              omitted)\n")),
+            ("turn refusal into success", bootstrap.replace(
+                "NOT MERGE QUALIFIED: draft PR requires ready_for_review and complete just vv.' >&2\n                exit 1",
+                "NOT MERGE QUALIFIED: draft PR requires ready_for_review and complete just vv.' >&2\n                exit 0",
+            )),
+            ("forge draft=false", bootstrap.replace(
+                "PR_DRAFT: ${{ github.event.pull_request.draft }}",
+                "PR_DRAFT: false",
+            )),
+            ("omit missing-state refusal", bootstrap.replace(
+                "PR draft state missing or invalid; native acceptance refused.' >&2\n                exit 1",
+                "PR draft state missing or invalid; native acceptance refused.' >&2\n                true",
+            )),
+            ("remove preflight", bootstrap.replace(
+                "      - name: Refuse draft PRs before costly SDK setup\n",
+                "      - name: Removed draft preflight\n",
+            )),
+        ] {
+            assert_ne!(changed, bootstrap, "{defect}: plant must change source");
+            assert!(!draft_preflight_is_enforced(&changed), "{defect}");
+        }
+        assert!(!native_coverage_is_complete(
+            &bootstrap.replace("ready_for_review, ", "")
+        ));
+        assert!(!native_coverage_is_complete(
+            &bootstrap.replace("converted_to_draft, ", "")
+        ));
+    }
 
     #[test]
     fn hosted_sdk_disk_is_prepared_before_image_pull() {
