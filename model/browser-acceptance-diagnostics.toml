@@ -1,0 +1,18 @@
+# The public browser acceptance error contract (R5). Keep source codes in sync
+# with site/acceptance-result.mjs and the negative acceptance tests.
+spec = "uor/frame/browser-acceptance-diagnostics/1"
+
+[[diagnostic]]
+code = "FRAME_ACCEPTANCE_INVALID_RESULT"
+meaning = "The declared acceptance counts, expected vector total or failure array is malformed."
+surface = "browser-acceptance"
+
+[[diagnostic]]
+code = "FRAME_ACCEPTANCE_INVALID_FAILURE_IDENTITY"
+meaning = "A failing vector index is absent, duplicated, negative, out of bounds or not an integer."
+surface = "browser-acceptance"
+
+[[diagnostic]]
+code = "FRAME_ACCEPTANCE_COUNT_MISMATCH"
+meaning = "The passing count plus distinct failure indices does not equal the declared total."
+surface = "browser-acceptance"

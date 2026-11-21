@@ -3,7 +3,7 @@
   "files": [
     {
       "path": "bootstrap/frame-sync.mjs",
-      "sha256": "c7df2d026b14ec0783a068a3fcb87a1eaabf2ea7f55ac6b61cb96b96e21e7957"
+      "sha256": "d44702b53cf807abfb75c9cbf9de6683256c8f40c2db591e0767100e9d5ac256"
     },
     {
       "path": "bootstrap/icons.py",
@@ -34,12 +34,16 @@
       "sha256": "0145d04da93193801b0d8736ceba7e0df94b9b15f183b07a16e6feda16d72082"
     },
     {
+      "path": "site/acceptance-result.mjs",
+      "sha256": "dec7ff483f1f54fb32e23e6c6dc5360019fcadd3b5577ec5c87bc96dcf029971"
+    },
+    {
       "path": "site/app.mjs",
-      "sha256": "8ec5c53c8cde662a05592b1c9c2a36621fbff816c95849526b7fff88ba95e2b8"
+      "sha256": "59bb002d09397dde58c20c08caa162216343103199b04164de893a5c8fbd4de6"
     },
     {
       "path": "site/guest-worker.mjs",
-      "sha256": "0aae31bd459646dfa3a9b8f5f1e9139a34f2fc86154342c14ad5601ec9876d7e"
+      "sha256": "d167c166de7f6385361a0696c5bbe53540650e580e67c940c34f71680edf2096"
     },
     {
       "path": "site/page.template.html",

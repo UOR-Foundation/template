@@ -4,6 +4,7 @@
 // the guest bytes of that same verified archive; the worker only compiles and
 // runs them with the runtime's own guest loop, one fresh instance per request.
 import { compileGuest, runGuest, runAcceptance } from "./vendor/prism-code/src/core.mjs";
+import { acceptanceSummary } from "./acceptance-result.mjs";
 
 let guest = null;
 let limits = {};
@@ -20,8 +21,12 @@ self.onmessage = async ({ data }) => {
     } else if (kind === "dispatch") {
       self.postMessage({ id, ok: true, value: runGuest(guest, data.request, limits) });
     } else if (kind === "acceptance") {
-      const result = await runAcceptance(data.vectors, async (request) => runGuest(guest, request, limits));
-      self.postMessage({ id, ok: true, value: { total: result.total, passed: result.passed } });
+      const result = acceptanceSummary(
+        await runAcceptance(data.vectors, async (request) => runGuest(guest, request, limits)),
+        data.vectors.length,
+      );
+      self.postMessage({ id, ok: true, value: { total: result.total, passed: result.passed,
+        failed: result.failed.map((index) => ({ index })) } });
     }
   } catch (error) {
     self.postMessage({ id, ok: false, error: describe(error) });
