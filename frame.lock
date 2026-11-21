@@ -15,11 +15,11 @@
     },
     {
       "path": "bootstrap/page.mjs",
-      "sha256": "8eee238bce9206ca58fc9be5471c28c0bdab82e2350ed78f1972da2a1da6581f"
+      "sha256": "3a3fddf2225f9c52e5cb168a061f2e9d96adabe03597aaa17606224309c0c8b7"
     },
     {
       "path": "bootstrap/precache.mjs",
-      "sha256": "d1af0e811ed68ea3695144e9c0abddd3c9bf24007b9fde8c5b12f91ec225a388"
+      "sha256": "815ce9e661dc82c04d31116e4c2e4ae50dfd510404f55b19d8c5a1607ce45fe7"
     },
     {
       "path": "bootstrap/register.mjs",
@@ -111,11 +111,11 @@
     },
     {
       "path": "frame/frame.css",
-      "sha256": "ac8c9cfe2f1e7fe0c7c3725c840e0296fae76314521860d7840ce66876f65869"
+      "sha256": "a71718e98d58d759b81f513e83bcfc22cdc9b8fc1534f16fda5c212c14d03c40"
     },
     {
       "path": "frame/frame.mjs",
-      "sha256": "742ac476182099bcc4d93b142fdbd89ba2ce28085a24ab199d23a8f9698b2018"
+      "sha256": "10fa57791301a3179a8fc6fab6224127327548dbe3f8348469785a9d77c3d2f3"
     },
     {
       "path": "frame/panels.css",
