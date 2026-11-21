@@ -19,7 +19,9 @@ fn require_complete_tap(tap: &str) -> Result<(), String> {
         .filter_map(|line| line.strip_prefix("# Subtest: "))
         .collect();
     if cases.as_slice() != &REQUIRED[..] {
-        return Err("TC-02: required test identity was skipped, removed, renamed or repeated".into());
+        return Err(
+            "TC-02: required test identity was skipped, removed, renamed or repeated".into(),
+        );
     }
 
     for (key, expected) in [
@@ -32,7 +34,9 @@ fn require_complete_tap(tap: &str) -> Result<(), String> {
     ] {
         let required = format!("# {key} {expected}");
         if tap.lines().filter(|line| *line == required).count() != 1 {
-            return Err(format!("TC-02: invalid TAP summary for {key}; expected {required}"));
+            return Err(format!(
+                "TC-02: invalid TAP summary for {key}; expected {required}"
+            ));
         }
     }
     Ok(())
@@ -63,9 +67,10 @@ fn browser_acceptance_tc_02() {
 
     // Planted negative controls mutate the real test transcript and must
     // refuse rather than bless an empty or skipped successful Node process.
-    let skipped = stdout
-        .replacen("# pass 8", "# pass 0", 1)
-        .replacen("# skipped 0", "# skipped 8", 1);
+    let skipped =
+        stdout
+            .replacen("# pass 8", "# pass 0", 1)
+            .replacen("# skipped 0", "# skipped 8", 1);
     assert_ne!(skipped, stdout, "TC-02 skipped-test plant was not applied");
     assert!(
         require_complete_tap(&skipped).is_err(),
