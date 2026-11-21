@@ -18,6 +18,12 @@ The three honesty levels (R2):
 `cargo xtask audit-limits` fails if any code path returns an error the
 model does not sanction.
 
+## browser-acceptance
+
+| ID | Level | Statement |
+| --- | --- | --- |
+| `TC-02` | `build` | Browser acceptance preserves failure identities and refuses invalid output with modeled diagnostics |
+
 ## contract
 
 | ID | Level | Statement |

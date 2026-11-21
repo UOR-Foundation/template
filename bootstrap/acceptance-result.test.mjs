@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import vm from "node:vm";
-import { acceptanceSummary } from "../site/acceptance-result.mjs";
+import { acceptanceSummary, ACCEPTANCE_DIAGNOSTICS } from "../site/acceptance-result.mjs";
 
 const here = new URL("../site/guest-worker.mjs", import.meta.url);
 
@@ -12,12 +12,18 @@ async function runWorker(result) {
     /^import \{ compileGuest, runGuest, runAcceptance \} from "\.\/vendor\/prism-code\/src\/core\.mjs";\n/m,
     "",
   );
+  const withoutValidationImport = withoutImport.replace(
+    /^import \{ acceptanceSummary \} from "\.\/acceptance-result\.mjs";\n/m,
+    "",
+  );
   assert.notEqual(withoutImport, source, "exercise the exact source import, not a stub module");
+  assert.notEqual(withoutValidationImport, withoutImport, "exercise the validator import");
   const messages = [];
   const worker = { postMessage: (value) => messages.push(value) };
-  vm.runInNewContext(withoutImport, {
+  vm.runInNewContext(withoutValidationImport, {
     self: worker,
     compileGuest: async () => "guest",
+    acceptanceSummary,
     runGuest: () => new Uint8Array([42]),
     runAcceptance: async () => result,
   });
@@ -49,6 +55,7 @@ test("worker preserves a zero-failures result", async () => {
 test("worker reports malformed result as an error, not a success", async () => {
   const result = await runWorker({ total: 3, passed: 2 });
   assert.equal(result.ok, false);
+  assert.equal(result.error, ACCEPTANCE_DIAGNOSTICS.invalidResult);
 });
 
 test("missing, duplicated and out-of-range failures refuse", () => {
@@ -63,7 +70,33 @@ test("missing, duplicated and out-of-range failures refuse", () => {
     { total: 4, passed: 3, failed: [{ index: 1 }] },
     { total: 3, passed: -1, failed: [{ index: 0 }] },
   ];
-  for (const fixture of cases) assert.throws(() => acceptanceSummary(fixture, 3));
+  const expectedCodes = [
+    ACCEPTANCE_DIAGNOSTICS.invalidResult,
+    ACCEPTANCE_DIAGNOSTICS.countMismatch,
+    ACCEPTANCE_DIAGNOSTICS.invalidIdentity,
+    ACCEPTANCE_DIAGNOSTICS.invalidIdentity,
+    ACCEPTANCE_DIAGNOSTICS.invalidIdentity,
+    ACCEPTANCE_DIAGNOSTICS.invalidIdentity,
+    ACCEPTANCE_DIAGNOSTICS.invalidIdentity,
+    ACCEPTANCE_DIAGNOSTICS.invalidResult,
+    ACCEPTANCE_DIAGNOSTICS.invalidResult,
+  ];
+  for (const [index, fixture] of cases.entries()) {
+    assert.throws(() => acceptanceSummary(fixture, 3), { code: expectedCodes[index] });
+  }
+});
+
+test("public acceptance diagnostics match their authoritative model", async () => {
+  const model = await readFile(new URL("../model/browser-acceptance-diagnostics.toml", import.meta.url), "utf8");
+  const registered = [...model.matchAll(/^code = "([^"]+)"$/gm)].map((match) => match[1]).sort();
+  assert.deepEqual(registered, Object.values(ACCEPTANCE_DIAGNOSTICS).sort());
+});
+
+test("count mismatch exposes its stable typed diagnostic", () => {
+  assert.throws(
+    () => acceptanceSummary({ total: 3, passed: 2, failed: [] }, 3),
+    { code: ACCEPTANCE_DIAGNOSTICS.countMismatch },
+  );
 });
 
 test("fully declared negative result identifies every failing vector", () => {

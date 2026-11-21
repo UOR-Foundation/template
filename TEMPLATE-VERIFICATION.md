@@ -324,3 +324,14 @@ commits and against mirrors served with `PRISM_TEMPLATE_RAW`:
 | a mirror's lock names a file its frame does not | refused: the lock's list against the frame's; nothing written |
 | a mirror's frame and lock both add `.github/workflows/x.yml` | refused: `names files outside the page`; nothing written |
 | an untouched mirror | pinned |
+
+## Browser acceptance compatibility frame (TC-02)
+
+The compatibility frame binds the acceptance validator and both browser
+entrypoints to the upstream `frame.lock`. The authoritative public diagnostics
+are in `model/browser-acceptance-diagnostics.toml` and distinguish malformed
+results, malformed failure identities and inconsistent counts by stable codes.
+The Worker and direct browser paths fail closed; `browser_acceptance_tc_02`
+runs the eight source-level Node acceptance cases as part of the workspace
+suite inside `just vv`. The actual downstream Pages deployment remains to be
+verified on a source-pinned commit.
