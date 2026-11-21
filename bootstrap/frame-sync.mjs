@@ -43,6 +43,7 @@ const FRAME = [
   "bootstrap/register.mjs",
   "bootstrap/screens.mjs",
   "lighthouserc.json",
+  "site/acceptance-result.mjs",
   "site/app.mjs",
   "site/guest-worker.mjs",
   "site/page.template.html",
