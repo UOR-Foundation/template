@@ -1,6 +1,8 @@
 // The Prism app page: verifies app.holo, answers as you type, replays its
 // examples. page.mjs renders the text; this adds what the browser checks.
 
+import { acceptanceSummary } from "./acceptance-result.mjs";
+
 const $ = (id) => document.getElementById(id);
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true });
@@ -398,9 +400,9 @@ async function main() {
   // The replay feeds the shield and marks each example in the spec.
   replayed("running");
   try {
-    const result = await runner.acceptance();
+    const result = acceptanceSummary(await runner.acceptance(), app.vectors.length);
     replayed(`${result.passed}/${result.total}`);
-    report({ total: result.total, passed: result.passed, failed: (result.failed ?? []).map((f) => f.index) });
+    report(result);
   } catch (error) {
     replayed("error");
     report({ error: `failed: ${describe(error)}` });
