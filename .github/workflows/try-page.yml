@@ -42,6 +42,8 @@ jobs:
           "$RUNNER_TEMP/frame-draw/bin/python" -I bootstrap/og.py
       - name: The frame verifies in a real module worker, refuses bad archives and works offline
         run: node --test site/worker-browser.test.mjs
+      - name: The published model is what LexLean reads, and Open in IDE shows only for a safe address
+        run: node --test bootstrap/model.test.mjs
       - name: Prism ids - the pinned stitch copy matches its lock, every session check refuses, and two apps share one id
         run: npm run test:identity
       - name: Build the canonical frame every Prism app loads

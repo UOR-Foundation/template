@@ -27,6 +27,8 @@ for (const path of (await walk(site)).sort()) {
   const rel = relative(site, path).split("\\").join("/");
   if (skip.has(rel) || rel.endsWith(".txt") || rel.endsWith(".d.ts") || rel.endsWith(".md") || rel.includes("fixtures/")) continue;
   if (/vendor\/prism-code\/src\/(node|docker)\.mjs$/.test(rel)) continue;
+  // The published model (bootstrap/model.mjs) is read by Prism IDE from its own origin, never by this page.
+  if (rel.startsWith("model/") || rel === "app.holo.json") continue;
   const bytes = await readFile(path);
   const eager = rel.startsWith("icons/") || rel === "manifest.webmanifest";
   files.push({ path: "./" + rel, sha256: createHash("sha256").update(bytes).digest("hex"), bytes: bytes.length, ...(eager ? { eager } : {}) });

@@ -6,7 +6,7 @@
 // its next load: no app is rebuilt.
 //
 // The contract (prism/frame/1):
-//   <prism-frame name address live repo home purpose card identity
+//   <prism-frame name address live repo home purpose card identity ide
 //                verdict verdict-label fingerprint proof proof-url examples>
 //     <span slot="status">…</span>     optional: shown in the bar, e.g. "Update available"
 //   </prism-frame>
@@ -18,6 +18,10 @@
 // purpose   one or more sentences; the first is the share text
 // card      the 1200 x 630 social card; live + "og.png" when absent
 // identity  the page's full verification details (default "#identity-title")
+// ide       optional: where this app's own model opens to be audited and
+//           edited (Prism IDE). The page's build sets it only when the app
+//           publishes its model; the control hides when absent, or when the
+//           address is neither https nor this page's own origin
 // verdict   wait | good | bad: whether the holo's bytes match its fingerprint;
 //           verdict-label says it in words, fingerprint is the holo's (shown
 //           in the shield's panel, matched by the address bar)
@@ -156,6 +160,16 @@ const escape = (text) =>
   String(text ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const slugOf = (name) =>
   name.toLowerCase().normalize("NFKD").replace(/\p{M}/gu, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "app";
+// Where "Open in IDE" leads: an https address, or one on the page's own
+// origin, and nothing else. An address a browser would run is not a link.
+const ideOf = (value, base) => {
+  try {
+    const url = new URL(value, base);
+    return value && (url.protocol === "https:" || url.origin === new URL(base).origin) ? url.href : "";
+  } catch {
+    return "";
+  }
+};
 const sheetOf = (text) => {
   const sheet = new CSSStyleSheet();
   sheet.replaceSync(text);
@@ -187,6 +201,7 @@ const markup = (e) => `
     <div class="end">
     <slot name="status"></slot>
     <span id="bar-status" class="sr" aria-live="polite"></span>
+    <a id="ide" class="ghost icon" href="${e.ide}" target="_blank" rel="noopener" aria-label="Open in IDE: audit and edit this app's model" title="Open in IDE"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="m8 7-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></svg></a>
     <button id="theme" class="ghost icon" type="button" popovertarget="theme-panel" aria-label="Theme" title="Theme"><svg class="moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" /></svg><svg class="sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg><svg class="photo" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><rect x="3" y="4.5" width="18" height="15" rx="2.5" /><circle cx="9" cy="10" r="1.75" /><path d="m3.5 17 5-4.5 3.5 3 3-2.5 5.5 4.5" /></svg></button>
     <button id="fullscreen" class="ghost icon" type="button" aria-label="Enter full screen" title="Full screen"><svg class="expand" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15" /></svg><svg class="shrink" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 4v3.5A1.5 1.5 0 0 1 7.5 9H4M20 9h-3.5A1.5 1.5 0 0 1 15 7.5V4M15 20v-3.5a1.5 1.5 0 0 1 1.5-1.5H20M4 15h3.5A1.5 1.5 0 0 1 9 16.5V20" /></svg></button>
     <button id="account" class="ghost icon" type="button" popovertarget="account-panel" aria-label="Prism ID" title="Prism ID"><svg class="person" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="3.5" /><path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6" /></svg></button>
@@ -397,6 +412,7 @@ function modelOf(get, title, base) {
     live: url.href,
     text,
     repo: get("repo") ?? "",
+    ide: ideOf(get("ide"), base),
     ...starsOf(Number(get("stars"))),
     card: get("card") ?? new URL("og.png", url).href,
     identity: get("identity") ?? "#identity-title",
@@ -439,6 +455,7 @@ export function shell(attributes, base) {
   let html = markup(e);
   html = html.slice(0, html.indexOf('  <div id="trust-panel"'));
   if (!m.repo) html = html.replace('<a id="github" ', '<a id="github" hidden ');
+  if (!m.ide) html = html.replace('<a id="ide" ', '<a id="ide" hidden ');
   const css = barCss(CSS);
   return { css, html: `<template shadowrootmode="open"><style>${css}</style>${html}</template>` };
 }
@@ -460,7 +477,7 @@ function placeUnder(frame, button, panel, name, rem, gap, side) {
 
 const Element = globalThis.HTMLElement ?? class {};
 class PrismFrame extends Element {
-  static observedAttributes = ["name", "address", "live", "repo", "home", "purpose", "card", "identity", "verdict", "verdict-label", "fingerprint", "proof", "proof-url", "examples", "stars"];
+  static observedAttributes = ["name", "address", "live", "repo", "home", "purpose", "card", "identity", "ide", "verdict", "verdict-label", "fingerprint", "proof", "proof-url", "examples", "stars"];
 
   constructor() {
     super();
@@ -517,6 +534,7 @@ class PrismFrame extends Element {
     this.data = m;
     this.shadowRoot.innerHTML = markup(e);
     if (!m.repo) this.$("github").hidden = true;
+    if (!m.ide) this.$("ide").hidden = true;
     this.liveStars();
     this.paintTrust();
     this.paintTheme();
