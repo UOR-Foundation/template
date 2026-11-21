@@ -159,6 +159,9 @@ fn native_coverage_is_complete(bootstrap: &str) -> bool {
     let runners = values("runner:");
     let groups = values("group:");
     let cancels = values("cancel-in-progress:");
+    let named = "      - name: Refuse draft PRs before costly SDK setup\n";
+    let draft = bootstrap.matches(named).count() == 1
+        && bootstrap.contains(DRAFT_GATE);
     // Preserve the same skip and path-filter bans while consolidating the predicate.
     let skips_runs = bootstrap.lines().map(str::trim).any(|line| {
         "if:|continue-on-error:|include:|exclude:|paths:|paths-ignore:|branches-ignore:|tags-ignore:"
@@ -169,8 +172,7 @@ fn native_coverage_is_complete(bootstrap: &str) -> bool {
         && values("runs-on:") == ["${{ matrix.runner }}"]
         && ((groups.is_empty() && cancels.is_empty()) || (groups == [GROUP] && cancels == [CANCEL]))
         && !skips_runs
-        && bootstrap.matches("      - name: Refuse draft PRs before costly SDK setup\n").count() == 1
-        && bootstrap.contains(DRAFT_GATE)
+        && draft
 }
 
 /// The cache key: every proof input, the SDK image digest and the Lean
