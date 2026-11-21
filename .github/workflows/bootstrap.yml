@@ -6,14 +6,14 @@ on:
     branches: [main]
     tags: ['**']
   pull_request:
-    types: [opened, reopened, synchronize, ready_for_review, converted_to_draft, edited]
+    types: [opened, reopened, synchronize, ready_for_review, converted_to_draft]
   merge_group:
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# A newer push to a pull request cancels its older run. Every other run (main,
+# A newer event for a pull request cancels its older run. Every other run (main,
 # a tag, a merge queue's) has a group of its own, so a main or tag run is never
 # cancelled, and never replaced while queued, and every merged or released
 # commit keeps its verdict.
