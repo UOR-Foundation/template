@@ -29,6 +29,9 @@ The starting point for a Prism application: a repository whose every claim is
 registered, specified as a scenario, tested, and accepted by one gate running
 in one digest-pinned SDK.
 
+[Try the application](#try-it) · [What you get](#what-you-get) · [Getting started](#get-started) · [Device setup](#build-from-any-device) · [Publication](#publish-the-app-page) · [Daily commands](#everyday-commands) · [Repository map](#repository-layout)
+
+
 A Prism application is modeled in [LexLean](https://github.com/UOR-Foundation/LexLean),
 proved in Lean 4, and built by [PrismPM](https://github.com/UOR-Foundation/PrismPM)
 into a holo: one content-addressed archive that holds the model, the proof, the
