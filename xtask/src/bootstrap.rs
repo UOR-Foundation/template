@@ -807,10 +807,10 @@ pub fn audit(root: &Path) -> Result<(), Fail> {
 mod tests {
     use super::{
         action_reference_is_pinned, content_matches, dependency_updates_are_confined,
-        docker_credentials_are_confined, draft_preflight_is_enforced, immutable_image, native_coverage_is_complete,
-        pipeline_lifecycle_is_complete, policy_boundary_is_canonical, proof_reuse_is_confined,
-        sha256, update_preserves_project_content, upstream_pins, workflow_history_is_complete,
-        PROJECT_CONTENT_PATHS, PROOF_KEY, UNIVERSAL_POLICY_PATHS,
+        docker_credentials_are_confined, draft_preflight_is_enforced, immutable_image,
+        native_coverage_is_complete, pipeline_lifecycle_is_complete, policy_boundary_is_canonical,
+        proof_reuse_is_confined, sha256, update_preserves_project_content, upstream_pins,
+        workflow_history_is_complete, PROJECT_CONTENT_PATHS, PROOF_KEY, UNIVERSAL_POLICY_PATHS,
     };
 
     #[test]
