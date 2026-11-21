@@ -1,0 +1,5 @@
+keys/
+session
+*.lock
+*.tmp
+hooks.jsonl

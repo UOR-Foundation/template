@@ -431,6 +431,11 @@ npx prism-code vectors node_modules/prism-code/fixtures/Calculator.holo
 Read it first. It is short, and every gate's failure message names the rule it
 enforces, so a red `just vv` says which promise was broken.
 
+Repositories generated from this template are already Qortara-initialized; do
+not re-append managed sections; keep `.qortara/` journals empty here. The kit
+these files came from is pinned in
+[docs/qortara-template-pin.json](docs/qortara-template-pin.json).
+
 ## Repository layout
 
 | Path | Owner | Purpose |

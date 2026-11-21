@@ -1,0 +1,18 @@
+{
+  "schema": "qortara.repository-governance-owner-action/v1",
+  "id": "external-instruction-lock-8931c560d6673f1b327e",
+  "status": "OPEN_OWNER_ACTION",
+  "file": "AGENTS.md",
+  "external_lock_file": "template.lock (uor/template-contract)",
+  "external_lock_expected_file_sha256": "sha256:9a1fe3f73ab2963812c35976909c331292e1ca39ce47c0711ec1aafe8b869d87",
+  "qortara_managed_file_sha256": "sha256:39b24a0ed899a11e710945987382e3cbc8448a0aae834efb0fc244895fdd253a",
+  "acceptance_verified": false,
+  "external_lock_rewritten_by_qortara": false,
+  "host_authority_verified": false,
+  "owner_role": "repository owner or authorized administrator",
+  "owner_todo": [
+    "Reconcile template.lock and the uor/template-contract AGENTS.md pin through the template's release process.",
+    "Run prismpm template check and Qortara's mandatory checks.",
+    "Close only after independently verified acceptance evidence."
+  ]
+}
