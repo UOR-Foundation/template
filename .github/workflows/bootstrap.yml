@@ -39,11 +39,11 @@ jobs:
       - name: Refuse draft PRs before costly SDK setup
         shell: bash
         env:
-          PR_DRAFT: \${{ github.event.pull_request.draft }}
+          PR_DRAFT: ${{ github.event.pull_request.draft }}
         run: |
           set -euo pipefail
-          if [[ "\${GITHUB_EVENT_NAME}" == pull_request ]]; then
-            case "\${PR_DRAFT}" in
+          if [[ "${GITHUB_EVENT_NAME}" == pull_request ]]; then
+            case "${PR_DRAFT}" in
               true)
                 printf '%s\n' 'NOT MERGE QUALIFIED: draft PR requires ready_for_review and complete just vv.' >&2
                 exit 1
