@@ -142,7 +142,7 @@ fn policy_boundary_is_canonical(universal: &[&str], project: &[&str], required: 
 /// replace a run: GitHub keeps one pending run per concurrency group, so a
 /// shared main group would silently drop the verdict of a queued commit.
 fn native_coverage_is_complete(bootstrap: &str) -> bool {
-    const TRIGGERS: &str = "on:\n  push:\n    branches: [main]\n    tags: ['**']\n  pull_request:\n    types: [opened, reopened, synchronize, ready_for_review, converted_to_draft, edited]\n  merge_group:\n  workflow_dispatch:\n\n";
+    const TRIGGERS: &str = "on:\n  push:\n    branches: [main]\n    tags: ['**']\n  pull_request:\n    types: [opened, reopened, synchronize, ready_for_review, converted_to_draft]\n  merge_group:\n  workflow_dispatch:\n\n";
     const BOTH: &str = "[ubuntu-24.04, ubuntu-24.04-arm]";
     const PULL_REQUEST_AMD64: &str = r#"${{ fromJSON((github.event_name == 'pull_request' || github.event_name == 'merge_group') && '["ubuntu-24.04"]' || '["ubuntu-24.04", "ubuntu-24.04-arm"]') }}"#;
     const GROUP: &str = "${{ github.event_name == 'pull_request' && format('bootstrap-pr-{0}', github.event.pull_request.number) || format('bootstrap-run-{0}', github.run_id) }}";
