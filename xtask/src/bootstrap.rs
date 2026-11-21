@@ -843,9 +843,9 @@ mod tests {
         assert!(!native_coverage_is_complete(
             &bootstrap.replace("ready_for_review, ", "")
         ));
-        assert!(!native_coverage_is_complete(
-            &bootstrap.replace("converted_to_draft, ", "")
-        ));
+        let omitted_draft_transition = bootstrap.replace("converted_to_draft]", "]");
+        assert_ne!(omitted_draft_transition, bootstrap, "draft-transition plant must mutate source");
+        assert!(!native_coverage_is_complete(&omitted_draft_transition));
     }
 
     #[test]
