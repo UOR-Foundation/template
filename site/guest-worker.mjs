@@ -21,7 +21,8 @@ self.onmessage = async ({ data }) => {
       self.postMessage({ id, ok: true, value: runGuest(guest, data.request, limits) });
     } else if (kind === "acceptance") {
       const result = await runAcceptance(data.vectors, async (request) => runGuest(guest, request, limits));
-      self.postMessage({ id, ok: true, value: { total: result.total, passed: result.passed } });
+      self.postMessage({ id, ok: true, value: { total: result.total, passed: result.passed,
+        failed: result.failed.map(({ index }) => ({ index })) } });
     }
   } catch (error) {
     self.postMessage({ id, ok: false, error: describe(error) });
