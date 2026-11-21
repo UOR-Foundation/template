@@ -1,6 +1,8 @@
 <p align="center">
-  <img src="assets/banner.svg" alt="UOR Prism template: model it, prove it, ship the proof" width="100%">
+  <img src="assets/readme-banner-PLACEHOLDER.png" alt="UOR Prism template provisional banner: model, verify, and ship with a clear evidence trail. Placeholder not approved." width="100%">
 </p>
+
+<p align="center"><em>Illustrative placeholder artwork, pending UOR Foundation brand approval.</em></p>
 
 <p align="center">
   <a href="https://github.com/new?template_owner=UOR-Foundation&amp;template_name=template"><b>Use this template</b></a>
@@ -23,6 +25,22 @@
 
 # UOR Prism template
 
+**Begin with a working project, not a pile of disconnected build tools.**
+
+## Why this template exists
+
+A new application needs more than source code. Teams must know what a feature is
+supposed to do, how to test it, and whether the published result matches the
+version they checked. When those pieces are set up separately, they can drift
+apart and leave people guessing which claims they can trust.
+
+**This template puts the starting pieces together.** You get an example
+application, a consistent way to describe behavior, tools that check the
+declared requirements, and a release path that keeps evidence connected to
+the software. You still need to design your own features and prove or test
+your own claims. A passing example is not a blanket guarantee for a new app.
+
+## How it works
 The starting point for a Prism application: a repository whose every claim is
 registered, specified as a scenario, tested, and accepted by one gate running
 in one digest-pinned SDK.
@@ -35,6 +53,20 @@ before it runs, offline, with [`prism-code`](https://www.npmjs.com/package/prism
 This template supplies everything around the model so you write only the model
 and the claims it makes.
 
+## Contents
+
+- [Why this template exists](#why-this-template-exists)
+- [How it works](#how-it-works)
+- [Try it](#try-it)
+- [What you get](#what-you-get)
+- [Get started](#get-started)
+- [Build from any device](#build-from-any-device)
+- [Publish the app page](#publish-the-app-page)
+- [The template is a Prism application](#the-template-is-a-prism-application)
+- [Everyday commands](#everyday-commands)
+- [Built from this template](#built-from-this-template)
+- [For coding agents](#for-coding-agents)
+- [Repository layout](#repository-layout)
 ## Try it
 
 - [Open the browser try page](https://uor-foundation.github.io/template/) — load, verify and run `Calculator.holo` entirely in the page, with no install.
