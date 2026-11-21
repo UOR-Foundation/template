@@ -1,6 +1,8 @@
 <p align="center">
-  <img src="assets/banner.svg" alt="UOR Prism template: model it, prove it, ship the proof" width="100%">
+  <img src="assets/readme-banner-PLACEHOLDER.png" alt="Prism placeholder illustration for the UOR Prism template, provisional and not brand-approved" width="100%">
 </p>
+
+<p align="center"><em>Prism placeholder artwork; illustrative only, pending UOR Foundation brand approval.</em></p>
 
 <p align="center">
   <a href="https://github.com/new?template_owner=UOR-Foundation&amp;template_name=template"><b>Use this template</b></a>
