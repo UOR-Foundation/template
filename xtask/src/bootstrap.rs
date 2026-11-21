@@ -142,11 +142,13 @@ fn policy_boundary_is_canonical(universal: &[&str], project: &[&str], required: 
 /// replace a run: GitHub keeps one pending run per concurrency group, so a
 /// shared main group would silently drop the verdict of a queued commit.
 fn native_coverage_is_complete(bootstrap: &str) -> bool {
-    const TRIGGERS: &str = "on:\n  push:\n    branches: [main]\n    tags: ['**']\n  pull_request:\n  merge_group:\n  workflow_dispatch:\n\n";
+    const TRIGGERS: &str = "on:\n  push:\n    branches: [main]\n    tags: ['**']\n  pull_request:\n    types: [opened, reopened, synchronize, ready_for_review, converted_to_draft]\n  merge_group:\n  workflow_dispatch:\n\n";
     const BOTH: &str = "[ubuntu-24.04, ubuntu-24.04-arm]";
     const PULL_REQUEST_AMD64: &str = r#"${{ fromJSON((github.event_name == 'pull_request' || github.event_name == 'merge_group') && '["ubuntu-24.04"]' || '["ubuntu-24.04", "ubuntu-24.04-arm"]') }}"#;
     const GROUP: &str = "${{ github.event_name == 'pull_request' && format('bootstrap-pr-{0}', github.event.pull_request.number) || format('bootstrap-run-{0}', github.run_id) }}";
     const CANCEL: &str = "${{ github.event_name == 'pull_request' }}";
+    // Exact step and checkout boundary: extra YAML, disabled refusal or forged event cannot qualify.
+    const DRAFT_GATE: &str = "      # Drafts still emit the same required acceptance job, but its result is a\n      # truthful refusal. No SDK/container/proof work starts until PR is ready.\n      - name: Refuse draft PRs before costly SDK setup\n        shell: bash\n        env:\n          PR_DRAFT: ${{ github.event.pull_request.draft }}\n        run: |\n          set -euo pipefail\n          if [[ \"${GITHUB_EVENT_NAME}\" == pull_request ]]; then\n            case \"${PR_DRAFT}\" in\n              true)\n                printf '%s\\n' 'NOT MERGE QUALIFIED: draft PR requires ready_for_review and complete just vv.' >&2\n                exit 1\n                ;;\n              false) ;;\n              *)\n                printf '%s\\n' 'PR draft state missing or invalid; native acceptance refused.' >&2\n                exit 1\n                ;;\n            esac\n          fi\n      - name: Check out the exact event revision\n";
     let values = |key: &str| {
         bootstrap
             .lines()
@@ -155,27 +157,22 @@ fn native_coverage_is_complete(bootstrap: &str) -> bool {
             .collect::<Vec<_>>()
     };
     let runners = values("runner:");
-    let groups = values("group:");
-    let cancels = values("cancel-in-progress:");
+    let (groups, cancels) = (values("group:"), values("cancel-in-progress:"));
+    let draft = bootstrap
+        .split_once("\njobs:\n  template-gate:\n")
+        .and_then(|(_, job)| job.split_once("\n    steps:\n"))
+        .is_some_and(|(_, steps)| steps.starts_with(DRAFT_GATE));
+    // Preserve the same skip and path-filter bans while consolidating the predicate.
     let skips_runs = bootstrap.lines().map(str::trim).any(|line| {
-        [
-            "if:",
-            "continue-on-error:",
-            "include:",
-            "exclude:",
-            "paths:",
-            "paths-ignore:",
-            "branches-ignore:",
-            "tags-ignore:",
-        ]
-        .iter()
-        .any(|key| line.starts_with(key))
+        "if:|continue-on-error:|include:|exclude:|paths:|paths-ignore:|branches-ignore:|tags-ignore:"
+            .split('|').any(|key| line.starts_with(key))
     });
     bootstrap.contains(TRIGGERS)
         && (runners == [BOTH] || runners == [PULL_REQUEST_AMD64])
         && values("runs-on:") == ["${{ matrix.runner }}"]
         && ((groups.is_empty() && cancels.is_empty()) || (groups == [GROUP] && cancels == [CANCEL]))
         && !skips_runs
+        && draft
 }
 
 /// The cache key: every proof input, the SDK image digest and the Lean
@@ -844,6 +841,14 @@ mod tests {
         assert!(native_coverage_is_complete(bootstrap));
         let matrix = r#"'["ubuntu-24.04"]' || '["ubuntu-24.04", "ubuntu-24.04-arm"]'"#;
         let plants = [
+            // Draft refusal, trusted event binding and ready transition cannot be bypassed.
+            bootstrap.replace("    steps:\n", "    steps:\n      - name: Unsafe first step\n        run: echo unsafe\n"),
+            bootstrap.replace("    steps:\n", "    env:\n      UNUSED_DRAFT_POLICY: |\n"),
+            bootstrap.replace("              true)\n", "              omitted)\n"),
+            bootstrap.replace("                exit 1\n                ;;\n              false)", "                exit 0\n                ;;\n              false)"),
+            bootstrap.replace("PR_DRAFT: ${{ github.event.pull_request.draft }}", "PR_DRAFT: false"),
+            bootstrap.replace("              *)\n", "              # no default refusal\n"),
+            bootstrap.replace("ready_for_review, converted_to_draft", "opened"),
             // Main and tags lose the arm64 leg.
             bootstrap.replace(matrix, r#"'["ubuntu-24.04"]' || '["ubuntu-24.04"]'"#),
             // The legs are swapped: pull requests get both, main gets one.
@@ -883,12 +888,8 @@ mod tests {
             r#"${{ fromJSON((github.event_name == 'pull_request' || github.event_name == 'merge_group') && '["ubuntu-24.04"]' || '["ubuntu-24.04", "ubuntu-24.04-arm"]') }}"#,
             "[ubuntu-24.04, ubuntu-24.04-arm]",
         );
-        let concurrency = unconditional
-            .find("concurrency:\n")
-            .expect("the workflow declares concurrency");
-        let jobs = unconditional
-            .find("jobs:\n")
-            .expect("the workflow has jobs");
+        let concurrency = unconditional.find("concurrency:\n").expect("concurrency exists");
+        let jobs = unconditional.find("jobs:\n").expect("jobs exist");
         unconditional.replace_range(concurrency..jobs, "");
         assert!(native_coverage_is_complete(&unconditional));
     }

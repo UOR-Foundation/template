@@ -6,13 +6,14 @@ on:
     branches: [main]
     tags: ['**']
   pull_request:
+    types: [opened, reopened, synchronize, ready_for_review, converted_to_draft]
   merge_group:
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# A newer push to a pull request cancels its older run. Every other run (main,
+# A newer event for a pull request cancels its older run. Every other run (main,
 # a tag, a merge queue's) has a group of its own, so a main or tag run is never
 # cancelled, and never replaced while queued, and every merged or released
 # commit keeps its verdict.
@@ -33,6 +34,27 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     steps:
+      # Drafts still emit the same required acceptance job, but its result is a
+      # truthful refusal. No SDK/container/proof work starts until PR is ready.
+      - name: Refuse draft PRs before costly SDK setup
+        shell: bash
+        env:
+          PR_DRAFT: ${{ github.event.pull_request.draft }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == pull_request ]]; then
+            case "${PR_DRAFT}" in
+              true)
+                printf '%s\n' 'NOT MERGE QUALIFIED: draft PR requires ready_for_review and complete just vv.' >&2
+                exit 1
+                ;;
+              false) ;;
+              *)
+                printf '%s\n' 'PR draft state missing or invalid; native acceptance refused.' >&2
+                exit 1
+                ;;
+            esac
+          fi
       - name: Check out the exact event revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
