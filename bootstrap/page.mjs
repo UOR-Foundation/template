@@ -201,7 +201,7 @@ const prov = holo?.provenance?.model ?? {};
 // IDE" only when the site carries the model, which the build writes with
 // `prism-code publish-model` before this runs (model/project.json, and
 // app.holo.json naming the holo and the model). app.json may name another
-// IDE host, for a test or a mirror.
+// IDE host, for a mirror.
 const ideUrl = await access(join(site, "model", "project.json")).then(() => `${new URL(meta.ide ?? "https://uor-foundation.github.io/prismpm/audit/").href}?app=${encodeURIComponent(live.href)}`, () => null);
 const evidence = holo?.evidence ?? {};
 const utf8 = new TextDecoder("utf-8", { fatal: true });

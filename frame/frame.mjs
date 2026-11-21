@@ -19,9 +19,9 @@
 // card      the 1200 x 630 social card; live + "og.png" when absent
 // identity  the page's full verification details (default "#identity-title")
 // ide       optional: where this app's own model opens to be audited and
-//           edited (Prism IDE). The page's build sets it only when the app
-//           publishes its model; the control hides when absent, or when the
-//           address is neither https nor this page's own origin
+//           edited (Prism IDE), as an https address. The page's build sets
+//           it only when the app publishes its model; the control hides
+//           when it is absent or is anything but an https address
 // verdict   wait | good | bad: whether the holo's bytes match its fingerprint;
 //           verdict-label says it in words, fingerprint is the holo's (shown
 //           in the shield's panel, matched by the address bar)
@@ -160,16 +160,6 @@ const escape = (text) =>
   String(text ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const slugOf = (name) =>
   name.toLowerCase().normalize("NFKD").replace(/\p{M}/gu, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "app";
-// Where "Open in IDE" leads: an https address, or one on the page's own
-// origin, and nothing else. An address a browser would run is not a link.
-const ideOf = (value, base) => {
-  try {
-    const url = new URL(value, base);
-    return value && (url.protocol === "https:" || url.origin === new URL(base).origin) ? url.href : "";
-  } catch {
-    return "";
-  }
-};
 const sheetOf = (text) => {
   const sheet = new CSSStyleSheet();
   sheet.replaceSync(text);
@@ -193,7 +183,7 @@ const markup = (e) => `
         <span class="url" aria-hidden="true"><span class="scheme">holo://</span><span class="host">${e.slug}</span></span>
         <input id="omnibox" class="omnibox" name="r" type="text" value="holo://${e.slug}" role="combobox" aria-label="Search Prism apps, or paste a holo address or hash" aria-autocomplete="list" aria-expanded="false" aria-controls="omnibox-list" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go" />
       </span>
-      <a id="github" class="ghost icon inset${e.starred}" href="${e.repo}" aria-label="${e.githubLabel}" title="${e.githubLabel}"><svg class="gh" viewBox="0 0 16 16" width="20" height="20" aria-hidden="true" focusable="false"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z" /></svg><span class="stars"><svg class="star" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false"><path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.751.751 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z" /></svg><span id="stars">${e.starsText}</span></span></a>
+      <a id="github" class="ghost icon inset${e.starred}"${e.repo ? "" : " hidden"} href="${e.repo}" aria-label="${e.githubLabel}" title="${e.githubLabel}"><svg class="gh" viewBox="0 0 16 16" width="20" height="20" aria-hidden="true" focusable="false"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z" /></svg><span class="stars"><svg class="star" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false"><path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.751.751 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z" /></svg><span id="stars">${e.starsText}</span></span></a>
       <span class="sep" aria-hidden="true"></span>
       <button id="share" class="ghost icon inset" type="button" popovertarget="share-panel" aria-label="Share this app" title="Share"><svg class="share" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="17.5" cy="5.5" r="2.5" /><circle cx="6.5" cy="12" r="2.5" /><circle cx="17.5" cy="18.5" r="2.5" /><path d="m8.7 13.3 6.6 3.9M15.3 6.8l-6.6 3.9" /></svg><svg class="done" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg></button>
       <ul id="omnibox-list" class="omnibox-list" role="listbox" aria-label="Prism apps" hidden></ul>
@@ -201,7 +191,7 @@ const markup = (e) => `
     <div class="end">
     <slot name="status"></slot>
     <span id="bar-status" class="sr" aria-live="polite"></span>
-    <a id="ide" class="ghost icon" href="${e.ide}" target="_blank" rel="noopener" aria-label="Open in IDE: audit and edit this app's model" title="Open in IDE"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="m8 7-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></svg></a>
+    <a id="ide" class="ghost icon"${e.ide ? "" : " hidden"} href="${e.ide}" target="_blank" rel="noopener" aria-label="Open in IDE: audit and edit this app's model" title="Open in IDE"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="m8 7-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></svg></a>
     <button id="theme" class="ghost icon" type="button" popovertarget="theme-panel" aria-label="Theme" title="Theme"><svg class="moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" /></svg><svg class="sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg><svg class="photo" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><rect x="3" y="4.5" width="18" height="15" rx="2.5" /><circle cx="9" cy="10" r="1.75" /><path d="m3.5 17 5-4.5 3.5 3 3-2.5 5.5 4.5" /></svg></button>
     <button id="fullscreen" class="ghost icon" type="button" aria-label="Enter full screen" title="Full screen"><svg class="expand" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15" /></svg><svg class="shrink" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 4v3.5A1.5 1.5 0 0 1 7.5 9H4M20 9h-3.5A1.5 1.5 0 0 1 15 7.5V4M15 20v-3.5a1.5 1.5 0 0 1 1.5-1.5H20M4 15h3.5A1.5 1.5 0 0 1 9 16.5V20" /></svg></button>
     <button id="account" class="ghost icon" type="button" popovertarget="account-panel" aria-label="Prism ID" title="Prism ID"><svg class="person" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="3.5" /><path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6" /></svg></button>
@@ -412,7 +402,8 @@ function modelOf(get, title, base) {
     live: url.href,
     text,
     repo: get("repo") ?? "",
-    ide: ideOf(get("ide"), base),
+    // "Open in IDE" leads only to an https address: nothing a browser would run, or send in the clear.
+    ide: /^https:\/\//.test(get("ide") ?? "") ? get("ide") : "",
     ...starsOf(Number(get("stars"))),
     card: get("card") ?? new URL("og.png", url).href,
     identity: get("identity") ?? "#identity-title",
@@ -454,8 +445,6 @@ export function shell(attributes, base) {
   const e = Object.fromEntries(Object.entries(m).map(([key, value]) => [key, escape(value)]));
   let html = markup(e);
   html = html.slice(0, html.indexOf('  <div id="trust-panel"'));
-  if (!m.repo) html = html.replace('<a id="github" ', '<a id="github" hidden ');
-  if (!m.ide) html = html.replace('<a id="ide" ', '<a id="ide" hidden ');
   const css = barCss(CSS);
   return { css, html: `<template shadowrootmode="open"><style>${css}</style>${html}</template>` };
 }
@@ -533,8 +522,6 @@ class PrismFrame extends Element {
     const e = Object.fromEntries(Object.entries(m).map(([key, value]) => [key, escape(value)]));
     this.data = m;
     this.shadowRoot.innerHTML = markup(e);
-    if (!m.repo) this.$("github").hidden = true;
-    if (!m.ide) this.$("ide").hidden = true;
     this.liveStars();
     this.paintTrust();
     this.paintTheme();

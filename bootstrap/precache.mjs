@@ -10,7 +10,9 @@ import { join, relative } from "node:path";
 
 const site = process.argv[2] ?? "site";
 // card.html and card.css are inlined into index.html, so they are never fetched.
-const skip = new Set(["precache.json", "sw.js", "page.template.html", "app.json", "card.html", "card.css"]);
+// The published model (model/, and app.holo.json naming it; prism-code
+// publish-model) is read by Prism IDE from its own origin, never by this page.
+const skip = new Set(["precache.json", "sw.js", "page.template.html", "app.json", "card.html", "card.css", "app.holo.json"]);
 
 async function walk(dir) {
   const out = [];
@@ -25,10 +27,8 @@ async function walk(dir) {
 const files = [];
 for (const path of (await walk(site)).sort()) {
   const rel = relative(site, path).split("\\").join("/");
-  if (skip.has(rel) || rel.endsWith(".txt") || rel.endsWith(".d.ts") || rel.endsWith(".md") || rel.includes("fixtures/")) continue;
+  if (skip.has(rel) || rel.endsWith(".txt") || rel.endsWith(".d.ts") || rel.endsWith(".md") || rel.includes("fixtures/") || rel.startsWith("model/")) continue;
   if (/vendor\/prism-code\/src\/(node|docker)\.mjs$/.test(rel)) continue;
-  // The published model (prism-code publish-model) is read by Prism IDE from its own origin, never by this page.
-  if (rel.startsWith("model/") || rel === "app.holo.json") continue;
   const bytes = await readFile(path);
   const eager = rel.startsWith("icons/") || rel === "manifest.webmanifest";
   files.push({ path: "./" + rel, sha256: createHash("sha256").update(bytes).digest("hex"), bytes: bytes.length, ...(eager ? { eager } : {}) });
