@@ -157,10 +157,11 @@ fn native_coverage_is_complete(bootstrap: &str) -> bool {
             .collect::<Vec<_>>()
     };
     let runners = values("runner:");
-    let groups = values("group:");
-    let cancels = values("cancel-in-progress:");
-    let named = "      - name: Refuse draft PRs before costly SDK setup\n";
-    let draft = bootstrap.matches(named).count() == 1 && bootstrap.contains(DRAFT_GATE);
+    let (groups, cancels) = (values("group:"), values("cancel-in-progress:"));
+    let draft = bootstrap
+        .split_once("\njobs:\n  template-gate:\n")
+        .and_then(|(_, job)| job.split_once("\n    steps:\n"))
+        .is_some_and(|(_, steps)| steps.starts_with(DRAFT_GATE));
     // Preserve the same skip and path-filter bans while consolidating the predicate.
     let skips_runs = bootstrap.lines().map(str::trim).any(|line| {
         "if:|continue-on-error:|include:|exclude:|paths:|paths-ignore:|branches-ignore:|tags-ignore:"
@@ -841,6 +842,8 @@ mod tests {
         let matrix = r#"'["ubuntu-24.04"]' || '["ubuntu-24.04", "ubuntu-24.04-arm"]'"#;
         let plants = [
             // Draft refusal, trusted event binding and ready transition cannot be bypassed.
+            bootstrap.replace("    steps:\n", "    steps:\n      - name: Unsafe first step\n        run: echo unsafe\n"),
+            bootstrap.replace("    steps:\n", "    env:\n      UNUSED_DRAFT_POLICY: |\n"),
             bootstrap.replace("              true)\n", "              omitted)\n"),
             bootstrap.replace("                exit 1\n                ;;\n              false)", "                exit 0\n                ;;\n              false)"),
             bootstrap.replace("PR_DRAFT: ${{ github.event.pull_request.draft }}", "PR_DRAFT: false"),
@@ -885,12 +888,8 @@ mod tests {
             r#"${{ fromJSON((github.event_name == 'pull_request' || github.event_name == 'merge_group') && '["ubuntu-24.04"]' || '["ubuntu-24.04", "ubuntu-24.04-arm"]') }}"#,
             "[ubuntu-24.04, ubuntu-24.04-arm]",
         );
-        let concurrency = unconditional
-            .find("concurrency:\n")
-            .expect("the workflow declares concurrency");
-        let jobs = unconditional
-            .find("jobs:\n")
-            .expect("the workflow has jobs");
+        let concurrency = unconditional.find("concurrency:\n").expect("concurrency exists");
+        let jobs = unconditional.find("jobs:\n").expect("jobs exist");
         unconditional.replace_range(concurrency..jobs, "");
         assert!(native_coverage_is_complete(&unconditional));
     }
