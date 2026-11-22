@@ -34,6 +34,12 @@ model does not sanction.
 | `FR-04` | `build` | An app's workspace key opens only on a device of the Prism ID that made it, follows the ID when it joins or is recovered, and stays locked on a removed device |
 | `FR-05` | `build` | An app's pages on every device of one Prism ID meet on a relay topic only those devices derive, per app, with every message sealed to the ID, and a removed device is left behind |
 
+## passive-readme
+
+| ID | Level | Statement |
+| --- | --- | --- |
+| `RD-01` | `build` | The passive README classifier accepts a verified presentation-only diff and refuses unsupported paths, changed generated regions, and unsafe references |
+
 ## Cited authorities
 
 An authority is cited, never re-derived, and never gated on: what it states is not claimed as established here, so the claim that reproduces it stays `some-true`, and that is all "gated on" excludes. Its artifact (a standard's text, a corpus) may be committed when its row names the path in `artifact` and records in `checksum` a SHA-256 over the committed bytes, which `cargo xtask check-model` recomputes; a conformance test may then use a committed corpus as its oracle, as evidence for a `build` claim. With nothing committed, `checksum` is `none` and `checksum_reason` says why.
