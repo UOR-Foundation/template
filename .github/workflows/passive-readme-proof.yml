@@ -1,0 +1,29 @@
+# Test the proposed classifier; this does not substitute for bootstrap acceptance.
+name: passive README classifier proof
+
+on:
+  pull_request:
+    paths:
+      - 'ci/passive_readme_scope.py'
+      - 'ci/test_passive_readme_scope.py'
+      - '.github/workflows/passive-readme-proof.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  classifier-tests:
+    name: passive README / planted tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out the exact workflow source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Run positive and negative classification fixtures
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m unittest discover -s ci -p 'test_passive_readme_scope.py' -v
