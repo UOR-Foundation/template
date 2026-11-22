@@ -888,8 +888,8 @@ mod tests {
             r#"${{ fromJSON((github.event_name == 'pull_request' || github.event_name == 'merge_group') && '["ubuntu-24.04"]' || '["ubuntu-24.04", "ubuntu-24.04-arm"]') }}"#,
             "[ubuntu-24.04, ubuntu-24.04-arm]",
         );
-        let concurrency = unconditional.find("concurrency:\n").expect("concurrency exists");
-        let jobs = unconditional.find("jobs:\n").expect("jobs exist");
+        let concurrency = unconditional.find("concurrency:\n").unwrap();
+        let jobs = unconditional.find("jobs:\n").unwrap();
         unconditional.replace_range(concurrency..jobs, "");
         assert!(native_coverage_is_complete(&unconditional));
     }
