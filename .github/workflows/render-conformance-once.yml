@@ -1,0 +1,36 @@
+# Branch-scoped, self-removing model projection: no generated files edited by hand.
+name: One-time RD-01 model projection
+on:
+  push:
+    branches:
+      - feature/passive-readme-scope-20261122
+permissions:
+  contents: read
+jobs:
+  regenerate:
+    if: github.repository == 'UOR-Foundation/template' && github.ref == 'refs/heads/feature/passive-readme-scope-20261122'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+      - name: Regenerate from authoritative model register
+        run: |
+          set -euo pipefail
+          cargo run --locked -p xtask -- check-model --write
+          grep -Fq "RD-01" CONFORMANCE.md
+      - name: Commit real generated evidence and remove one-time workflow
+        run: |
+          set -euo pipefail
+          git config user.name uor-template-model-writer
+          git config user.email uor-template-model-writer@users.noreply.github.com
+          git add CONFORMANCE.md
+          git rm .github/workflows/render-conformance-once.yml
+          git diff --cached --check
+          git diff --cached --quiet && { echo 'Expected model projection plus workflow deletion' >&2; exit 1; }
+          git commit -m 'model(ci): regenerate RD-01 conformance evidence with xtask'
+          git push origin HEAD:refs/heads/feature/passive-readme-scope-20261122
