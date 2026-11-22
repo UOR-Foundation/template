@@ -138,6 +138,36 @@ class PassiveReadmeTests(unittest.TestCase):
         self.build(VALID)
         self.refuse("generated or release-controlled")
 
+    def test_rejects_uorust_release_target_change(self):
+        marked = (
+            "<!-- release-targets:begin (scripts/self-model/release.py) -->\n"
+            "| Target | Status |\n| --- | --- |\n| linux | open |\n"
+            "<!-- release-targets:end -->\n"
+        )
+        (self.root / "README.md").write_text(BASE + marked)
+        self.git("add", "README.md")
+        self.git("commit", "-qm", "generated release baseline")
+        self.base = self.git("rev-parse", "HEAD").strip()
+        changed = marked.replace("| linux | open |", "| linux | passing |")
+        self.build(VALID + changed)
+        self.refuse("generated or release-controlled")
+
+    def test_rejects_removed_uorust_release_target_markers(self):
+        marked = (
+            "<!-- release-targets:begin (scripts/self-model/release.py) -->\n"
+            "signed data\n<!-- release-targets:end -->\n"
+        )
+        (self.root / "README.md").write_text(BASE + marked)
+        self.git("add", "README.md")
+        self.git("commit", "-qm", "generated release baseline")
+        self.base = self.git("rev-parse", "HEAD").strip()
+        self.build(VALID)
+        self.refuse("generated or release-controlled")
+
+    def test_rejects_unknown_generated_marker(self):
+        self.build(VALID + "\n<!-- generated:custom-source-v2 -->\nchanged\n")
+        self.refuse("unknown generated-region marker")
+
     def test_rejects_missing_base(self):
         self.build()
         with self.assertRaises(scope.Refused):
