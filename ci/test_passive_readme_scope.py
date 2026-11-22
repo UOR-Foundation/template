@@ -112,6 +112,18 @@ class PassiveReadmeTests(unittest.TestCase):
         self.build(VALID.replace("details.md", "no-such-file.md"))
         self.refuse("missing or non-regular link target")
 
+    def test_rejects_reference_style_missing_file(self):
+        self.build(VALID + "\n[missing][target]\n\n[target]: no-such-file.md\n")
+        self.refuse("unsupported reference-style")
+
+    def test_rejects_reference_style_broken_anchor(self):
+        self.build(VALID + "\n[missing][target]\n\n[target]: #not-a-heading\n")
+        self.refuse("unsupported reference-style")
+
+    def test_rejects_reference_definition_without_usage(self):
+        self.build(VALID + "\n[target]: details.md\n")
+        self.refuse("unsupported reference-style")
+
     def test_rejects_traversal(self):
         self.build(VALID.replace("details.md", "../secret.md"))
         self.refuse("escapes repository")
