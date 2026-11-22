@@ -20,6 +20,7 @@ EXPECTED_BANNER_BLOB = "29273d499d3891ccc728f10eef601776884e639d"
 ALLOWED_PATHS = frozenset(("README.md", BANNER))
 SHA = re.compile(r"^[a-f0-9]{40}$")
 MARKER = re.compile(r"<!--\s*(BEGIN|END)\s+([A-Z0-9_.:/ -]+?)\s*-->", re.I)
+COLON_MARKER = re.compile(r"<!--\s*([A-Z0-9_.:/-]+):(begin|end)(?:\s*\([^)]*\))?\s*-->", re.I)
 LINK = re.compile(r"!?\[[^\]]+\]\(\s*(?:<([^<>]+)>|([^\s)]+))(?:\s+['\"][^'\"]+['\"])?\s*\)")
 HTML_LOCAL = re.compile(r"\b(?:src|href)\s*=\s*['\"]([^'\"]+)['\"]", re.I)
 HEADER = re.compile(r"^#{1,6}\s+(.+?)\s*#*\s*$", re.M)
@@ -60,21 +61,30 @@ def protected_regions(source: str) -> dict[str, str]:
         raise Refused("source-owned generated README cannot qualify as passive")
     open_region: tuple[str, int] | None = None
     protected: dict[str, str] = {}
-    for item in MARKER.finditer(source):
-        kind, name = item.group(1).upper(), item.group(2).strip().upper()
+    for token in re.finditer(r"<!--.*?-->", source, re.S):
+        comment = token.group()
+        standard = MARKER.fullmatch(comment)
+        alternate = COLON_MARKER.fullmatch(comment)
+        if standard:
+            kind, name = standard.group(1).upper(), standard.group(2).strip().upper()
+        elif alternate:
+            name, kind = alternate.group(1).strip().upper(), alternate.group(2).upper()
+        elif re.search(r"generated|release.targets|auto.?start|auto.?end", comment, re.I):
+            raise Refused("unknown generated-region marker")
+        else:
+            continue
         if kind == "BEGIN":
             if open_region is not None or name in protected:
                 raise Refused("nested or repeated protected region")
-            open_region = (name, item.start())
+            open_region = (name, token.start())
         else:
             if open_region is None or open_region[0] != name:
                 raise Refused("unmatched protected region")
-            protected[name] = source[open_region[1]: item.end()]
+            protected[name] = source[open_region[1]:token.end()]
             open_region = None
     if open_region is not None:
         raise Refused("unterminated protected region")
     return protected
-
 
 def slug(label: str) -> str:
     label = re.sub(r"<[^>]*>", "", label)
