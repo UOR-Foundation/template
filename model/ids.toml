@@ -66,3 +66,9 @@ id = "FR-05"
 level = "build"
 suite = "frame"
 statement = "An app's pages on every device of one Prism ID meet on a relay topic only those devices derive, per app, with every message sealed to the ID, and a removed device is left behind"
+
+[[id]]
+id = "RD-01"
+level = "build"
+suite = "passive-readme"
+statement = "The passive README classifier accepts a verified presentation-only diff and refuses unsupported paths, changed generated regions, and unsafe references"
