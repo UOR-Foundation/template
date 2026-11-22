@@ -21,7 +21,7 @@ ALLOWED_PATHS = frozenset(("README.md", BANNER))
 SHA = re.compile(r"^[a-f0-9]{40}$")
 MARKER = re.compile(r"<!--\s*(BEGIN|END)\s+([A-Z0-9_.:/ -]+?)\s*-->", re.I)
 COLON_MARKER = re.compile(r"<!--\s*([A-Z0-9_.:/-]+):(begin|end)(?:\s*\([^)]*\))?\s*-->", re.I)
-LINK = re.compile(r"!?\[[^\]]+\]\(\s*(?:<([^<>]+)>|([^\s)]+))(?:\s+['\"][^'\"]+['\"])?\s*\)")
+LINK = re.compile(r"!?\[[^\]]*\]\(\s*(?:<([^<>]+)>|([^\s)]+))(?:\s+['\"][^'\"]+['\"])?\s*\)")
 HTML_LOCAL = re.compile(r"\b(?:src|href)\s*=\s*['\"]([^'\"]+)['\"]", re.I)
 HEADER = re.compile(r"^#{1,6}\s+(.+?)\s*#*\s*$", re.M)
 REFERENCE_USE = re.compile(r"!?\[[^\]\n]+\]\[[^\]\n]*\]")
@@ -96,7 +96,30 @@ def slug(label: str) -> str:
     return re.sub(r"\s+", "-", label.strip())
 
 
+def markdown_prose(source: str) -> str:
+    """Exclude fenced code samples from anchor and local-link interpretation."""
+    outside: list[str] = []
+    active: tuple[str, int] | None = None
+    for line in source.splitlines(keepends=True):
+        item = re.match(r"^ {0,3}((?:\x60{3,}|~{3,}))(.*)$", line.rstrip("\r\n"))
+        if item:
+            token, suffix = item.groups()
+            if active is None:
+                active = (token[0], len(token))
+            elif token[0] == active[0] and len(token) >= active[1] and not suffix.strip():
+                active = None
+            outside.append("\n")
+        elif active is None:
+            outside.append(line)
+        else:
+            outside.append("\n")
+    if active is not None:
+        raise Refused("unterminated Markdown fence")
+    return "".join(outside)
+
+
 def check_readme_links(root: Path, head: str, readme: str) -> tuple[int, int]:
+    readme = markdown_prose(readme)
     if REFERENCE_USE.search(readme) or REFERENCE_DEFINITION.search(readme):
         raise Refused("unsupported reference-style Markdown link")
     headings: dict[str, int] = {}

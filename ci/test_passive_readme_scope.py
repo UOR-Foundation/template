@@ -124,6 +124,22 @@ class PassiveReadmeTests(unittest.TestCase):
         self.build(VALID + "\n[target]: details.md\n")
         self.refuse("unsupported reference-style")
 
+    def test_rejects_empty_label_broken_link(self):
+        self.build(VALID + "\n[](no-such-file.md)\n")
+        self.refuse("missing or non-regular link target")
+
+    def test_rejects_empty_alt_broken_image(self):
+        self.build(VALID + "\n![](no-such-image.png)\n")
+        self.refuse("missing or non-regular link target")
+
+    def test_rejects_fenced_heading_as_fake_anchor(self):
+        self.build(VALID + "\n[Broken](#fake-heading)\n\n\x60\x60\x60text\n## Fake heading\n\x60\x60\x60\n")
+        self.refuse("unresolved README anchor")
+
+    def test_rejects_unterminated_fence(self):
+        self.build(VALID + "\n\x60\x60\x60text\n## Fake heading\n")
+        self.refuse("unterminated Markdown fence")
+
     def test_rejects_traversal(self):
         self.build(VALID.replace("details.md", "../secret.md"))
         self.refuse("escapes repository")
