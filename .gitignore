@@ -1,7 +1,4 @@
 # Build output.
-/target/
-/identity-out/
-**/target/
 **/.prism/
 **/.lexlean/
 **/.lake/
@@ -13,24 +10,5 @@
 .idea/
 .vscode/
 
-# `Cargo.lock` is NOT ignored: the resolved version of every dependency is part
-# of the claim made against it (R6).
-
-# Node and the try-page browser test.
-node_modules/
-test-results/
-playwright-report/
-site/app.holo
-site/vendor/
-.brand-src/
-site/precache.json
-site/index.html
-site/manifest.webmanifest
-
-# Brand kit sources fetched by bootstrap/brand-sync.mjs for brand-fonts.py.
-.brand-src/
-screens/
-
-# The proof `just app` keeps for bootstrap.yml to cache (see Justfile).
-.prism-proof/
-.prism-proof.log
+# What prism-code records about the last check and build, per machine.
+**/session.json

@@ -13,6 +13,6 @@
 # The ledger is empty. A claim added here needs its level chosen first, because
 # the level decides what evidence it owes.
 
-spec = "template/1"
+spec = "template/2"
 
 claim = []
