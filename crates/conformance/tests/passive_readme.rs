@@ -59,8 +59,10 @@ fn passive_readme_rd_01() {
         "RD-01 must execute the entire pinned fixture inventory:\n{output}"
     );
     assert!(
-        !output.contains("skipped=") && !output.contains("expected failures=")
-            && !output.contains(" ... skipped") && !output.contains(" ... expected failure"),
+        !output.contains("skipped=")
+            && !output.contains("expected failures=")
+            && !output.contains(" ... skipped")
+            && !output.contains(" ... expected failure"),
         "RD-01 must reject skipped or suppressed test cases:\n{output}"
     );
     for name in EXPECTED {
