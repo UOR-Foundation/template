@@ -102,7 +102,7 @@ class PassiveReadmeTests(unittest.TestCase):
             (self.root / "README.md").unlink()
             (self.root / "README.md").symlink_to("details.md")
         self.build(extra=symlink)
-        self.refuse("non-regular or executable")
+        self.refuse("not passive: T README.md")
 
     def test_rejects_broken_anchor(self):
         self.build(VALID.replace("#section", "#missing-anchor"))
