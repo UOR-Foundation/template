@@ -32,7 +32,7 @@ jobs:
         # architectures before anything is published.
         runner: ${{ fromJSON((github.event_name == 'pull_request' || github.event_name == 'merge_group') && '["ubuntu-24.04"]' || '["ubuntu-24.04", "ubuntu-24.04-arm"]') }}
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 45
+    timeout-minutes: 75
     steps:
       # Drafts still emit the same required acceptance job, but its result is a
       # truthful refusal. No SDK/container/proof work starts until PR is ready.

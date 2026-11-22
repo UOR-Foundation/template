@@ -155,6 +155,20 @@ jobs:
           cp "$HOLO" site/app.holo
           cp -r try/vendor site/vendor
           rm -rf site/vendor/prism-code/fixtures
+          # The model this holo was built from, published beside the page so anyone
+          # the page reaches can open, check and prove it (the frame's "Open in
+          # IDE"). prism-code writes it: site/model/, and site/app.holo.json naming
+          # the holo and the model identity the holo's own provenance gives. The
+          # package is taken by its exact version and run only if its tarball has
+          # the SHA-512 npm publishes for it; nothing of it is installed. When the
+          # holo names no model, or app/ is no LexLean project, nothing is written,
+          # page.mjs sets no ide address, and the page deploys without the control.
+          prism_code=0.10.4
+          npm pack --silent "prism-code@$prism_code" --pack-destination "$RUNNER_TEMP"
+          echo "2031b96fdc1d1d7f7b4dcaaae485b052bdbc4db9a7d03f5431bbf329d1f2b79650c29cfac120e2446d0fcee4bd2294851287c18e996e36c311f44d6becd0b605  $RUNNER_TEMP/prism-code-$prism_code.tgz" | sha512sum -c -
+          mkdir -p "$RUNNER_TEMP/prism-code"
+          tar -xzf "$RUNNER_TEMP/prism-code-$prism_code.tgz" -C "$RUNNER_TEMP/prism-code"
+          node "$RUNNER_TEMP/prism-code/package/bin/prism-code.mjs" publish-model site/app.holo --project app --out site             || echo "the model is not published; the page shows no Open in IDE"
           # The page says where this holo's provenance is: the signed statement
           # GitHub keeps for the build that made it.
           node -e '

@@ -17,7 +17,6 @@ import { dirname, join } from "node:path";
 
 const root = new URL("../", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
 const lockPath = join(root, "brand.lock");
-const srcDir = join(root, ".brand-src");
 
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
