@@ -1,0 +1,64 @@
+name: template check
+
+# The template repository checks itself with the one command every instance uses:
+# prism-code check, then build, in its own process, with no container, toolchain
+# or network once prism-code is here. An instance inherits no workflow: the copy
+# prism-code carries leaves .github/ out (contract 2, TEMPLATE-CONTRACT.md).
+#
+# prism-code is read from UOR-Foundation/prismpm at the full commit below until
+# the release that carries contract 2 is on npm; then it is npx prism-code@<that
+# exact version>.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: template-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: prism-code check and build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: UOR-Foundation/prismpm
+          ref: e28f027a75f273f37cf9e86361de115c33a1c3f8
+          path: .prism-code
+          sparse-checkout: sdk/npm/prism-code
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+      - name: check, then build, offline
+        shell: bash
+        env:
+          PRISM_CODE_TIER: offline
+          PRISM_LEXLEAN_FETCH: '0'
+          PRISM_TELEMETRY: '0'
+        run: |
+          set -euo pipefail
+          export PRISM_HOME="$RUNNER_TEMP/prism-home"
+          cli=.prism-code/sdk/npm/prism-code/bin/prism-code.mjs
+          node "$cli" check --json . > "$RUNNER_TEMP/check.json" || { cat "$RUNNER_TEMP/check.json"; exit 1; }
+          node "$cli" build --json . > "$RUNNER_TEMP/build.json" || { cat "$RUNNER_TEMP/build.json"; exit 1; }
+          node -e '
+            const read = (f) => JSON.parse(require("fs").readFileSync(f, "utf8"));
+            const [check, build] = [process.argv[1], process.argv[2]].map(read);
+            const s = check.summary;
+            if (!(check.ok && build.ok && s.spec === "template/2" && s.contractViolations === 0 && s.theoremsDeclared > 0 && s.theoremsVerified === s.theoremsDeclared)) { console.error(JSON.stringify({ check, build }, null, 2)); process.exit(1); }
+            if (!(build.summary.vectorsTotal > 0 && build.summary.vectorsPassed === build.summary.vectorsTotal)) { console.error(JSON.stringify(build, null, 2)); process.exit(1); }
+            console.log(`template/2: ${s.idsRegistered} IDs, ${s.theoremsVerified} of ${s.theoremsDeclared} theorems, ${build.summary.vectorsPassed} of ${build.summary.vectorsTotal} vectors, 0 violations`);
+          ' "$RUNNER_TEMP/check.json" "$RUNNER_TEMP/build.json"
+          # build writes CONFORMANCE.md from the register: what is committed must already be that.
+          git diff --exit-code -- CONFORMANCE.md

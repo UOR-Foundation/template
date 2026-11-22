@@ -1,68 +1,49 @@
 # model/ids.toml --- the conformance ID register.
 #
 # Every ID this repository claims, in one place, so that nothing is referenced
-# without being defined. `CONFORMANCE.md` is generated from this file. A test
-# whose name ends in an ID not listed here fails `check-model`, and an ID listed
-# here with no scenario and no test fails it too (CM-02).
+# without being defined. `CONFORMANCE.md` is generated from this file, and
+# `prism-code build` writes it; `prism-code check` refuses one that is not that
+# generation byte for byte (R1).
 #
 # `level` is the honesty level (R2):
 #   some-true  a fact reproduced from an authority; not established here
-#   build      constructed here and validated against its oracle
+#   build      constructed here and proved by Lean's kernel
 #   open       measured and reported, never asserted
 #
-# Every row here has a scenario in `features/suites/` and a test whose name ends
-# in the ID, lowercased with underscores (R3, CM-02). There is no "pending"
-# state: a capability that is not built does not get a row, and every row in this
-# file is built.
+# Every row has a scenario in `features/suites/`, tagged with its ID and level
+# (R3). A `build` row names its evidence in `theorems`: each a theorem of the
+# model in `app/src/`, written `Module.name`. `prism-code check` refuses the row
+# unless every theorem it names is stated by the model and proved by Lean's
+# kernel, within its declared axioms, in that same check. There is no "pending"
+# state: a capability that is not built does not get a row.
 #
-# A row that specifies a public failure declares its error type (R5):
+# A row that specifies a public failure declares it (R5):
 #
-#   failure   the error type, as written in `Result<_, E>`
-#   negative  the ID of the `build` row whose test provokes the refusal and
-#             observes it; this row's own ID when the row is that claim
+#   failure   the exact response the application gives when it refuses, as text
+#   negative  the ID of the `build` row whose theorems prove the refusal's
+#             condition; this row's own ID when the row is that claim
 #
-# `cargo xtask audit-limits` lets a shipped crate name an error type in a
-# `Result` only when a row here declares it and the negative test exists. A type
-# is declared once. Nothing else sanctions a type: there is no list in the gate.
+# Its scenario is also tagged `@rejects`, and `prism-code build` refuses the row
+# unless it replays at least one acceptance vector whose response is exactly the
+# `failure` text.
 #
-# The first row is the template's own Prism application in `app/` (TC-01).
-# A capability starts with a row here; `just new-capability` writes the row,
-# its scenario and its failing test in the order `AGENTS.md` sets out.
+# A capability starts with a row here, then its scenario, then the theorem and
+# the acceptance vectors that are its evidence, in the order `AGENTS.md` sets out.
 
-spec = "template/1"
+spec = "template/2"
 
 [[id]]
 id = "TC-01"
 level = "build"
 suite = "contract"
-statement = "The checker answers conformant exactly when every universal policy file's observed digest equals its locked digest"
+statement = "The checker answers conformant exactly when every universal policy file's observed label equals its locked label"
+theorems = ["Contract.conformant_decides"]
 
 [[id]]
-id = "FR-01"
+id = "TC-02"
 level = "build"
-suite = "frame"
-statement = "With a working worker, the page loads and verifies the archive only in that worker before using its identities or guest"
-
-[[id]]
-id = "FR-02"
-level = "build"
-suite = "frame"
-statement = "A returning browser whose worker kept an earlier deploy serves this deploy from the navigation that brings its page"
-
-[[id]]
-id = "FR-03"
-level = "build"
-suite = "frame"
-statement = "A first visit's bytes are counted once the page has started, the frame's and the app's each within its own budget"
-
-[[id]]
-id = "FR-04"
-level = "build"
-suite = "frame"
-statement = "An app's workspace key opens only on a device of the Prism ID that made it, follows the ID when it joins or is recovered, and stays locked on a removed device"
-
-[[id]]
-id = "FR-05"
-level = "build"
-suite = "frame"
-statement = "An app's pages on every device of one Prism ID meet on a relay topic only those devices derive, per app, with every message sealed to the ID, and a removed device is left behind"
+suite = "contract"
+statement = "The checker answers invalid request to a request that is not exactly one locked and one observed label for each universal policy file"
+theorems = ["Contract.accepts_exactly_a_request"]
+failure = "invalid request"
+negative = "TC-02"

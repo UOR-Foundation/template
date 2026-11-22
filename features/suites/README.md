@@ -12,14 +12,16 @@ Feature: <suite name>
   @CX-01 @build
   Scenario: <the statement, copied from model/ids.toml>
     Given <the fixture>
-    When the suite exercises CX-01
+    When prism-code check has Lean's kernel prove <Module.theorem>
     Then <the assertion, in the register's words>
 ```
 
 The `suite` field of a row in `model/ids.toml` names the file its scenario
-lives in, and `just bdd` fails if an ID has no scenario, a scenario has no ID,
-or an ID has no test whose name ends in it lowercased with underscores.
+lives in. `prism-code check` refuses an ID with no scenario, a scenario whose ID
+is not registered, a scenario tagged with another level than its ID's, and a
+`build` row whose theorems the model does not state or Lean's kernel does not
+prove. A row with `failure` also tags its scenario `@rejects`.
 
-Empty. The first capability this repository builds starts with a row in
-`model/ids.toml`, then a scenario here, then a failing test --- in that order,
-because the order is the discipline (`AGENTS.md`).
+The first capability an app builds starts with a row in `model/ids.toml`, then
+a scenario here, then the theorem and acceptance vectors that are its evidence,
+in that order, because the order is the discipline (`AGENTS.md`).

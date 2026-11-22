@@ -23,6 +23,6 @@
 # Empty. The first authority this repository cites goes here, before any claim
 # is allowed to say `some-true`.
 
-spec = "template/1"
+spec = "template/2"
 
 authority = []
