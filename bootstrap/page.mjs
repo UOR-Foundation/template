@@ -196,6 +196,13 @@ try {
 }
 const model = holo?.model?.application ?? {};
 const prov = holo?.provenance?.model ?? {};
+// Prism IDE, where this app's own model opens to be audited and edited: one
+// static page that is given an app by its address. The frame shows "Open in
+// IDE" only when the site carries the model, which the build writes with
+// `prism-code publish-model` before this runs (model/project.json, and
+// app.holo.json naming the holo and the model). app.json may name another
+// IDE host, for a mirror.
+const ideUrl = await access(join(site, "model", "project.json")).then(() => `${new URL(meta.ide ?? "https://uor-foundation.github.io/prismpm/audit/").href}?app=${encodeURIComponent(live.href)}`, () => null);
 const evidence = holo?.evidence ?? {};
 const utf8 = new TextDecoder("utf-8", { fatal: true });
 // As app.mjs shows bytes: text when it is plain UTF-8, hex otherwise.
@@ -466,7 +473,7 @@ for (const [key, value] of Object.entries(fill)) {
   const open = html.indexOf('<prism-frame id="frame"');
   const close = html.indexOf(">", open) + 1;
   if (open < 0 || close <= open) throw new Error("page.template.html has no <prism-frame id=\"frame\">");
-  const more = stars === null ? "" : ` stars="${stars}"`;
+  const more = (stars === null ? "" : ` stars="${stars}"`) + (ideUrl === null ? "" : ` ide="${escape(ideUrl)}"`);
   html = `${html.slice(0, close - 1)}${more}>${html.slice(close)}`;
 }
 const left = html.match(/\{\{[A-Z_]+\}\}/g);

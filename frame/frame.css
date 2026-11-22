@@ -433,7 +433,7 @@ svg.gh, svg.fill { fill: currentColor; stroke: none; }
   .inner { gap: var(--space-1); }
   .start, .end { flex: none; gap: var(--space-1); }
   .address { flex-basis: 8rem; }
-  #github, .address .sep { display: none; }
+  #github, #ide, .address .sep { display: none; }
   .opt-sub { display: none; }
   .inner.editing > :not(.address) { display: none; }
 }
