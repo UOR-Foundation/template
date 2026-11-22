@@ -24,6 +24,8 @@ COLON_MARKER = re.compile(r"<!--\s*([A-Z0-9_.:/-]+):(begin|end)(?:\s*\([^)]*\))?
 LINK = re.compile(r"!?\[[^\]]+\]\(\s*(?:<([^<>]+)>|([^\s)]+))(?:\s+['\"][^'\"]+['\"])?\s*\)")
 HTML_LOCAL = re.compile(r"\b(?:src|href)\s*=\s*['\"]([^'\"]+)['\"]", re.I)
 HEADER = re.compile(r"^#{1,6}\s+(.+?)\s*#*\s*$", re.M)
+REFERENCE_USE = re.compile(r"!?\[[^\]\n]+\]\[[^\]\n]*\]")
+REFERENCE_DEFINITION = re.compile(r"(?m)^[ \t]{0,3}\[[^\]\n]+\]:\s*\S+")
 
 
 class Refused(Exception):
@@ -95,6 +97,8 @@ def slug(label: str) -> str:
 
 
 def check_readme_links(root: Path, head: str, readme: str) -> tuple[int, int]:
+    if REFERENCE_USE.search(readme) or REFERENCE_DEFINITION.search(readme):
+        raise Refused("unsupported reference-style Markdown link")
     headings: dict[str, int] = {}
     anchors: set[str] = set(re.findall(r'<a\s+(?:name|id)=["\']([^"\']+)["\']', readme, re.I))
     for m in HEADER.finditer(readme):
