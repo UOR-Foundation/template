@@ -27,3 +27,38 @@ jobs:
           set -euo pipefail
           python3 --version
           python3 -m unittest discover -s ci -p 'test_passive_readme_scope.py' -v
+
+  real-consumer-fixtures:
+    name: passive README / real ${{ matrix.repo }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - repo: mnist
+            base: 515f75f9f01470df8cac095cdc22f5aebcc252c7
+            head: 9ab4144c325b08ab3e1522b7915b531818244745
+          - repo: calculator-example
+            base: 5051dc6adb18e9ca2b6ae4ca7090e638329831ef
+            head: 3e501e41e8c2ef45a83c0669cc5ca9b09e595a87
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Prove classifier against immutable consumer PR revisions
+        shell: bash
+        env:
+          CONSUMER: ${{ matrix.repo }}
+          BASE: ${{ matrix.base }}
+          HEAD: ${{ matrix.head }}
+        run: |
+          set -euo pipefail
+          tmp=$(mktemp -d)
+          trap 'rm -rf "$tmp"' EXIT
+          git -c protocol.version=2 clone --no-checkout --filter=blob:none \
+            "https://github.com/UOR-Foundation/${CONSUMER}.git" "$tmp/repo"
+          git -C "$tmp/repo" fetch origin "$BASE" "$HEAD"
+          git -C "$tmp/repo" checkout --detach "$HEAD"
+          python3 ci/passive_readme_scope.py --repo "$tmp/repo" \
+            --base "$BASE" --head "$HEAD"
