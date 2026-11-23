@@ -5,9 +5,9 @@ name: template check
 # or network once prism-code is here. An instance inherits no workflow: the copy
 # prism-code carries leaves .github/ out (contract 2, TEMPLATE-CONTRACT.md).
 #
-# prism-code is read from UOR-Foundation/prismpm at the full commit below until
-# the release that carries contract 2 is on npm; then it is npx prism-code@<that
-# exact version>.
+# prism-code is the published package at one exact version, the first that carries
+# contract 2. A newer version is taken by changing it here, in a pull request this
+# check judges.
 
 on:
   pull_request:
@@ -30,13 +30,6 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          repository: UOR-Foundation/prismpm
-          ref: e28f027a75f273f37cf9e86361de115c33a1c3f8
-          path: .prism-code
-          sparse-checkout: sdk/npm/prism-code
-          persist-credentials: false
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: '24'
@@ -49,9 +42,8 @@ jobs:
         run: |
           set -euo pipefail
           export PRISM_HOME="$RUNNER_TEMP/prism-home"
-          cli=.prism-code/sdk/npm/prism-code/bin/prism-code.mjs
-          node "$cli" check --json . > "$RUNNER_TEMP/check.json" || { cat "$RUNNER_TEMP/check.json"; exit 1; }
-          node "$cli" build --json . > "$RUNNER_TEMP/build.json" || { cat "$RUNNER_TEMP/build.json"; exit 1; }
+          npx --yes prism-code@0.11.0 check --json . > "$RUNNER_TEMP/check.json" || { cat "$RUNNER_TEMP/check.json"; exit 1; }
+          npx --yes prism-code@0.11.0 build --json . > "$RUNNER_TEMP/build.json" || { cat "$RUNNER_TEMP/build.json"; exit 1; }
           node -e '
             const read = (f) => JSON.parse(require("fs").readFileSync(f, "utf8"));
             const [check, build] = [process.argv[1], process.argv[2]].map(read);
