@@ -33,25 +33,22 @@ before it runs, offline, with `prism-code verify`.
 
 ## The template is a Prism application
 
-`app/` is the **template contract checker**. A repository built from this
-template inherits universal policy files it must never edit. For each of the
-three that `template.lock` binds, the checker takes the locked label and the
-label actually on disk, and answers `conformant` or names every file that
-drifted.
-
-What makes it Prism and not a script: Lean proves the verdict is right.
+`app/` is the smallest Prism app that is still a whole one: one claim, one
+scenario, one theorem and one acceptance vector. It answers every request with
+the request itself, and Lean proves it does:
 
 ```
-theorem conformant_decides : conformant observation = true ↔ Conformant observation
-theorem accepts_exactly_a_request : accepts length = true ↔ length = 192
+theorem answers_with_the_request : dispatch request = request
 ```
 
-`Conformant` says every observed label equals its locked label. The first
-claim is registered as `TC-01`; the second, `TC-02`, is its refusal: any request
-that is not three pins answers `invalid request`, which `build` replays on four
-such requests. Both are specified in `features/suites/contract.feature`. Keep
-them as a worked example, or replace `app/src/Contract.lex.tex` with your own
-model and the rows of `model/ids.toml` with your own claims.
+The claim is registered as `APP-01` in `model/ids.toml`, specified in
+`features/suites/app.feature`, and replayed by `build` on the request `hello`.
+Grow it into your app in the order `AGENTS.md` sets: a row, a scenario, then
+the model, its theorem and its vectors.
+
+The app is named `template` here. `prism-code init <name>` writes it with your
+app's name instead, in the places [TEMPLATE-CONTRACT.md](TEMPLATE-CONTRACT.md)
+lists, so `build` writes `<name>.holo` from the first run.
 
 ## Everyday commands
 

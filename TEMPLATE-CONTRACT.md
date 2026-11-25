@@ -30,6 +30,22 @@ template begins with the generation of its own register, and an instance
 regenerates its own bytes with `prism-code build`. Adding content re-arms
 the R1 to R6 gates; it does not require editing the universal policy.
 
+## The app's name
+
+The starter app in `app/` is named `template`. `prism-code init <name>`, for a
+name of lower case letters, digits and `-` starting with a letter, writes it
+under that name by replacing, in `app/lexlean.toml`, `app/lakefile.toml`,
+`app/lake-manifest.json`, `app/prismpm.toml` and `app/src/App.lex.tex` only:
+
+| Here | Becomes | Where |
+| --- | --- | --- |
+| `PrismTemplate` | `Prism` and the name in upper camel case, `my-app` giving `PrismMyApp` | the module prefix, the Lean library, the project and the entry root |
+| `prism-template` | `prism-` and the name | the LexLean project and the crate |
+| `"template"` | the name, quoted | the application's name, which names its holo, and its page title |
+
+It then writes again the hashes `app/lexlean.lock` records of the renamed
+files. Nothing else depends on the name, and no universal policy file names it.
+
 ## The register, `template/2`
 
 `model/ids.toml`, `model/authorities.toml` and `model/ledger.toml` carry

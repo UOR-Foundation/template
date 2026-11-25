@@ -33,17 +33,8 @@
 spec = "template/2"
 
 [[id]]
-id = "TC-01"
+id = "APP-01"
 level = "build"
-suite = "contract"
-statement = "The checker answers conformant exactly when every universal policy file's observed label equals its locked label"
-theorems = ["Contract.conformant_decides"]
-
-[[id]]
-id = "TC-02"
-level = "build"
-suite = "contract"
-statement = "The checker answers invalid request to a request that is not exactly one locked and one observed label for each universal policy file"
-theorems = ["Contract.accepts_exactly_a_request"]
-failure = "invalid request"
-negative = "TC-02"
+suite = "app"
+statement = "The app answers every request with the request itself"
+theorems = ["App.answers_with_the_request"]

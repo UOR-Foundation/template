@@ -1,0 +1,32 @@
+\begin{lexlean}{App}
+\useglossary{lexlean.std.bool@1.2.0}
+\useglossary{lexlean.std.nat@1.2.0}
+\useglossary{prism.arch@1.0.0}
+\importmodule{Foundation.View.Text.V1.Model}
+\title{Text application model}
+\begin{semanticmodule}
+definition{
+  name: dispatch,
+  parameters: [request : Bytes],
+  result: Bytes,
+  body: request
+}
+
+theorem{
+  name: answers_with_the_request,
+  parameters: [request : Bytes],
+  statement: ((dispatch request) = request),
+  proof: simplify{
+    definitions: [dispatch]
+  },
+  axioms: []
+}
+
+definition{
+  name: application,
+  parameters: [],
+  result: Foundation.View.Text.V1.Model::TextApplication,
+  body: (record Foundation.View.Text.V1.Model::TextApplication {profile := "prismpm/text-application/1", name := "template", cargoName := "prism-template", cargoVersion := "0.1.0", cargoDescription := "A Prism application.", cargoRepository := "", cargoHomepage := "", libraryRoots := (cons "PrismTemplate.App.dispatch" (nil String)), acceptanceVectors := (cons (record Foundation.View.Text.V1.Model::AcceptanceVector {request := 0x68656c6c6f, response := 0x68656c6c6f}) (nil Foundation.View.Text.V1.Model::AcceptanceVector)), entryRoot := "PrismTemplate.App.dispatch", coreContract := "hologram:guest/core-wasm@1", requestMaximum := (64 : UInt32), responseMaximum := (128 : UInt32), guestAllocationMaximum := (256 : UInt32), capabilitiesEmpty := true, fatArchive := true, primaryLayer := (0 : UInt8), viewLayer := (1 : UInt8), view := (record Foundation.View.Text.V1.Model::TextView {title := "template", heading := "template", inputLabel := "Request", submitLabel := "Send", outputLabel := "Response", inputError := "Invalid request", responseError := "Invalid response"})})
+}
+\end{semanticmodule}
+\end{lexlean}
