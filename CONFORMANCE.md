@@ -16,12 +16,11 @@ The three honesty levels (R2):
 | `build` | Constructed here and proved by Lean's kernel. |
 | `open` | Measured and reported. **Never asserted.** |
 
-## contract
+## app
 
 | ID | Level | Statement | Evidence |
 | --- | --- | --- | --- |
-| `TC-01` | `build` | The checker answers conformant exactly when every universal policy file's observed label equals its locked label | `Contract.conformant_decides` |
-| `TC-02` | `build` | The checker answers invalid request to a request that is not exactly one locked and one observed label for each universal policy file | `Contract.accepts_exactly_a_request`, refuses with `invalid request` |
+| `APP-01` | `build` | The app answers every request with the request itself | `App.answers_with_the_request` |
 
 ## Cited authorities
 
