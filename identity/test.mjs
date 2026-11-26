@@ -225,6 +225,31 @@ describe("the flow in Chromium", () => {
     assert.equal((await verifySession(checked.delegation, { fresh: 0 })).account, checked.id);
   });
 
+  test("a hosted app gets a session of its own under the id, and no real origin gets one", async () => {
+    const hosted = await first.evaluate(async () => {
+      const frame = document.querySelector("prism-frame");
+      const app = "https://3f9a0c1d2e.holospace.invalid";
+      const data = new TextEncoder().encode("hosted hello");
+      const b = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+      const { account, signature, delegation } = await frame.signFor(app, data);
+      const key = await crypto.subtle.importKey("raw", b(delegation.envelope.body.payload.sessionKey), { name: "ECDSA", namedCurve: "P-256" }, false, ["verify"]);
+      const again = await frame.sessionFor(app);
+      const own = (await frame.sign(data)).delegation;
+      const refused = [];
+      for (const bad of [location.origin, "https://app.example", "http://x.holospace.invalid", "https://x.holospace.invalid.example.com", "https://a.b.holospace.invalid"]) {
+        refused.push(await frame.signFor(bad, data).then(() => "signed", (error) => error.code));
+      }
+      return { app, account, delegation, refused, valid: await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, key, b(signature), data), same: JSON.stringify(again.delegation) === JSON.stringify(delegation), ownKey: own.envelope.body.payload.sessionKey, id: frame.account.id };
+    });
+    assert.equal(hosted.valid, true, "the hosted session's key signed the data");
+    assert.equal(hosted.account.id, hosted.id, "under the visitor's one id");
+    assert.equal(hosted.delegation.app, hosted.app, "named for the hosted app, not this page");
+    assert.notEqual(hosted.delegation.envelope.body.payload.sessionKey, hosted.ownKey, "its own key, not this page's");
+    assert.equal(hosted.same, true, "kept, not made again for each signature");
+    assert.equal((await verifySession(hosted.delegation, { fresh: 0 })).account, hosted.id);
+    assert.deepEqual(hosted.refused, ["app", "app", "app", "app", "app"], "a real origin, this page's own included, gets no session");
+  });
+
   test("an app's pages hear each other on the id's channel, sealed (FR-05)", async () => {
     const other = await context.newPage();
     await other.goto(running.apps[0]);

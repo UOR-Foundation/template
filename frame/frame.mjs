@@ -865,6 +865,15 @@ class PrismFrame extends Element {
   appChannel(listen) {
     return this.viaAccount((accounts) => accounts.channel(listen));
   }
+  // For an app this page hosts, named https://<name>.holospace.invalid: its own session under the visitor's
+  // Prism ID (sessionFor gives its account and delegation) and data signed with that session's key, as
+  // sign does for this page. The app acts for the id as itself, never as this page.
+  sessionFor(app) {
+    return this.viaAccount((accounts) => accounts.hosted(app));
+  }
+  signFor(app, data) {
+    return this.viaAccount((accounts) => accounts.hosted(app, data));
+  }
 
   // The Prism id icon, after full screen: a line drawing until the id is
   // ready, filled once it is. The id is made, and this app's session signed,

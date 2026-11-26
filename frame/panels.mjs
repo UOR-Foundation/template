@@ -352,6 +352,8 @@ export function panel(frame, core) {
 // id's log with Prism id's own verifyAction, here and for anyone the app
 // shows a signature to. A failed check is an IdentityError naming which.
 const SESSION_ACTION = "prism/session/1";
+// The name of an app a page hosts: an https origin under holospace.invalid (a reserved name, RFC 6761), so it is never a real site.
+const HOSTED = /^https:\/\/[a-z0-9-]{1,63}\.holospace\.invalid$/;
 const MAX_SESSION_MS = 8 * 24 * 60 * 60 * 1000;
 const b64u = (bytes) => btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
@@ -1152,8 +1154,41 @@ export function accounts(frame, core) {
     const stop = bus(Prism).subscribe(topic, (bytes) => Prism.openPrivate(held, parse(bytes)).then(listen, () => {}));
     return { send: async (value) => bus(Prism).publish(topic, json((await Prism.sealPrivate(held, value)).sealed)), stop };
   };
+  // A hosted app's session. A page that runs other apps (Prism Foundry, through a holospace) signs for
+  // them with the visitor's one Prism ID, but never as itself: each app gets a session of its own, its own
+  // key and its own audience, named https://<name>.holospace.invalid, a name no real site can have. The
+  // host names the app; this page cannot mint a session for a real origin, its own included. The session
+  // is kept for the id and the app, and made again a day before it expires or when the id changes.
+  const hostedSessions = new Map();
+  const hostedSession = async (app) => {
+    if (typeof app !== "string" || !HOSTED.test(app)) deny("app", "Only a hosted app's name gets a session");
+    const Prism = await prismId();
+    await quietly();
+    if (!held) deny("unsupported", "There is no Prism ID here yet");
+    const name = `hosted ${held.prism} ${app}`;
+    let saved = hostedSessions.get(name) ?? (await store("readonly", (s) => s.get(name)));
+    if (!saved?.delegation?.envelope || saved.expires <= Date.now() + 864e5) {
+      const keys = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, false, ["sign", "verify"]);
+      const sessionKey = b64u(await crypto.subtle.exportKey("raw", keys.publicKey));
+      const expires = Date.now() + SESSION_DAYS * 864e5;
+      const envelope = await Prism.signAction(held, SESSION_ACTION, { sessionKey, expires }, { now: Date.now(), audience: app });
+      const delegation = { app, envelope, records: [...held.log.values()] };
+      saved = { ...(await verifySession(delegation, { hear: false })), delegation, privateKey: keys.privateKey };
+      await store("readwrite", (s) => s.put(saved, name));
+    }
+    hostedSessions.set(name, saved);
+    return saved;
+  };
+  // What a hosted app is given: its account, and data signed with its own session key. Never the key.
+  const hosted = async (app, data) => {
+    const saved = await hostedSession(app);
+    const account = { id: saved.account, key: saved.key, expires: saved.expires };
+    if (data === undefined) return { account, delegation: saved.delegation };
+    const signature = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, saved.privateKey, data);
+    return { account, signature: b64u(signature), delegation: saved.delegation };
+  };
   reach();
-  return { reach, workspace, channel };
+  return { reach, workspace, channel, hosted };
 }
 
 // The theme panel's contents, which the frame puts in its empty panel.
